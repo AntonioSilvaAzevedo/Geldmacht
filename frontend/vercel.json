@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://SEU_BACKEND.up.railway.app/api/:path*"
+    }
+  ]
+}
