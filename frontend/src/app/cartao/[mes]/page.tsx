@@ -12,9 +12,8 @@ import EmptyState from '@/components/EmptyState';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorState from '@/components/ErrorState';
 import { formatCurrency, formatDate } from '@/lib/formatters';
+import { api } from '@/lib/api';
 import type { Transaction } from '@/types/financial';
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
 
 // ── Barra de progresso de parcelas ───────────────────────────────────────────
 function InstallmentBadge({
@@ -219,9 +218,8 @@ export default function CartaoPage({ params }: PageProps) {
   useEffect(() => {
     setLoading(true);
     setError(null);
-    fetch(`${API_BASE}/api/transactions?account=nubank_cartao&month=${mes}&limit=500`)
-      .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
-      .then((data: Transaction[]) => { setTransactions(data); setLoading(false); })
+    api.getTransactions({ account: 'nubank_cartao', month: mes, limit: 500 })
+      .then((data) => { setTransactions(data as Transaction[]); setLoading(false); })
       .catch((err: unknown) => {
         setError(err instanceof Error ? err.message : 'Erro ao carregar transações.');
         setLoading(false);

@@ -25,7 +25,7 @@ interface UseFinancialDataResult<T> {
   error: Error | null;
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
+import { api } from '@/lib/api';
 
 /**
  * Fase 3: monthly e transactions buscam da API real.
@@ -33,17 +33,8 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
  */
 const datasetLoaders: Record<DatasetName, () => Promise<unknown>> = {
   // ✅ API real
-  monthly: () =>
-    fetch(`${API_BASE}/api/dashboard/monthly`).then(r => {
-      if (!r.ok) throw new Error(`dashboard/monthly: ${r.status}`);
-      return r.json();
-    }),
-
-  transactions: () =>
-    fetch(`${API_BASE}/api/transactions?limit=1000`).then(r => {
-      if (!r.ok) throw new Error(`transactions: ${r.status}`);
-      return r.json();
-    }),
+  monthly:      () => api.getDashboardMonthly(),
+  transactions: () => api.getTransactions({ limit: 1000 }),
 
   // ⚫ Etapa 3.2+ — sem dados ainda
   creditCard:  () => Promise.resolve(null),

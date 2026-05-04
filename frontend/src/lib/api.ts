@@ -1,21 +1,36 @@
 /**
  * api.ts — Camada de comunicação com o backend Geldmacht (FastAPI).
  *
- * Variável de ambiente: NEXT_PUBLIC_API_URL (padrão: http://localhost:8000)
+ * Todas as chamadas ao backend passam por este arquivo.
+ * Nenhuma tela deve chamar fetch() diretamente para o backend.
  */
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+import { config } from '@/config/env';
 
-// ─── Tipos ────────────────────────────────────────────────────────────────────
+const BASE = config.apiUrl;
+
+// ── Endpoints ────────────────────────────────────────────────────────────────
+
+export const ENDPOINTS = {
+  health:           `${BASE}/health`,
+  upload:           `${BASE}/api/upload`,
+  import:           `${BASE}/api/import`,
+  transactions:     `${BASE}/api/transactions`,
+  dashboardMonthly: `${BASE}/api/dashboard/monthly`,
+} as const;
+
+// ── Tipos ─────────────────────────────────────────────────────────────────────
 
 /** Transação retornada pelo preview de upload (ainda não salva no banco). */
 export interface PreviewTransaction {
-  date: string;                  // "YYYY-MM-DD"
+  date: string;
   description: string;
   raw_description: string;
-  amount: number;                // positivo = entrada, negativo = saída
-  account: string;               // "nubank_pf" | "nubank_pj" | "itau" | ...
+  amount: number;
+  account: string;
   is_internal_transfer: boolean;
+  installment_current: number | null;
+  installment_total: number | null;
   category: string | null;
   category_group: string | null;
 }
@@ -41,108 +56,83 @@ export interface ImportResponse {
   skipped: number;
 }
 
-/** Transação salva no banco (retornada pelo GET /api/transactions). */
-export interface Transaction {
-  id: number;
-  date: string;
-  description: string;
-  raw_description: string;
-  amount: number;
-  account: string;
-  is_internal_transfer: boolean;
-  category: string | null;
-  category_group: string | null;
-}
-
 /** Parâmetros de filtro para GET /api/transactions. */
 export interface TransactionFilters {
-  account?: string;
-  category?: string;
-  start_date?: string;  // "YYYY-MM-DD"
-  end_date?: string;    // "YYYY-MM-DD"
-  limit?: number;
-  offset?: number;
+  account?:    string;
+  month?:      string;   // "YYYY-MM"
+  category?:   string;
+  start_date?: string;   // "YYYY-MM-DD"
+  end_date?:   string;   // "YYYY-MM-DD"
+  limit?:      number;
+  offset?:     number;
 }
 
-// ─── Funções ──────────────────────────────────────────────────────────────────
+// ── Helper interno ────────────────────────────────────────────────────────────
 
-/**
- * Envia um PDF ou Excel para o backend e recebe o preview das transações.
- * NÃO persiste no banco — apenas extrai e retorna.
- */
-export async function uploadFile(file: File): Promise<UploadResponse> {
-  const form = new FormData();
-  form.append("file", file);
-
-  const res = await fetch(`${API_BASE}/api/upload`, {
-    method: "POST",
-    body: form,
+async function request<T>(url: string, options?: RequestInit): Promise<T> {
+  const res = await fetch(url, {
+    headers: { 'Content-Type': 'application/json' },
+    ...options,
   });
-
   if (!res.ok) {
-    const detail = await res.text();
-    throw new Error(`Upload falhou (${res.status}): ${detail}`);
+    const detail = await res.text().catch(() => '');
+    throw new Error(`API error ${res.status} — ${url}${detail ? `: ${detail}` : ''}`);
   }
-
-  return res.json() as Promise<UploadResponse>;
+  return res.json() as Promise<T>;
 }
 
-/**
- * Importa transações selecionadas pelo usuário para o banco SQLite.
- * Recebe apenas as transações que o usuário marcou para importar.
- */
-export async function importTransactions(
-  payload: ImportPayload
-): Promise<ImportResponse> {
-  const res = await fetch(`${API_BASE}/api/import`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
+// ── API pública ───────────────────────────────────────────────────────────────
 
-  if (!res.ok) {
-    const detail = await res.text();
-    throw new Error(`Importação falhou (${res.status}): ${detail}`);
-  }
+export const api = {
 
-  return res.json() as Promise<ImportResponse>;
-}
+  /** Verifica se o backend está acessível. */
+  health: (): Promise<boolean> =>
+    fetch(ENDPOINTS.health, { signal: AbortSignal.timeout(3000) })
+      .then(r => r.ok)
+      .catch(() => false),
 
-/**
- * Busca as transações já salvas no banco com filtros opcionais.
- */
-export async function getTransactions(
-  filters: TransactionFilters = {}
-): Promise<Transaction[]> {
-  const params = new URLSearchParams();
+  /** Envia PDF/Excel para extração. NÃO persiste — apenas retorna preview. */
+  uploadFile: (file: File): Promise<UploadResponse> => {
+    const form = new FormData();
+    form.append('file', file);
+    return fetch(ENDPOINTS.upload, { method: 'POST', body: form })
+      .then(async r => {
+        if (!r.ok) throw new Error(`Upload falhou (${r.status}): ${await r.text()}`);
+        return r.json() as Promise<UploadResponse>;
+      });
+  },
 
-  if (filters.account)    params.set("account", filters.account);
-  if (filters.category)   params.set("category", filters.category);
-  if (filters.start_date) params.set("start_date", filters.start_date);
-  if (filters.end_date)   params.set("end_date", filters.end_date);
-  if (filters.limit != null)  params.set("limit", String(filters.limit));
-  if (filters.offset != null) params.set("offset", String(filters.offset));
+  /** Persiste as transações confirmadas no banco. */
+  importTransactions: (payload: ImportPayload): Promise<ImportResponse> =>
+    request<ImportResponse>(ENDPOINTS.import, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
 
-  const url = `${API_BASE}/api/transactions${params.size ? `?${params}` : ""}`;
-  const res = await fetch(url);
+  /** Lista transações salvas no banco com filtros opcionais. */
+  getTransactions: (filters: TransactionFilters = {}): Promise<unknown[]> => {
+    const params = new URLSearchParams();
+    if (filters.account)          params.set('account',    filters.account);
+    if (filters.month)            params.set('month',      filters.month);
+    if (filters.category)         params.set('category',   filters.category);
+    if (filters.start_date)       params.set('start_date', filters.start_date);
+    if (filters.end_date)         params.set('end_date',   filters.end_date);
+    if (filters.limit  != null)   params.set('limit',      String(filters.limit));
+    if (filters.offset != null)   params.set('offset',     String(filters.offset));
+    const url = params.size
+      ? `${ENDPOINTS.transactions}?${params}`
+      : ENDPOINTS.transactions;
+    return request<unknown[]>(url);
+  },
 
-  if (!res.ok) {
-    const detail = await res.text();
-    throw new Error(`Erro ao buscar transações (${res.status}): ${detail}`);
-  }
+  /** Dados agregados para o Dashboard Anual. */
+  getDashboardMonthly: () =>
+    request(ENDPOINTS.dashboardMonthly),
 
-  return res.json() as Promise<Transaction[]>;
-}
+};
 
-/**
- * Verifica se o backend está acessível (health check).
- * Útil para mostrar estado de conexão na UI.
- */
-export async function checkHealth(): Promise<boolean> {
-  try {
-    const res = await fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(3000) });
-    return res.ok;
-  } catch {
-    return false;
-  }
-}
+// ── Named exports para compatibilidade com telas existentes ──────────────────
+export const uploadFile         = api.uploadFile;
+export const importTransactions = api.importTransactions;
+export const getTransactions    = api.getTransactions;
+export const checkHealth        = api.health;
