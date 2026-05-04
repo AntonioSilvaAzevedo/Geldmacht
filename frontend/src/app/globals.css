@@ -1,0 +1,145 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+:root {
+  --navy-950: #070d18;
+  --navy-900: #0f1b2d;
+  --navy-800: #162338;
+  --navy-700: #1e3050;
+  --navy-600: #243d66;
+
+  --slate-700: #2d3748;
+  --slate-600: #4a5568;
+  --slate-500: #718096;
+  --slate-400: #a0aec0;
+  --slate-300: #cbd5e0;
+
+  --green-500: #38a169;
+  --green-400: #48bb78;
+  --green-300: #68d391;
+  --red-500: #e53e3e;
+  --red-400: #fc8181;
+  --amber-500: #d69e2e;
+  --amber-400: #f6ad55;
+  --blue-500: #3182ce;
+  --blue-400: #63b3ed;
+  --teal-500: #319795;
+  --teal-400: #4fd1c5;
+  --purple-500: #805ad5;
+  --purple-400: #b794f4;
+
+  --surface-bg: var(--navy-900);
+  --surface-panel: var(--navy-800);
+  --surface-card: #1c2d45;
+  --surface-hover: #22374e;
+  --border-subtle: rgba(255,255,255,0.06);
+  --border-default: rgba(255,255,255,0.10);
+
+  --text-primary: #e8edf4;
+  --text-secondary: #8fa4be;
+  --text-muted: #566a84;
+
+  --font-sans: 'DM Sans', system-ui, sans-serif;
+  --font-mono: 'DM Mono', 'Fira Code', monospace;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  background-color: var(--navy-900);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--navy-800); }
+::-webkit-scrollbar-thumb { background: var(--slate-600); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--slate-500); }
+::selection { background: rgba(49,130,206,0.3); color: var(--text-primary); }
+
+.value-positive { color: var(--green-400); }
+.value-negative { color: var(--red-400); }
+.value-neutral  { color: var(--text-secondary); }
+.value-invest   { color: var(--blue-400); }
+
+.card-surface {
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+}
+
+.data-table { width: 100%; border-collapse: collapse; }
+.data-table th {
+  background: var(--navy-800);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 10px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-default);
+  white-space: nowrap;
+}
+.data-table th.text-right { text-align: right; }
+.data-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  font-size: 13px;
+}
+.data-table tr:last-child td { border-bottom: none; }
+.data-table tr:hover td { background: var(--surface-hover); transition: background 0.15s ease; }
+.data-table td.numeric {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.data-table tr.total-row td {
+  background: var(--navy-800);
+  font-weight: 600;
+  border-top: 1px solid var(--border-default);
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-in { animation: fadeInUp 0.35s ease both; }
+.delay-1 { animation-delay: 0.05s; }
+.delay-2 { animation-delay: 0.10s; }
+.delay-3 { animation-delay: 0.15s; }
+.delay-4 { animation-delay: 0.20s; }
+
+.recharts-text { fill: var(--text-secondary) !important; font-family: var(--font-sans) !important; font-size: 11px !important; }
+.recharts-cartesian-axis-tick-value { fill: var(--text-muted) !important; }
+.recharts-legend-item-text { color: var(--text-secondary) !important; font-size: 12px !important; }
+.recharts-cartesian-grid-horizontal line,
+.recharts-cartesian-grid-vertical line { stroke: var(--border-subtle) !important; }
+
+/* ─── Mobile responsiveness ─── */
+.sidebar-desktop { display: block; }
+
+@media (max-width: 768px) {
+  .sidebar-desktop { display: none; }
+
+  /* Stack KPI grids to 2 columns on mobile */
+  .kpi-grid { grid-template-columns: repeat(2, 1fr) !important; }
+  .chart-grid { grid-template-columns: 1fr !important; }
+
+  /* Tighten padding */
+  main { padding: 12px !important; }
+
+  /* Table horizontal scroll already works via overflow-x: auto */
+}

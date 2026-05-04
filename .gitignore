@@ -1,0 +1,38 @@
+# Node / Frontend
+node_modules/
+dist/
+.vite/
+*.log
+.next/
+.vercel
+frontend/.env.local
+
+# Python / Backend
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.env
+*.db
+*.sqlite
+
+# IDEs / ferramentas
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+.claude/
+
+# Dados sensíveis (extratos reais)
+data/*.pdf
+data/*.xlsx
+!data/README.md
+
+# Build
+build/
+*.egg-info/

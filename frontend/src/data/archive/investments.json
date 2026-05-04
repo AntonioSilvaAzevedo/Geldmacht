@@ -1,0 +1,43 @@
+{
+  "lastUpdate": "2026-04-25",
+  "account": "9084085",
+  "broker": "NuInvest",
+  "assets": [
+    { "ticker": "PETR4", "name": "Petrobras", "type": "Ação", "subtype": "PN", "sector": "Petróleo & Gás", "quantity": 244, "avgPrice": 38.20, "currentPrice": 48.31, "totalValue": 11787.64, "portfolioPercent": 11.88 },
+    { "ticker": "BBAS3", "name": "Banco do Brasil", "type": "Ação", "subtype": "ON", "sector": "Financeiro", "quantity": 87, "avgPrice": 26.40, "currentPrice": 29.80, "totalValue": 2592.60, "portfolioPercent": 2.61 },
+    { "ticker": "KLBN4", "name": "Klabin", "type": "Ação", "subtype": "PN", "sector": "Papel & Celulose", "quantity": 280, "avgPrice": 18.50, "currentPrice": 20.14, "totalValue": 5639.20, "portfolioPercent": 5.68 },
+    { "ticker": "VALE3", "name": "Vale", "type": "Ação", "subtype": "ON", "sector": "Mineração", "quantity": 120, "avgPrice": 55.80, "currentPrice": 61.40, "totalValue": 7368.00, "portfolioPercent": 7.43 },
+    { "ticker": "ITUB4", "name": "Itaú Unibanco", "type": "Ação", "subtype": "PN", "sector": "Financeiro", "quantity": 150, "avgPrice": 32.10, "currentPrice": 35.20, "totalValue": 5280.00, "portfolioPercent": 5.32 },
+    { "ticker": "WEGE3", "name": "WEG", "type": "Ação", "subtype": "ON", "sector": "Industrial", "quantity": 90, "avgPrice": 42.00, "currentPrice": 48.50, "totalValue": 4365.00, "portfolioPercent": 4.40 },
+    { "ticker": "RENT3", "name": "Localiza", "type": "Ação", "subtype": "ON", "sector": "Locação de Veículos", "quantity": 95, "avgPrice": 52.30, "currentPrice": 58.10, "totalValue": 5519.50, "portfolioPercent": 5.56 },
+    { "ticker": "RADL3", "name": "Raia Drogasil", "type": "Ação", "subtype": "ON", "sector": "Farmacêutico", "quantity": 110, "avgPrice": 27.80, "currentPrice": 30.40, "totalValue": 3344.00, "portfolioPercent": 3.37 },
+    { "ticker": "JBSS3", "name": "JBS", "type": "Ação", "subtype": "ON", "sector": "Alimentos", "quantity": 160, "avgPrice": 34.50, "currentPrice": 37.20, "totalValue": 5952.00, "portfolioPercent": 6.00 },
+    { "ticker": "TOTS3", "name": "Totvs", "type": "Ação", "subtype": "ON", "sector": "Tecnologia", "quantity": 200, "avgPrice": 28.60, "currentPrice": 31.90, "totalValue": 6380.00, "portfolioPercent": 6.43 },
+    { "ticker": "ABEV3", "name": "Ambev", "type": "Ação", "subtype": "ON", "sector": "Bebidas", "quantity": 460, "avgPrice": 13.20, "currentPrice": 14.80, "totalValue": 6808.00, "portfolioPercent": 6.86 },
+    { "ticker": "SAPR3", "name": "Sanepar", "type": "Ação", "subtype": "ON", "sector": "Saneamento", "quantity": 340, "avgPrice": 15.40, "currentPrice": 17.10, "totalValue": 5814.00, "portfolioPercent": 5.86 },
+    { "ticker": "CSAN3", "name": "Cosan", "type": "Ação", "subtype": "ON", "sector": "Energia & Combustíveis", "quantity": 75, "avgPrice": 12.80, "currentPrice": 14.20, "totalValue": 1065.00, "portfolioPercent": 1.07 },
+    { "ticker": "HGLG11", "name": "Pátria Logística", "type": "FII", "segment": "Logística", "quantity": 61, "avgPrice": 152.40, "currentPrice": 156.89, "totalValue": 9570.29, "portfolioPercent": 9.65 },
+    { "ticker": "GGRC11", "name": "GGR Covepi Renda", "type": "FII", "segment": "Logística", "quantity": 22, "avgPrice": 130.20, "currentPrice": 133.51, "totalValue": 2937.22, "portfolioPercent": 2.96 },
+    { "ticker": "BTLG11", "name": "BTG Pactual Logístico", "type": "FII", "segment": "Logística", "quantity": 48, "avgPrice": 105.80, "currentPrice": 108.40, "totalValue": 5203.20, "portfolioPercent": 5.25 },
+    { "ticker": "XPML11", "name": "XP Malls", "type": "FII", "segment": "Shopping", "quantity": 55, "avgPrice": 95.40, "currentPrice": 98.20, "totalValue": 5401.00, "portfolioPercent": 5.44 },
+    { "ticker": "MXRF11", "name": "Maxi Renda", "type": "FII", "segment": "Papel", "quantity": 420, "avgPrice": 10.80, "currentPrice": 11.20, "totalValue": 4704.00, "portfolioPercent": 4.74 },
+    { "ticker": "KNRI11", "name": "Kinea Renda Imobiliária", "type": "FII", "segment": "Híbrido", "quantity": 28, "avgPrice": 140.00, "currentPrice": 143.50, "totalValue": 4018.00, "portfolioPercent": 4.05 },
+    { "ticker": "VISC11", "name": "Vinci Shopping Centers", "type": "FII", "segment": "Shopping", "quantity": 35, "avgPrice": 106.20, "currentPrice": 109.30, "totalValue": 3825.50, "portfolioPercent": 3.86 },
+    { "ticker": "RZTR11", "name": "Riza Terrax", "type": "FII", "segment": "Agro", "quantity": 40, "avgPrice": 95.50, "currentPrice": 97.40, "totalValue": 3896.00, "portfolioPercent": 3.93 },
+    { "ticker": "IVVB11", "name": "iShares S&P 500", "type": "ETF", "region": "EUA", "quantity": 10, "avgPrice": 250.20, "currentPrice": 259.00, "totalValue": 2590.00, "portfolioPercent": 2.61 }
+  ],
+  "totals": {
+    "acoes": 71914.94,
+    "fiis": 39555.21,
+    "etfs": 2590.00,
+    "bitcoin": 0,
+    "rendaFixa": 13160.64,
+    "patrimonio": 127220.79
+  },
+  "aportesMensais": {
+    "2026-01": { "acoes": 220.76, "fiis": 1070.09, "etfs": 0, "rendaFixa": 0, "total": 1290.85 },
+    "2026-02": { "acoes": 0, "fiis": 582.68, "etfs": 1195.41, "rendaFixa": 4715.00, "total": 6493.09 },
+    "2026-03": { "acoes": 975.69, "fiis": 2054.20, "etfs": 1183.25, "rendaFixa": 4270.04, "total": 8483.18 },
+    "2026-04": { "acoes": 136.72, "fiis": 267.50, "etfs": 0, "rendaFixa": 0, "total": 404.22 }
+  }
+}
