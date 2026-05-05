@@ -5,7 +5,7 @@
  * Nenhuma tela deve chamar fetch() diretamente para o backend.
  */
 
-import { getSession } from 'next-auth/react';
+import { getSession, signOut } from 'next-auth/react';
 import { config } from '@/config/env';
 
 const BASE = config.apiUrl;
@@ -114,7 +114,10 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
   });
   if (!res.ok) {
     if (res.status === 401 && typeof window !== 'undefined') {
-      window.location.href = '/login';
+      // signOut limpa a sessão Auth.js antes de redirecionar,
+      // evitando o loop: middleware vê sessão ativa → volta para /
+      await signOut({ callbackUrl: '/login', redirect: true });
+      return undefined as T; // never reached
     }
     const detail = await res.text().catch(() => '');
     throw new Error(`API error ${res.status} — ${url}${detail ? `: ${detail}` : ''}`);
