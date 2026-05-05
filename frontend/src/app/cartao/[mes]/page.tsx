@@ -2,7 +2,7 @@
 
 import { useState, use, useMemo, useEffect } from 'react';
 import {
-  Search, CreditCard, TrendingDown, Hash,
+  Search, CreditCard, TrendingUp, TrendingDown, Hash,
   ArrowUpRight, ChevronDown, ChevronRight, AlertTriangle,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -13,6 +13,7 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import ErrorState from '@/components/ErrorState';
 import { formatCurrency, formatDate } from '@/lib/formatters';
 import { api } from '@/lib/api';
+import type { InvoiceSummary } from '@/lib/api';
 import type { Transaction } from '@/types/financial';
 
 // ── Barra de progresso de parcelas ───────────────────────────────────────────
@@ -209,6 +210,7 @@ export default function CartaoPage({ params }: PageProps) {
   const { mes } = use(params);
 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [summary, setSummary]           = useState<InvoiceSummary | null>(null);
   const [loading, setLoading]           = useState(true);
   const [error, setError]               = useState<string | null>(null);
   const [search, setSearch]             = useState('');
@@ -218,8 +220,13 @@ export default function CartaoPage({ params }: PageProps) {
   useEffect(() => {
     setLoading(true);
     setError(null);
-    api.getTransactions({ account: 'nubank_cartao', month: mes, limit: 500 })
-      .then((data) => { setTransactions(data as Transaction[]); setLoading(false); })
+    setSummary(null);
+    api.getCardInvoice(mes)
+      .then((data) => {
+        setTransactions(data.transactions as Transaction[]);
+        setSummary(data.summary);
+        setLoading(false);
+      })
       .catch((err: unknown) => {
         setError(err instanceof Error ? err.message : 'Erro ao carregar transações.');
         setLoading(false);
@@ -236,25 +243,15 @@ export default function CartaoPage({ params }: PageProps) {
     [transactions],
   );
 
-  // ── Métricas ────────────────────────────────────────────────────────────────
-  const totalFatura    = useMemo(() => transactions.reduce((s, tx) => s + Math.abs(tx.amount), 0), [transactions]);
-  const totalVista     = useMemo(() => aVista.reduce((s, tx) => s + Math.abs(tx.amount), 0), [aVista]);
-  const totalParcelado = useMemo(() => parceladas.reduce((s, tx) => s + Math.abs(tx.amount), 0), [parceladas]);
-
-  // Comprometimento futuro = soma das parcelas restantes (total - current) * valor da parcela
-  const comprometimentoFuturo = useMemo(() =>
-    parceladas.reduce((s, tx) => {
-      if (!tx.installment_total || !tx.installment_current) return s;
-      const restantes = tx.installment_total - tx.installment_current;
-      return s + Math.abs(tx.amount) * restantes;
-    }, 0),
-    [parceladas],
-  );
-
-  const maiorGasto = useMemo(() => {
-    if (!transactions.length) return null;
-    return transactions.reduce((prev, tx) => Math.abs(tx.amount) > Math.abs(prev.amount) ? tx : prev);
-  }, [transactions]);
+  // ── Métricas vindas do backend ──────────────────────────────────────────────
+  const totalFatura = summary?.total_invoice ?? 0;
+  const paymentAmount = summary?.payment_amount ?? 0;
+  const paymentDescription = summary?.payment_description ?? 'Pagamento da fatura';
+  const totalOtherCredits = summary?.total_other_credits ?? 0;
+  const totalOtherCreditsCount = summary?.total_other_credits_count ?? 0;
+  const totalVista = Math.max(0, totalFatura - (summary?.total_installment_value ?? 0));
+  const totalParcelado = summary?.total_installment_value ?? 0;
+  const comprometimentoFuturo = summary?.future_commitment ?? 0;
 
   // ── Filtro de busca (aplicado a todos) ──────────────────────────────────────
   const filteredVista = useMemo(() => {
@@ -324,27 +321,35 @@ export default function CartaoPage({ params }: PageProps) {
         </div>
 
         {/* KPI cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
           {[
             {
               label: 'Total da Fatura',
               value: formatCurrency(totalFatura),
-              sub: `${transactions.length} lançamentos`,
+              sub: `${summary?.total_expenses ?? 0} gastos`,
               color: 'var(--red-400)',
               accent: '#fc8181',
               icon: <CreditCard size={15} />,
             },
+            ...(totalOtherCredits > 0 ? [{
+              label: 'Estornos / Reembolsos',
+              value: formatCurrency(totalOtherCredits),
+              sub: `${totalOtherCreditsCount} créditos`,
+              color: 'var(--green-400)',
+              accent: '#48bb78',
+              icon: <TrendingUp size={15} />,
+            }] : []),
             {
               label: 'Maior Gasto',
-              value: maiorGasto ? formatCurrency(Math.abs(maiorGasto.amount)) : '—',
-              sub: maiorGasto ? maiorGasto.description.slice(0, 30) : '',
+              value: summary && summary.largest_expense > 0 ? formatCurrency(summary.largest_expense) : '—',
+              sub: summary?.largest_expense_description.slice(0, 30) ?? '',
               color: 'var(--amber-400)',
               accent: '#f6ad55',
               icon: <TrendingDown size={15} />,
             },
             {
-              label: 'Média por Lançamento',
-              value: formatCurrency(totalFatura / transactions.length),
+              label: 'Média por Gasto',
+              value: formatCurrency(summary && summary.total_expenses > 0 ? totalFatura / summary.total_expenses : 0),
               sub: 'Ticket médio',
               color: 'var(--text-secondary)',
               accent: '#a0aec0',
@@ -391,6 +396,60 @@ export default function CartaoPage({ params }: PageProps) {
             </div>
           ))}
         </div>
+
+        {paymentAmount > 0 && (
+          <div
+            className="animate-in"
+            style={{
+              padding: '14px 18px',
+              background: 'rgba(56,161,105,0.12)',
+              border: '1px solid rgba(56,161,105,0.25)',
+              borderRadius: 12,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 16,
+              marginBottom: 18,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+              <div style={{
+                width: 32, height: 32, borderRadius: 8,
+                background: 'rgba(56,161,105,0.16)',
+                border: '1px solid rgba(56,161,105,0.28)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: 'var(--green-400)', flexShrink: 0,
+              }}>
+                <TrendingUp size={15} />
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
+                  Pagamento recebido
+                </div>
+                <div style={{
+                  fontSize: 11,
+                  color: 'var(--text-muted)',
+                  marginTop: 2,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}>
+                  {paymentDescription}
+                </div>
+              </div>
+            </div>
+            <div style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: 17,
+              fontWeight: 700,
+              color: 'var(--green-400)',
+              fontVariantNumeric: 'tabular-nums',
+              flexShrink: 0,
+            }}>
+              {formatCurrency(paymentAmount)}
+            </div>
+          </div>
+        )}
 
         {/* Busca global */}
         <div style={{ position: 'relative', marginBottom: 16 }}>

@@ -20,6 +20,7 @@ import {
 import {
   type UploadResponse,
   type PreviewTransaction,
+  type InvoiceSummary,
   importTransactions,
 } from '@/lib/api';
 import { formatCurrency, formatDate } from '@/lib/formatters';
@@ -48,8 +49,172 @@ interface Props {
   onImportDone: () => void;
 }
 
+function SummaryCard({
+  label,
+  value,
+  subtitle,
+  color,
+}: {
+  label: string;
+  value: string;
+  subtitle: string;
+  color: string;
+}) {
+  return (
+    <div style={{
+      background: 'var(--surface-card)',
+      border: '1px solid var(--border-subtle)',
+      borderRadius: 10,
+      padding: '12px 14px',
+      minWidth: 0,
+    }}>
+      <div style={{
+        fontSize: 10,
+        fontWeight: 600,
+        letterSpacing: '0.08em',
+        textTransform: 'uppercase',
+        color: 'var(--text-muted)',
+        marginBottom: 6,
+      }}>
+        {label}
+      </div>
+      <div style={{
+        fontFamily: 'var(--font-mono)',
+        fontSize: 16,
+        fontWeight: 700,
+        color,
+        fontVariantNumeric: 'tabular-nums',
+        whiteSpace: 'nowrap',
+      }}>
+        {value}
+      </div>
+      <div style={{
+        fontSize: 11,
+        color: 'var(--text-muted)',
+        marginTop: 4,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+      }}>
+        {subtitle}
+      </div>
+    </div>
+  );
+}
+
+function SummaryNotice({
+  label,
+  value,
+  description,
+}: {
+  label: string;
+  value: string;
+  description: string;
+}) {
+  return (
+    <div style={{
+      background: 'rgba(56,161,105,0.12)',
+      border: '1px solid rgba(56,161,105,0.25)',
+      borderRadius: 10,
+      padding: '12px 14px',
+      marginBottom: 10,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 14,
+    }}>
+      <div style={{ minWidth: 0 }}>
+        <div style={{
+          fontSize: 10,
+          fontWeight: 700,
+          letterSpacing: '0.08em',
+          textTransform: 'uppercase',
+          color: 'var(--green-400)',
+          marginBottom: 4,
+        }}>
+          {label}
+        </div>
+        <div style={{
+          fontSize: 12,
+          color: 'var(--text-secondary)',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+        }}>
+          {description}
+        </div>
+      </div>
+      <div style={{
+        fontFamily: 'var(--font-mono)',
+        fontSize: 16,
+        fontWeight: 700,
+        color: 'var(--green-400)',
+        fontVariantNumeric: 'tabular-nums',
+        whiteSpace: 'nowrap',
+      }}>
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function InvoiceSummaryCards({ summary }: { summary: InvoiceSummary }) {
+  const averageExpense = summary.total_expenses > 0
+    ? summary.total_invoice / summary.total_expenses
+    : 0;
+  const paymentAmount = summary.payment_amount ?? 0;
+  const totalOtherCredits = summary.total_other_credits ?? 0;
+  const totalOtherCreditsCount = summary.total_other_credits_count ?? 0;
+
+  return (
+    <>
+      {paymentAmount > 0 && (
+        <SummaryNotice
+          label="Pagamento recebido"
+          value={formatCurrency(paymentAmount)}
+          description={summary.payment_description || 'Pagamento da fatura'}
+        />
+      )}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+        gap: 10,
+        marginBottom: 14,
+        flexShrink: 0,
+      }}>
+        <SummaryCard
+          label="Total da Fatura"
+          value={formatCurrency(summary.total_invoice)}
+          subtitle={`${summary.total_expenses} gastos`}
+          color="var(--red-400)"
+        />
+        {totalOtherCredits > 0 && (
+          <SummaryCard
+            label="Estornos / Reembolsos"
+            value={formatCurrency(totalOtherCredits)}
+            subtitle={`${totalOtherCreditsCount} créditos`}
+            color="var(--green-400)"
+          />
+        )}
+        <SummaryCard
+          label="Maior Gasto"
+          value={formatCurrency(summary.largest_expense)}
+          subtitle={summary.largest_expense_description || 'Sem gastos'}
+          color="var(--amber-400)"
+        />
+        <SummaryCard
+          label="Parcelas Futuras"
+          value={formatCurrency(summary.future_commitment)}
+          subtitle={`${summary.total_installment_count} parceladas · média ${formatCurrency(averageExpense)}`}
+          color="var(--blue-400)"
+        />
+      </div>
+    </>
+  );
+}
+
 export default function UploadPreview({ result, onBack, onImportDone }: Props) {
-  const { transactions, parser_used, source_file } = result;
+  const { transactions, parser_used, source_file, summary } = result;
 
   // ── Estado de seleção ───────────────────────────────────────────────────────
   // Transferências internas começam desmarcadas por padrão
@@ -72,7 +237,7 @@ export default function UploadPreview({ result, onBack, onImportDone }: Props) {
 
   // ── Import state ────────────────────────────────────────────────────────────
   const [importing, setImporting] = useState(false);
-  const [importResult, setImportResult] = useState<{ imported: number; skipped: number } | null>(null);
+  const [importResult, setImportResult] = useState<{ imported: number; skipped: number; summary?: InvoiceSummary } | null>(null);
 
   // ── Transações filtradas ────────────────────────────────────────────────────
   const filteredIndices = useMemo(() => {
@@ -169,6 +334,11 @@ export default function UploadPreview({ result, onBack, onImportDone }: Props) {
             <>, <strong style={{ color: 'var(--amber-400)' }}>{importResult.skipped}</strong> duplicatas ignoradas</>
           )}
         </p>
+        {importResult.summary && (
+          <div style={{ marginTop: 24, textAlign: 'left' }}>
+            <InvoiceSummaryCards summary={importResult.summary} />
+          </div>
+        )}
         <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 28 }}>
           <button
             onClick={onImportDone}
@@ -257,6 +427,8 @@ export default function UploadPreview({ result, onBack, onImportDone }: Props) {
           </span>
         </div>
       </div>
+
+      {summary && <InvoiceSummaryCards summary={summary} />}
 
       {/* Filtros + busca */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 14, flexShrink: 0, flexWrap: 'wrap' }}>

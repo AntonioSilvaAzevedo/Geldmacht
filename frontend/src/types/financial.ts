@@ -45,6 +45,7 @@ export interface Transaction {
   category: string | null;
   category_group: string | null;
   is_internal_transfer: boolean;
+  is_payment: boolean;
   installment_current: number | null;
   installment_total: number | null;
   billing_month: string | null;        // "YYYY-MM" — mês da fatura (apenas cartão)

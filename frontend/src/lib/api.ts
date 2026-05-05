@@ -5,6 +5,7 @@
  * Nenhuma tela deve chamar fetch() diretamente para o backend.
  */
 
+import { getSession } from 'next-auth/react';
 import { config } from '@/config/env';
 
 const BASE = config.apiUrl;
@@ -29,10 +30,29 @@ export interface PreviewTransaction {
   amount: number;
   account: string;
   is_internal_transfer: boolean;
+  is_payment: boolean;
   installment_current: number | null;
   installment_total: number | null;
   category: string | null;
   category_group: string | null;
+}
+
+/** Resumo agregado de fatura de cartão calculado no backend. */
+export interface InvoiceSummary {
+  total_invoice: number;
+  total_credits: number;
+  payment_amount: number;
+  payment_description: string;
+  total_other_credits: number;
+  total_other_credits_count: number;
+  total_transactions: number;
+  total_expenses: number;
+  total_credits_count: number;
+  largest_expense: number;
+  largest_expense_description: string;
+  total_installment_value: number;
+  total_installment_count: number;
+  future_commitment: number;
 }
 
 /** Resposta do POST /api/upload. */
@@ -41,6 +61,7 @@ export interface UploadResponse {
   source_file: string;
   total_transactions: number;
   transactions: PreviewTransaction[];
+  summary?: InvoiceSummary;
 }
 
 /** Payload enviado ao POST /api/import. */
@@ -54,6 +75,12 @@ export interface ImportPayload {
 export interface ImportResponse {
   imported: number;
   skipped: number;
+  summary?: InvoiceSummary;
+}
+
+export interface CardInvoiceResponse {
+  transactions: unknown[];
+  summary: InvoiceSummary;
 }
 
 /** Parâmetros de filtro para GET /api/transactions. */
@@ -69,12 +96,26 @@ export interface TransactionFilters {
 
 // ── Helper interno ────────────────────────────────────────────────────────────
 
+async function getAuthHeader(): Promise<Record<string, string>> {
+  try {
+    const session = await getSession();
+    const token = (session as { accessToken?: string } | null)?.accessToken;
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  } catch {
+    return {};
+  }
+}
+
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
+  const authHeader = await getAuthHeader();
   const res = await fetch(url, {
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeader },
     ...options,
   });
   if (!res.ok) {
+    if (res.status === 401 && typeof window !== 'undefined') {
+      window.location.href = '/login';
+    }
     const detail = await res.text().catch(() => '');
     throw new Error(`API error ${res.status} — ${url}${detail ? `: ${detail}` : ''}`);
   }
@@ -92,14 +133,13 @@ export const api = {
       .catch(() => false),
 
   /** Envia PDF/Excel para extração. NÃO persiste — apenas retorna preview. */
-  uploadFile: (file: File): Promise<UploadResponse> => {
+  uploadFile: async (file: File): Promise<UploadResponse> => {
+    const authHeader = await getAuthHeader();
     const form = new FormData();
     form.append('file', file);
-    return fetch(ENDPOINTS.upload, { method: 'POST', body: form })
-      .then(async r => {
-        if (!r.ok) throw new Error(`Upload falhou (${r.status}): ${await r.text()}`);
-        return r.json() as Promise<UploadResponse>;
-      });
+    const r = await fetch(ENDPOINTS.upload, { method: 'POST', body: form, headers: authHeader });
+    if (!r.ok) throw new Error(`Upload falhou (${r.status}): ${await r.text()}`);
+    return r.json() as Promise<UploadResponse>;
   },
 
   /** Persiste as transações confirmadas no banco. */
@@ -122,7 +162,17 @@ export const api = {
     const url = params.size
       ? `${ENDPOINTS.transactions}?${params}`
       : ENDPOINTS.transactions;
-    return request<unknown[]>(url);
+    return request<unknown[]>(url).then(data => {
+      console.log('[api.getTransactions]', { url, data });
+      return data;
+    });
+  },
+
+  /** Lista fatura do cartão com summary calculado no backend. */
+  getCardInvoice: (month: string): Promise<CardInvoiceResponse> => {
+    const params = new URLSearchParams({ month });
+    const url = `${ENDPOINTS.transactions}/invoice?${params}`;
+    return request<CardInvoiceResponse>(url);
   },
 
   /** Dados agregados para o Dashboard Anual. */
