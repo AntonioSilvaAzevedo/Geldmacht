@@ -175,8 +175,13 @@ export default function MesPage({ params }: PageProps) {
     tx => !tx.is_internal_transfer && tx.amount < 0 && isInvestment(tx.description),
   );
 
-  // Fatura do cartão: conta nubank_cartao
-  const txCartao = txForMonth.filter(tx => tx.account_type === 'nubank_cartao');
+  // Fatura do cartão: filtra por billing_month (mês da fatura) se disponível,
+  // senão cai no filtro por data (compatibilidade com dados antigos)
+  const txCartao = (transactions ?? []).filter(tx => {
+    if (tx.account_type !== 'nubank_cartao') return false;
+    if (tx.billing_month) return tx.billing_month === mes;
+    return tx.date.startsWith(mes);
+  });
 
   // Entradas reais: positivas, não internas, não cartão
   const txEntradas = txForMonth.filter(
