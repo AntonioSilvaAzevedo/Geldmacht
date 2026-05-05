@@ -382,8 +382,40 @@ Localizado em `src/components/EditableDescription.tsx`.
 
 Aplicado em:
 - `UploadPreview.tsx` — edição local antes de importar
-- `mes/[mes]/page.tsx` — edição via API com override otimista
+- `mes/[mes]/page.tsx` — edição via API com override otimista (`descOverrides` state)
 - `cartao/[cardId]/[anoMes]/page.tsx` — edição via API com atualização direta do estado
+- `cartao/[cardId]/fatura/[invoiceId]/page.tsx` — edição via API dentro do agrupamento por categoria
+
+---
+
+## Categorias de cartão
+
+Categorias manuais para lançamentos de fatura de cartão de crédito.
+
+### Modelo de dados
+- Tabela `categories` no banco: `id, user_id, name, scope, color`
+- `scope = 'credit_card'` — único escopo válido atualmente (`VALID_CATEGORY_SCOPES = {"credit_card"}` no backend)
+- Isoladas por `user_id` — cada usuário tem suas próprias categorias
+
+### Fluxo de uso
+1. **Criar:** `/categorias` → formulário "Nome + cor" → `POST /api/categories` com `scope='credit_card'`
+2. **Atribuir no import:** `UploadPreview` exibe `<select>` por linha quando `uploadType='credit_card'` e há categorias cadastradas
+3. **Atribuir depois:** `PATCH /api/transactions/{id}` com `{ category_id: N }` — o backend valida que a categoria pertence ao usuário
+4. **Exibir:** `/cartao/[cardId]/fatura/[invoiceId]` agrupa lançamentos por `category_id`/`category_name` em acordeão
+
+### Agrupamento no detalhe da fatura
+```
+CartaCategoryGroup { key, label, total, transactions[] }
+↑ gerado no frontend via useMemo() filtrando tx.amount < 0
+↑ ordenado por total decrescente
+↑ "Sem categoria" para transações sem category_id
+```
+
+### Regras
+- Só transações com `amount < 0` (gastos) entram nos grupos de categoria
+- Créditos/pagamentos ficam fora dos grupos (aparecem separados no summary)
+- `category_name` via JOIN é o campo a usar para exibição (não `category` denormalizado)
+- A página `/categorias` não usa `<select disabled>` — escopo é exibido como texto estático
 
 ---
 
@@ -434,26 +466,32 @@ api.deleteCategory(id)                          // DELETE /api/categories/{id}
 interface Transaction {
   id: number;
   date: string;                  // "YYYY-MM-DD"
-  description: string;           // descrição normalizada (editável)
+  description: string;           // descrição normalizada (editável inline)
   raw_description: string | null;
   amount: number;                // positivo = entrada, negativo = saída
   account_id: number | null;
   account_type: string | null;   // 'nubank_pf' | 'nubank_pj' | 'nubank_cartao' | 'itau' | 'mercado_pago'
-  category: string | null;       // ex: "Alimentação" — atualmente sempre null (sem engine de categorização)
+  card_id: number | null;        // ID do cartão (só transações de cartão)
+  invoice_id: number | null;     // âncora principal da fatura (preferencial)
+  category: string | null;       // nome da categoria denormalizado (preenchido via import ou PATCH)
+  category_id: number | null;    // FK para tabela categories (scope=credit_card)
+  category_name: string | null;  // nome da categoria via JOIN (retornado pela API — prefira este)
   category_group: string | null;
   is_internal_transfer: boolean;
   is_payment: boolean;
   installment_current: number | null;  // parcela atual (ex: 2)
   installment_total: number | null;    // total de parcelas (ex: 3)
-  billing_month: string | null;        // "YYYY-MM" — mês de referência da fatura (só nubank_cartao)
+  reference_month: string | null;      // "YYYY-MM" legado — preferir invoice_id
+  billing_month: string | null;        // "YYYY-MM" — legado
   source_file: string | null;
   imported_at: string;
 }
 ```
 
-> ⚠️ **Categorização:** `category` é sempre `null` atualmente. Não há motor de categorização
-> automática. A Visão Mensal categoriza as transações no **frontend** por regras de keywords
-> na descrição (não persiste no banco).
+> **Categorização manual:** `category` e `category_id` podem ser definidos na tela de importação
+> (select por linha no `UploadPreview`) ou editados depois via `PATCH /api/transactions/{id}`.
+> Não há motor de categorização automática — o usuário atribui manualmente.
+> `category_name` é preenchido via JOIN no backend e sempre preferível para exibição.
 
 ---
 

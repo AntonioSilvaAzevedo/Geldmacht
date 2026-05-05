@@ -76,12 +76,26 @@ export default function CategoriesPage() {
             Nome da categoria
             <input value={name} onChange={e => setName(e.target.value)} placeholder="Alimentação" style={inputStyle} />
           </label>
-          <label style={labelStyle}>
+          <div style={labelStyle}>
             Usar esta categoria em
-            <select value="credit_card" disabled style={inputStyle}>
-              <option value="credit_card">Fatura de cartão de crédito</option>
-            </select>
-          </label>
+            <div style={{
+              ...inputStyle,
+              color: 'var(--text-muted)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+            }}>
+              <span style={{
+                display: 'inline-block',
+                width: 8,
+                height: 8,
+                borderRadius: '50%',
+                background: 'var(--blue-400)',
+                flexShrink: 0,
+              }} />
+              Fatura de cartão de crédito
+            </div>
+          </div>
           <label style={labelStyle}>
             Cor
             <input type="color" value={color} onChange={e => setColor(e.target.value)} style={{ ...inputStyle, padding: 4, width: 72 }} />
