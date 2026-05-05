@@ -159,7 +159,7 @@ export default function CarteiraPage() {
     return (
       <>
         <Header title="Carteira B3" subtitle="Sem dados" />
-        <EmptyState />
+        <EmptyState actionHref="/upload" actionLabel="Importar extrato" />
       </>
     );
   }

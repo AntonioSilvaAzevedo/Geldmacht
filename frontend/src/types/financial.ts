@@ -42,13 +42,18 @@ export interface Transaction {
   amount: number;
   account_id: number | null;
   account_type: string | null;   // 'nubank_pf' | 'nubank_pj' | 'nubank_cartao' | 'itau' | 'mercado_pago'
+  card_id: number | null;
+  invoice_id: number | null;     // âncora principal da fatura
   category: string | null;
+  category_id: number | null;
+  category_name: string | null;
   category_group: string | null;
   is_internal_transfer: boolean;
   is_payment: boolean;
   installment_current: number | null;
   installment_total: number | null;
-  billing_month: string | null;        // "YYYY-MM" — mês da fatura (apenas cartão)
+  reference_month: string | null;   // legado
+  billing_month: string | null;     // legado
   source_file: string | null;
   imported_at: string;
 }

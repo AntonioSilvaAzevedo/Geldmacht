@@ -238,7 +238,7 @@ export default function MesPage({ params }: PageProps) {
   const saldoLiquido  = totalEntradas - totalGastos - totalInvest;
 
   if (error) return <ErrorState message={error.message} />;
-  if (!loading && !monthlyData) return <EmptyState />;
+  if (!loading && !monthlyData) return <EmptyState actionHref="/upload" actionLabel="Importar extrato" />;
 
   if (loading) {
     return (
@@ -474,7 +474,7 @@ export default function MesPage({ params }: PageProps) {
                 Ver todas as transações do cartão, filtros por categoria e gráfico de pizza
               </div>
               <Link
-                href={`/cartao/${mes}`}
+                href="/cartao"
                 style={{
                   display: 'flex',
                   alignItems: 'center',

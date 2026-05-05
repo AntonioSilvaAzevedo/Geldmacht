@@ -43,7 +43,11 @@ frontend/
 │   │       ├── page.tsx                  # / → Dashboard Anual
 │   │       ├── upload/page.tsx           # /upload → Importar extratos
 │   │       ├── mes/[mes]/page.tsx        # /mes/2026-04 → Detalhe mensal
-│   │       ├── cartao/[mes]/page.tsx     # /cartao/2026-04 → Fatura cartão
+│   │       ├── cartao/page.tsx           # /cartao → Cartões cadastrados
+│   │       ├── cartao/[cardId]/page.tsx  # /cartao/1 → Detalhe do cartão
+│   │       ├── cartao/[cardId]/[anoMes]/page.tsx # /cartao/1/2026-04 → Fatura (legado/compat.)
+│   │       ├── cartao/[cardId]/fatura/[invoiceId]/page.tsx # /cartao/1/fatura/10 → Fatura por ID (preferencial)
+│   │       ├── categorias/page.tsx       # /categorias → Categorias manuais
 │   │       ├── carteira/page.tsx         # /carteira → Carteira de investimentos
 │   │       └── proventos/page.tsx        # /proventos → Dividendos e rendimentos
 │   │
@@ -53,6 +57,8 @@ frontend/
 │   │   │   └── Header.tsx                # Cabeçalho de página (título + subtítulo)
 │   │   ├── Upload/
 │   │   │   └── UploadPreview.tsx         # Preview de transações antes de importar
+│   │   ├── Cards/
+│   │   │   └── CreditCardForm.tsx        # Form de criar/editar cartão
 │   │   ├── EditableDescription.tsx       # Edição inline de descrição (hover → lápis → input)
 │   │   ├── EmptyState.tsx                # Tela quando não há dados no banco
 │   │   ├── ErrorState.tsx                # Tela de erro de API
@@ -173,21 +179,53 @@ antes de redirecionar (evita loop de redirect).
 | Método | Path | Descrição |
 |---|---|---|
 | `GET` | `/health` | Health check |
-| `POST` | `/api/upload` | Upload de PDF/Excel — retorna preview (não persiste) |
-| `POST` | `/api/import` | Persiste transações confirmadas pelo usuário |
+| `POST` | `/api/upload` | Upload PDF/Excel — preview + `invoice_metadata` para fatura Nubank |
+| `POST` | `/api/import` | Persiste transações; cria `Invoice` e vincula transactions via `invoice_id` |
 | `GET` | `/api/transactions` | Lista transações com filtros |
-| `GET` | `/api/transactions/invoice` | Fatura do cartão com `InvoiceSummary` calculado |
-| `PATCH` | `/api/transactions/{id}` | Edita `description` e/ou `category` de uma transação |
-| `GET` | `/api/dashboard/monthly` | Dados agregados por mês para o Dashboard Anual |
+| `GET` | `/api/transactions/invoice?invoice_id=ID` | **Preferencial** — fatura por `invoice_id` |
+| `GET` | `/api/transactions/invoice?card_id=ID&month=YYYY-MM` | Legado — busca por `reference_month` |
+| `PATCH` | `/api/transactions/{id}` | Edita `description` e/ou `category` |
+| `GET` | `/api/dashboard/monthly` | Dados agregados por mês para Dashboard Anual |
+| `GET` | `/api/cards` | Lista cartões cadastrados do usuário |
+| `GET` | `/api/cards/{id}` | Dados de um cartão do usuário |
+| `POST` | `/api/cards` | Cria cartão |
+| `PATCH` | `/api/cards/{id}` | Edita cartão |
+| `DELETE` | `/api/cards/{id}` | Remove cartão, invoices e transações em cascata |
+| `GET` | `/api/cards/{id}/invoices` | Lista invoices reais da tabela `Invoice` |
+| `GET` | `/api/cards/{id}/invoices/{invoice_id}` | Detalhes da fatura + transactions + summary |
+| `GET` | `/api/cards/{id}/invoices-by-month/{due_month}` | Busca invoice por `due_month` (compat. legada) |
+| `GET` | `/api/categories?scope=credit_card` | Lista categorias manuais de cartão |
+| `POST` | `/api/categories` | Cria categoria manual |
+| `PATCH` | `/api/categories/{id}` | Edita categoria manual |
+| `DELETE` | `/api/categories/{id}` | Remove categoria manual |
+
+### Regras do backend para cartões
+
+**Exclusão de cartão (`DELETE /api/cards/{id}`):**
+- Valida que o cartão pertence ao usuário logado.
+- Limpa `invoice_id` das transactions → exclui transactions → exclui invoices → exclui cartão.
+- Operação atômica (rollback se falhar).
+- Retorna `{ "deleted": true }`.
+
+**Importação de fatura (`POST /api/import` com `invoice` preenchido):**
+- `card_id` é obrigatório → `400` se ausente, `404` se de outro usuário.
+- Cria ou atualiza a `Invoice` via `_get_or_create_invoice`.
+- Salva transactions com `card_id`, `invoice_id`, `reference_month` (legado).
+- Preserva `date` (data real da compra) sem alteração.
+- Retorna `{ imported, skipped, card_id, invoice_id, due_month }`.
+
+**Consulta de fatura (`GET /api/transactions/invoice`):**
+- Preferencial: filtrar por `invoice_id`.
+- Legado: `card_id + month` (YYYY-MM) buscando por `reference_month`.
 
 **Filtros disponíveis em `GET /api/transactions`:**
 `account`, `month` (YYYY-MM), `category`, `start_date`, `end_date`, `limit`, `offset`
 
 **Body do `PATCH /api/transactions/{id}`:**
 ```json
-{ "description": "Nova descrição", "category": "Alimentação" }
+{ "description": "Nova descrição", "category": "Alimentação", "category_id": 1 }
 ```
-Ambos os campos são opcionais. Filtrado por `user_id` — usuário só edita as próprias transações.
+Todos os campos são opcionais. Filtrado por `user_id` — usuário só edita as próprias transações.
 
 ---
 
@@ -196,12 +234,73 @@ Ambos os campos são opcionais. Filtrado por `user_id` — usuário só edita as
 ```
 1. /upload  → usuário arrasta PDF ou Excel
 2. POST /api/upload → backend parseia, retorna preview (sem salvar)
-3. UploadPreview.tsx exibe as transações para revisão
+   - Para fatura Nubank: inclui invoice_metadata com due_date, cycle_start_date, cycle_end_date, total_amount etc.
+3. UploadPreview.tsx exibe transações para revisão + bloco de dados da fatura
+   - Usuário pode editar metadados da fatura (vencimento, período, total)
    - Usuário pode editar descrição de cada transação (EditableDescription local)
-   - Usuário pode selecionar categoria via <select>
-4. Usuário confirma → POST /api/import → dados persistidos vinculados ao user_id
-5. Dashboard atualiza automaticamente
+   - Para fatura de cartão, usuário pode selecionar categoria manual com scope = credit_card
+4. Usuário confirma → POST /api/import com invoice + card_id → cria Invoice no banco
+5. Redireciona para /cartao/[cardId]/fatura/[invoice_id]
 ```
+
+### Importação de fatura por cartão
+
+Fluxo padrão (iniciado pelo card do cartão):
+
+```
+/cartao
+  → usuário clica em "Importar fatura" dentro do card de um cartão específico
+/upload?type=credit_card&cardId=1
+  → upload carrega a lista de cartões e pré-seleciona o cartão pelo cardId
+POST /api/upload → preview com invoice_metadata
+  → cartão vem pré-selecionado; campos da fatura (vencimento, período) pré-preenchidos
+Usuário confirma/ajusta dados da fatura
+POST /api/import com card_id + invoice (due_month, due_date, cycle_start_date, etc.)
+Redireciona para /cartao/[cardId]/fatura/[invoice_id]
+```
+
+Fluxo sem cardId na URL (`/upload?type=credit_card`):
+
+```
+/upload?type=credit_card
+  → upload carrega a lista de cartões (sem pré-seleção)
+Tela de revisão exige seleção manual do cartão
+  → botão "Importar" fica desabilitado até seleção
+Usuário seleciona o cartão → habilita importação
+POST /api/import com card_id selecionado manualmente
+```
+
+Regras:
+
+- A importação do tipo `credit_card` exige cartão selecionado antes de confirmar.
+- O botão de confirmar importação fica desabilitado se `type=credit_card` e nenhum cartão selecionado.
+- Mensagem de validação: "Selecione o cartão desta fatura antes de importar."
+- A data real da compra continua em `date` / `transaction_date`.
+- `invoice_metadata` pré-preenche o bloco de dados da fatura; o usuário pode corrigir.
+- O payload de import envia `invoice` (metadados completos), não apenas `reference_month`.
+- `reference_month` continua sendo enviado apenas como fallback/compat. de dados antigos.
+- Categorias no preview vêm da API (`GET /api/categories?scope=credit_card`); sem lista hardcoded.
+- A fatura é vinculada apenas ao cartão selecionado — não aparece em outros cartões.
+
+### Totais na listagem e no detalhe da fatura
+
+- **Listagem** (`/cartao/[cardId]`): o valor em destaque deve ser `invoice.total_amount` quando existir, com o rótulo **“Total da fatura (PDF)”**. `computed_total` na API é só a soma das transações com `amount < 0` (conferência) — se divergir do PDF, exibir como **“Soma dos gastos (lanç.)”**.
+- **Detalhe** (`/cartao/.../fatura/[invoiceId]` e `[anoMes]`): quando há `invoice.total_amount`, o **primeiro card** da grade de métricas é **“Total da fatura (PDF)”** com valor em destaque (fonte maior). O cabeçalho acima só traz vencimento e período. Se a soma das compras nos lançamentos divergir do PDF, mantém-se a linha de conferência em texto menor.
+
+### Linguagem visual das faturas
+
+**Usar:**
+- "Fatura com vencimento em Abril/2026"
+- "Vence em 13/04/2026"
+- "Período da fatura: 04/03/2026 a 04/04/2026"
+- "Mês de pagamento"
+- "Vencimento"
+
+**Evitar:**
+- "Fatura de Abril" isolado
+- "Mês da fatura" como se fosse mês dos gastos
+- "reference_month" exposto na interface
+- "Mês de referência" como label principal para o usuário
 
 **Parsers disponíveis no backend:**
 - `nubank_pf` — extrato conta corrente Nubank PF (PDF)
@@ -219,11 +318,44 @@ Ambos os campos são opcionais. Filtrado por `user_id` — usuário só edita as
 | `/login` | Login | `POST /auth/login` | ✅ API real |
 | `/register` | Cadastro | `POST /auth/register` | ✅ API real |
 | `/` | Dashboard Anual | `GET /api/dashboard/monthly` | ✅ API real |
-| `/upload` | Importar Extratos | `POST /api/upload` + `POST /api/import` | ✅ API real |
+| `/upload` | Importar Extratos | `POST /api/upload` + `POST /api/import` | ✅ API real + invoice_metadata |
 | `/mes/[mes]` | Detalhe Mensal | `GET /api/transactions?limit=1000` | ✅ API real + edição inline |
-| `/cartao/[mes]` | Fatura Cartão | `GET /api/transactions/invoice?month=YYYY-MM` | ✅ API real + edição inline |
+| `/cartao` | Cartões | `GET /api/cards` | ✅ API real + empty state + ações por card |
+| `/cartao/[cardId]` | Detalhe do cartão | `GET /api/cards/{id}` + `GET /api/cards/{id}/invoices` | ✅ API real — lista invoices reais |
+| `/cartao/[cardId]/fatura/[invoiceId]` | Fatura por ID | `GET /api/cards/{id}/invoices/{invoice_id}` | ✅ API real — rota preferencial |
+| `/cartao/[cardId]/[anoMes]` | Fatura por Mês (legado) | `GET /api/cards/{id}/invoices-by-month/{due_month}` | ✅ API real + fallback legado |
+| `/categorias` | Categorias | `GET/POST/PATCH/DELETE /api/categories` | ✅ API real |
 | `/carteira` | Carteira Investimentos | — | ⚫ pendente (Etapa 3.4) |
 | `/proventos` | Dividendos | — | ⚫ pendente (Etapa 3.4) |
+
+### Comportamentos específicos da página `/cartao`
+
+**Estado sem cartões:**
+- Exibe apenas o `EmptyState` centralizado com mensagem e botão "Adicionar cartão".
+- Não exibe botão de importar fatura, lista vazia de faturas, ou qualquer dado de cartão.
+- O botão "Adicionar cartão" abre o formulário `CreditCardForm` inline.
+
+**Estado com cartões:**
+- Exibe grid de cards. Cada card mostra: nome, instituição, dia de fechamento, dia de vencimento, abertura estimada.
+- O cabeçalho de cada card é um link clicável para `/cartao/[cardId]` (ver faturas importadas).
+- Cada card tem três ações na barra inferior:
+  - **Importar fatura** → navega para `/upload?type=credit_card&cardId=ID`
+  - **Editar** → abre `CreditCardForm` inline abaixo do card
+  - **Excluir** → abre modal de confirmação de exclusão
+
+**Modal de exclusão de cartão:**
+- Exibe nome do cartão, quantidade de faturas vinculadas e quantidade de lançamentos vinculados.
+- Avisa que a ação é irreversível e que faturas/lançamentos também serão excluídos.
+- Botão de confirmação: "Excluir cartão e faturas" (tom destrutivo).
+- Botão de cancelamento: "Cancelar" (fecha o modal sem alterar dados).
+- Ao confirmar: chama `DELETE /api/cards/{id}`, atualiza lista local, exibe toast de sucesso.
+- Em caso de erro: exibe toast de erro, cartão permanece na lista.
+- Após exclusão do último cartão: exibe o empty state correto (sem botão de importar fatura).
+
+**Botão "Importar fatura" global removido:**
+- Não existe botão global de importar fatura na página `/cartao`.
+- A importação é sempre iniciada a partir do botão "Importar fatura" dentro do card de um cartão específico.
+- Isso garante que o `cardId` sempre esteja disponível no fluxo de importação.
 
 ---
 
@@ -251,7 +383,7 @@ Localizado em `src/components/EditableDescription.tsx`.
 Aplicado em:
 - `UploadPreview.tsx` — edição local antes de importar
 - `mes/[mes]/page.tsx` — edição via API com override otimista
-- `cartao/[mes]/page.tsx` — edição via API com atualização direta do estado
+- `cartao/[cardId]/[anoMes]/page.tsx` — edição via API com atualização direta do estado
 
 ---
 
@@ -271,12 +403,26 @@ const { data, loading, error } = useFinancialData('monthly');
 
 ```typescript
 api.health()                                    // GET /health
-api.uploadFile(file)                            // POST /api/upload
-api.importTransactions(payload)                 // POST /api/import
+api.uploadFile(file)                            // POST /api/upload → retorna invoice_metadata para Nubank
+api.importTransactions(payload)                 // POST /api/import → inclui invoice no payload
 api.getTransactions(filters?)                   // GET /api/transactions
-api.getCardInvoice(month)                       // GET /api/transactions/invoice?month=YYYY-MM
+api.getCardInvoice(month)                       // GET /api/transactions/invoice?month=YYYY-MM (legado)
+api.getCardInvoiceByCard(cardId, month)         // GET /api/transactions/invoice?card_id=ID&month=YYYY-MM (legado)
+api.getInvoiceTransactions(invoiceId)           // GET /api/transactions/invoice?invoice_id=ID (preferencial)
 api.updateTransaction(id, { description?, category? })  // PATCH /api/transactions/{id}
 api.getDashboardMonthly()                       // GET /api/dashboard/monthly
+api.listCards()                                 // GET /api/cards
+api.getCard(id)                                 // GET /api/cards/{id}
+api.createCard(payload)                         // POST /api/cards
+api.updateCard(id, payload)                     // PATCH /api/cards/{id}
+api.deleteCard(id)                              // DELETE /api/cards/{id}
+api.getCardInvoices(cardId)                     // GET /api/cards/{id}/invoices → lista CardInvoice[]
+api.getCardInvoiceDetail(cardId, invoiceId)     // GET /api/cards/{id}/invoices/{invoice_id}
+api.getCardInvoiceByMonth(cardId, dueMonth)     // GET /api/cards/{id}/invoices-by-month/{due_month}
+api.listCategories(scope?)                      // GET /api/categories[?scope=credit_card]
+api.createCategory(payload)                     // POST /api/categories
+api.updateCategory(id, payload)                 // PATCH /api/categories/{id}
+api.deleteCategory(id)                          // DELETE /api/categories/{id}
 ```
 
 ---

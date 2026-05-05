@@ -181,7 +181,7 @@ export default function ProventosPage() {
     return (
       <>
         <Header title="Proventos" subtitle="Sem dados" />
-        <EmptyState />
+        <EmptyState actionHref="/upload" actionLabel="Importar extrato" />
       </>
     );
   }

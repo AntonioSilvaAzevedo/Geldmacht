@@ -64,7 +64,10 @@ geldmacht/
 │       │   ├── page.tsx             # Dashboard Anual (/)
 │       │   ├── layout.tsx           # Layout raiz (Sidebar + Header)
 │       │   ├── mes/[mes]/page.tsx   # Visão Mensal
-│       │   ├── cartao/[mes]/page.tsx # Detalhe Fatura Cartão
+│       │   ├── cartao/page.tsx       # Cartões cadastrados
+│       │   ├── cartao/[cardId]/page.tsx # Detalhe do cartão
+│       │   ├── cartao/[cardId]/[anoMes]/page.tsx # Fatura por cartão/mês
+│       │   ├── categorias/page.tsx   # Categorias manuais
 │       │   ├── carteira/page.tsx    # Carteira B3
 │       │   ├── proventos/page.tsx   # Proventos B3
 │       │   └── upload/page.tsx      # Importar Extrato
@@ -119,9 +122,9 @@ POST /api/upload (multipart/form-data)
   ├── Valida extensão (.pdf / .xlsx)
   ├── detect_parser(bytes) → percorre ALL_PARSERS, chama can_parse()
   ├── parser.parse(bytes) → list[dict]
-  └── Retorna UploadResponse { parser_used, source_file, total, transactions[] }
-      └── transactions[].is_internal_transfer já calculado
-          └── category / category_group = null (MVP: categorização no frontend)
+  └── Retorna UploadResponse { parser_used, source_file, total, transactions[], summary?, detected_reference_month?, invoice_metadata? }
+      └── transactions[].is_internal_transfer / is_payment já calculados
+      └── fatura Nubank retorna invoice_metadata { due_date, due_month, cycle_start_date, cycle_end_date, issue_date, total_amount, source }
 ```
 
 ### Import (persistência confirmada)
@@ -133,13 +136,24 @@ POST /api/import (JSON)
   │   ├── _get_or_create_account(account_key) → Account (cria se não existe)
   │   ├── Verifica duplicata: date + amount + raw_description + account_id
   │   └── Se não duplicata → insere Transaction
-  └── Retorna ImportResponse { imported: N, skipped: M }
+  └── Retorna ImportResponse { imported: N, skipped: M, card_id?, invoice_id?, due_month?, reference_month?, summary? }
 ```
 
 ### Deduplicação
 
-Critério: `(date, amount, raw_description, account_id)` todos iguais → duplicata.
+Critério: `(user_id, date, amount, raw_description, account_id)` todos iguais → duplicata.
 Reimportar o mesmo arquivo resulta em `imported: 0, skipped: N`.
+
+### Cartões, faturas e categorias
+
+- Cartões ficam em `credit_cards` (`user_id`, `name`, `institution`, `closing_day`, `due_day`).
+- Faturas ficam em `invoices` (`user_id`, `card_id`, `due_month`, `due_date`, `cycle_start_date`, `cycle_end_date`, `total_amount`, …).
+- Transactions de cartão têm `invoice_id` (âncora principal) + `card_id` + `reference_month` (legado).
+- `date` continua sendo a data real da compra. Nunca usar `date` como fonte primária da fatura.
+- `invoice_id` decide em qual fatura a transação aparece. `reference_month` mantido para compat.
+- Categorias manuais ficam em `categories` com `scope = credit_card`.
+- Transações podem salvar `category_id` e preservam `category` string para compatibilidade.
+- Não há categorização automática neste fluxo.
 
 ---
 
@@ -387,8 +401,21 @@ Ver `frontend/.env.example` para referência completa.
 | POST | `/api/upload` | ✅ | Extrai transações do PDF (sem salvar) |
 | POST | `/api/import` | ✅ | Salva transações selecionadas no banco |
 | GET | `/api/transactions` | ✅ | Lista transações (filtros: month, category, account) |
+| GET | `/api/transactions/invoice?invoice_id=ID` | ✅ | Fatura por invoice_id (preferencial) |
+| GET | `/api/transactions/invoice?card_id=ID&month=YYYY-MM` | ✅ | Fatura por mês (legado) |
+| GET | `/api/cards` | ✅ | Lista cartões do usuário |
+| GET | `/api/cards/{id}` | ✅ | Retorna cartão do usuário |
+| POST | `/api/cards` | ✅ | Cria cartão |
+| PATCH | `/api/cards/{id}` | ✅ | Edita cartão |
+| DELETE | `/api/cards/{id}` | ✅ | Remove cartão + invoices + transactions em cascata |
+| GET | `/api/cards/{id}/invoices` | ✅ | Lista invoices reais da tabela Invoice |
+| GET | `/api/cards/{id}/invoices/{invoice_id}` | ✅ | Detalhe da fatura + transactions + summary |
+| GET | `/api/cards/{id}/invoices-by-month/{due_month}` | ✅ | Busca invoice por due_month (compat.) |
+| GET | `/api/categories?scope=credit_card` | ✅ | Lista categorias manuais de cartão |
+| POST | `/api/categories` | ✅ | Cria categoria manual |
+| PATCH | `/api/categories/{id}` | ✅ | Edita categoria manual |
+| DELETE | `/api/categories/{id}` | ✅ | Remove categoria manual |
 | GET | `/api/dashboard/monthly` | ⚫ | Agregação mensal para Dashboard (Etapa 3.1) |
-| GET | `/api/dashboard/cartao` | ⚫ | Dados da fatura por mês (Etapa 3.1) |
 
 Docs interativas: http://localhost:8000/docs
 

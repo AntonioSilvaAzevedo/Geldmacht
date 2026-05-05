@@ -163,7 +163,7 @@ export default function DashboardPage() {
   const chartData = data ? buildChartData(data) : [];
 
   if (error)              return <ErrorState message={error.message} />;
-  if (!loading && !data)  return <EmptyState />;
+  if (!loading && !data)  return <EmptyState actionHref="/upload" actionLabel="Importar extrato" />;
 
   return (
     <>

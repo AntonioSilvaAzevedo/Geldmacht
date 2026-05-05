@@ -12,6 +12,7 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   CheckSquare, Square, ArrowLeft, Download,
   AlertTriangle, TrendingUp, TrendingDown,
@@ -22,6 +23,10 @@ import {
   type UploadResponse,
   type PreviewTransaction,
   type InvoiceSummary,
+  type InvoiceCreate,
+  type Category,
+  type CreditCardConfig,
+  type ImportResponse,
   importTransactions,
 } from '@/lib/api';
 import { formatCurrency, formatDate } from '@/lib/formatters';
@@ -35,17 +40,14 @@ const PARSER_LABELS: Record<string, string> = {
   mercadopago:         'Extrato Mercado Pago',
 };
 
-// ── Categorias disponíveis para edição inline ─────────────────────────────────
-const CATEGORIES = [
-  'Alimentação', 'Mercado', 'Transporte', 'Saúde', 'Lazer',
-  'Educação', 'Moradia', 'Serviços', 'Vestuário', 'Assinaturas',
-  'Investimentos', 'Salário', 'Freelance', 'Transferência', 'Outros',
-];
-
 type Filter = 'todos' | 'entradas' | 'saidas' | 'transferencias';
 
 interface Props {
   result: UploadResponse;
+  card?: CreditCardConfig | null;
+  cards?: CreditCardConfig[];
+  categories?: Category[];
+  uploadType?: string | null;
   onBack: () => void;
   onImportDone: () => void;
 }
@@ -214,8 +216,31 @@ function InvoiceSummaryCards({ summary }: { summary: InvoiceSummary }) {
   );
 }
 
-export default function UploadPreview({ result, onBack, onImportDone }: Props) {
+export default function UploadPreview({ result, card, cards = [], categories = [], uploadType, onBack, onImportDone }: Props) {
+  const router = useRouter();
   const { transactions, parser_used, source_file, summary } = result;
+  const isCreditCardType = uploadType === 'credit_card';
+  const [selectedCard, setSelectedCard] = useState<CreditCardConfig | null>(card ?? null);
+  const isCreditCardImport = isCreditCardType && !!selectedCard;
+
+  // ── Metadados editáveis da fatura ────────────────────────────────────────────
+  const [invoiceData, setInvoiceData] = useState<InvoiceCreate>(() => {
+    const meta = result.invoice_metadata;
+    return {
+      due_month: meta?.due_month ?? result.detected_reference_month ?? '',
+      due_date: meta?.due_date ?? null,
+      cycle_start_date: meta?.cycle_start_date ?? null,
+      cycle_end_date: meta?.cycle_end_date ?? null,
+      issue_date: meta?.issue_date ?? null,
+      closing_date: meta?.closing_date ?? null,
+      total_amount: meta?.total_amount ?? null,
+      source: meta?.source ?? null,
+      raw_reference_month: meta?.due_month ?? result.detected_reference_month ?? null,
+    };
+  });
+
+  const updateInvoice = (patch: Partial<InvoiceCreate>) =>
+    setInvoiceData(prev => ({ ...prev, ...patch }));
 
   // ── Estado de seleção ───────────────────────────────────────────────────────
   // Transferências internas começam desmarcadas por padrão
@@ -233,8 +258,8 @@ export default function UploadPreview({ result, onBack, onImportDone }: Props) {
   );
 
   // ── Edição inline de categoria ──────────────────────────────────────────────
-  const [categories, setCategories] = useState<Record<number, string | null>>(
-    () => Object.fromEntries(transactions.map((tx, i) => [i, tx.category]))
+  const [categoryIds, setCategoryIds] = useState<Record<number, number | null>>(
+    () => Object.fromEntries(transactions.map((tx, i) => [i, tx.category_id ?? null]))
   );
 
   // ── Filtros ─────────────────────────────────────────────────────────────────
@@ -243,7 +268,7 @@ export default function UploadPreview({ result, onBack, onImportDone }: Props) {
 
   // ── Import state ────────────────────────────────────────────────────────────
   const [importing, setImporting] = useState(false);
-  const [importResult, setImportResult] = useState<{ imported: number; skipped: number; summary?: InvoiceSummary } | null>(null);
+  const [importResult, setImportResult] = useState<ImportResponse | null>(null);
 
   // ── Transações filtradas ────────────────────────────────────────────────────
   const filteredIndices = useMemo(() => {
@@ -294,21 +319,33 @@ export default function UploadPreview({ result, onBack, onImportDone }: Props) {
   // ── Importar ─────────────────────────────────────────────────────────────────
   const handleImport = async () => {
     if (selected.size === 0) return;
+    if (isCreditCardType && !selectedCard) return;
     setImporting(true);
 
     const toImport: PreviewTransaction[] = Array.from(selected).map(i => ({
       ...transactions[i],
       description: descriptions[i] ?? transactions[i].description,
-      category:    categories[i]   ?? null,
+      category_id: categoryIds[i] ?? null,
+      category: categories.find(cat => cat.id === categoryIds[i])?.name ?? null,
     }));
 
     try {
       const res = await importTransactions({
         source_file,
         parser_used,
+        card_id: selectedCard?.id ?? null,
+        reference_month: isCreditCardImport ? (invoiceData.due_month || null) : null,
+        invoice: isCreditCardImport && invoiceData.due_month ? invoiceData : undefined,
         transactions: toImport,
       });
       setImportResult(res);
+      if (isCreditCardImport && selectedCard) {
+        if (res.invoice_id) {
+          router.push(`/cartao/${selectedCard.id}/fatura/${res.invoice_id}`);
+        } else if (res.due_month) {
+          router.push(`/cartao/${selectedCard.id}/${res.due_month}`);
+        }
+      }
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Erro ao importar. Tente novamente.');
     } finally {
@@ -362,7 +399,13 @@ export default function UploadPreview({ result, onBack, onImportDone }: Props) {
             Importar outro arquivo
           </button>
           <Link
-            href="/"
+            href={
+              importResult.card_id && importResult.invoice_id
+                ? `/cartao/${importResult.card_id}/fatura/${importResult.invoice_id}`
+                : importResult.card_id && importResult.due_month
+                ? `/cartao/${importResult.card_id}/${importResult.due_month}`
+                : '/'
+            }
             style={{
               padding: '10px 20px',
               borderRadius: 8,
@@ -377,7 +420,7 @@ export default function UploadPreview({ result, onBack, onImportDone }: Props) {
               gap: 6,
             }}
           >
-            Ver no Dashboard
+            {(importResult.card_id && (importResult.invoice_id || importResult.due_month)) ? 'Ver fatura' : 'Ver no Dashboard'}
           </Link>
         </div>
       </div>
@@ -434,6 +477,129 @@ export default function UploadPreview({ result, onBack, onImportDone }: Props) {
           </span>
         </div>
       </div>
+
+      {isCreditCardType && (
+        <div style={{
+          background: 'var(--surface-card)',
+          border: `1px solid ${!selectedCard ? 'rgba(229,62,62,0.4)' : 'var(--border-subtle)'}`,
+          borderRadius: 10,
+          padding: '14px 16px',
+          marginBottom: 14,
+          flexShrink: 0,
+        }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>
+            Dados da fatura
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '10px 16px' }}>
+
+            {/* Cartão — obrigatório */}
+            <label style={{ display: 'grid', gap: 4, fontSize: 12 }}>
+              <span style={{ fontWeight: 600, color: selectedCard ? 'var(--text-secondary)' : 'var(--red-400)' }}>
+                Cartão {!selectedCard && '— obrigatório'}
+              </span>
+              <select
+                value={selectedCard?.id ?? ''}
+                onChange={e => {
+                  const id = e.target.value ? Number(e.target.value) : null;
+                  setSelectedCard(cards.find(c => c.id === id) ?? null);
+                }}
+                style={{
+                  padding: '6px 9px',
+                  borderRadius: 6,
+                  border: `1px solid ${!selectedCard ? 'rgba(229,62,62,0.5)' : 'var(--border-default)'}`,
+                  background: 'var(--surface-panel)',
+                  color: selectedCard ? 'var(--text-primary)' : 'var(--text-muted)',
+                  fontSize: 12,
+                }}
+              >
+                <option value="">Selecione um cartão</option>
+                {cards.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}{c.institution ? ` — ${c.institution}` : ''}</option>
+                ))}
+              </select>
+              {!selectedCard && (
+                <span style={{ color: 'var(--red-400)', fontSize: 11 }}>Obrigatório para importar.</span>
+              )}
+            </label>
+
+            {/* Vencimento */}
+            <label style={{ display: 'grid', gap: 4, fontSize: 12 }}>
+              <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Vencimento</span>
+              <input
+                type="date"
+                value={invoiceData.due_date ?? ''}
+                onChange={e => {
+                  const v = e.target.value;
+                  updateInvoice({ due_date: v || null, due_month: v ? v.slice(0, 7) : invoiceData.due_month });
+                }}
+                style={{ padding: '6px 9px', borderRadius: 6, border: '1px solid var(--border-default)', background: 'var(--surface-panel)', color: 'var(--text-primary)', fontSize: 12 }}
+              />
+            </label>
+
+            {/* Mês de pagamento */}
+            <label style={{ display: 'grid', gap: 4, fontSize: 12 }}>
+              <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Mês de pagamento</span>
+              <input
+                type="month"
+                value={invoiceData.due_month ?? ''}
+                onChange={e => updateInvoice({ due_month: e.target.value })}
+                style={{ padding: '6px 9px', borderRadius: 6, border: '1px solid var(--border-default)', background: 'var(--surface-panel)', color: 'var(--text-primary)', fontSize: 12 }}
+              />
+            </label>
+
+            {/* Período — início */}
+            <label style={{ display: 'grid', gap: 4, fontSize: 12 }}>
+              <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Início do período</span>
+              <input
+                type="date"
+                value={invoiceData.cycle_start_date ?? ''}
+                onChange={e => updateInvoice({ cycle_start_date: e.target.value || null })}
+                style={{ padding: '6px 9px', borderRadius: 6, border: '1px solid var(--border-default)', background: 'var(--surface-panel)', color: 'var(--text-primary)', fontSize: 12 }}
+              />
+            </label>
+
+            {/* Período — fim */}
+            <label style={{ display: 'grid', gap: 4, fontSize: 12 }}>
+              <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Fim do período</span>
+              <input
+                type="date"
+                value={invoiceData.cycle_end_date ?? ''}
+                onChange={e => updateInvoice({ cycle_end_date: e.target.value || null })}
+                style={{ padding: '6px 9px', borderRadius: 6, border: '1px solid var(--border-default)', background: 'var(--surface-panel)', color: 'var(--text-primary)', fontSize: 12 }}
+              />
+            </label>
+
+            {/* Total da fatura */}
+            <label style={{ display: 'grid', gap: 4, fontSize: 12 }}>
+              <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Total da fatura</span>
+              <input
+                type="number"
+                min={0}
+                step={0.01}
+                placeholder="0,00"
+                value={invoiceData.total_amount ?? ''}
+                onChange={e => updateInvoice({ total_amount: e.target.value ? Number(e.target.value) : null })}
+                style={{ padding: '6px 9px', borderRadius: 6, border: '1px solid var(--border-default)', background: 'var(--surface-panel)', color: 'var(--text-primary)', fontSize: 12 }}
+              />
+            </label>
+          </div>
+
+          {/* Resumo visual da fatura */}
+          {selectedCard && (invoiceData.due_date || invoiceData.due_month) && (
+            <div style={{ marginTop: 10, padding: '8px 10px', background: 'rgba(49,130,206,0.07)', borderRadius: 7, fontSize: 12, color: 'var(--text-muted)', display: 'flex', flexWrap: 'wrap', gap: '4px 16px' }}>
+              {invoiceData.due_date && (
+                <span>Vence em <strong style={{ color: 'var(--blue-400)' }}>{formatDate(invoiceData.due_date)}</strong></span>
+              )}
+              {invoiceData.cycle_start_date && invoiceData.cycle_end_date && (
+                <span>Período: <strong style={{ color: 'var(--text-primary)' }}>{formatDate(invoiceData.cycle_start_date)} a {formatDate(invoiceData.cycle_end_date)}</strong></span>
+              )}
+              {invoiceData.total_amount != null && (
+                <span>Total: <strong style={{ color: 'var(--red-400)' }}>{formatCurrency(invoiceData.total_amount)}</strong></span>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {summary && <InvoiceSummaryCards summary={summary} />}
 
@@ -568,14 +734,14 @@ export default function UploadPreview({ result, onBack, onImportDone }: Props) {
                   {/* Categoria (edição inline) */}
                   <td style={{ padding: '8px 12px' }} onClick={e => e.stopPropagation()}>
                     <select
-                      value={categories[i] ?? ''}
-                      onChange={e => setCategories(prev => ({ ...prev, [i]: e.target.value || null }))}
+                      value={categoryIds[i] ?? ''}
+                      onChange={e => setCategoryIds(prev => ({ ...prev, [i]: e.target.value ? Number(e.target.value) : null }))}
                       style={{
                         padding: '4px 8px',
                         borderRadius: 6,
                         border: '1px solid var(--border-default)',
                         background: 'var(--surface-card)',
-                        color: categories[i] ? 'var(--text-primary)' : 'var(--text-muted)',
+                        color: categoryIds[i] ? 'var(--text-primary)' : 'var(--text-muted)',
                         fontSize: 12,
                         cursor: 'pointer',
                         outline: 'none',
@@ -583,8 +749,8 @@ export default function UploadPreview({ result, onBack, onImportDone }: Props) {
                       }}
                     >
                       <option value="">Sem categoria</option>
-                      {CATEGORIES.map(cat => (
-                        <option key={cat} value={cat}>{cat}</option>
+                      {categories.map(cat => (
+                        <option key={cat.id} value={cat.id}>{cat.name}</option>
                       ))}
                     </select>
                   </td>
@@ -659,29 +825,53 @@ export default function UploadPreview({ result, onBack, onImportDone }: Props) {
           </button>
 
           {/* Importar */}
-          <button
-            onClick={handleImport}
-            disabled={selectedCount === 0 || importing}
-            style={{
-              padding: '10px 24px',
-              borderRadius: 9,
-              border: 'none',
-              background: selectedCount === 0 ? 'var(--surface-card)' : 'linear-gradient(135deg, #3182ce 0%, #2c7a7b 100%)',
-              color: selectedCount === 0 ? 'var(--text-muted)' : '#fff',
-              fontSize: 14,
-              fontWeight: 600,
-              cursor: selectedCount === 0 ? 'not-allowed' : 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              transition: 'opacity 0.15s',
-            }}
-            onMouseEnter={e => { if (selectedCount > 0) e.currentTarget.style.opacity = '0.9'; }}
-            onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
-          >
-            {importing ? <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} /> : <Download size={15} />}
-            {importing ? 'Importando...' : `Importar ${selectedCount} selecionados`}
-          </button>
+          {isCreditCardType && !selectedCard ? (
+            <button
+              disabled
+              title="Selecione o cartão desta fatura antes de importar."
+              style={{
+                padding: '10px 24px',
+                borderRadius: 9,
+                border: '1px solid rgba(229,62,62,0.3)',
+                background: 'var(--surface-card)',
+                color: 'var(--red-400)',
+                fontSize: 14,
+                fontWeight: 600,
+                cursor: 'not-allowed',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                opacity: 0.75,
+              }}
+            >
+              <Download size={15} />
+              Selecione um cartão
+            </button>
+          ) : (
+            <button
+              onClick={handleImport}
+              disabled={selectedCount === 0 || importing}
+              style={{
+                padding: '10px 24px',
+                borderRadius: 9,
+                border: 'none',
+                background: selectedCount === 0 ? 'var(--surface-card)' : 'linear-gradient(135deg, #3182ce 0%, #2c7a7b 100%)',
+                color: selectedCount === 0 ? 'var(--text-muted)' : '#fff',
+                fontSize: 14,
+                fontWeight: 600,
+                cursor: selectedCount === 0 ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                transition: 'opacity 0.15s',
+              }}
+              onMouseEnter={e => { if (selectedCount > 0) e.currentTarget.style.opacity = '0.9'; }}
+              onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
+            >
+              {importing ? <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} /> : <Download size={15} />}
+              {importing ? 'Importando...' : `Importar ${selectedCount} selecionados`}
+            </button>
+          )}
         </div>
       </div>
 

@@ -3,7 +3,25 @@
 import Link from 'next/link';
 import { Upload, Database } from 'lucide-react';
 
-export default function EmptyState() {
+interface Props {
+  title?: string;
+  message?: string;
+  actionHref?: string;
+  actionLabel?: string;
+  onAction?: () => void;
+  icon?: React.ReactNode;
+}
+
+export default function EmptyState({
+  title = 'Nenhum dado importado ainda',
+  message = 'Importe um extrato para começar a ver seus dados no Dashboard.',
+  actionHref,
+  actionLabel = 'Importar extrato',
+  onAction,
+  icon,
+}: Props) {
+  const hasAction = actionHref != null || onAction != null;
+
   return (
     <div style={{
       flex: 1,
@@ -24,33 +42,58 @@ export default function EmptyState() {
         alignItems: 'center',
         justifyContent: 'center',
       }}>
-        <Database size={22} color="var(--blue-400)" />
+        {icon ?? <Database size={22} color="var(--blue-400)" />}
       </div>
       <div>
         <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>
-          Nenhum dado importado ainda
+          {title}
         </div>
-        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 16 }}>
-          Importe um extrato para começar a ver seus dados no Dashboard.
+        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: hasAction ? 16 : 0 }}>
+          {message}
         </div>
-        <Link
-          href="/upload"
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 6,
-            padding: '8px 16px',
-            borderRadius: 8,
-            background: 'linear-gradient(135deg, #3182ce 0%, #2c7a7b 100%)',
-            color: '#fff',
-            fontSize: 13,
-            fontWeight: 600,
-            textDecoration: 'none',
-          }}
-        >
-          <Upload size={14} />
-          Importar extrato
-        </Link>
+        {hasAction && (
+          <>
+            {onAction ? (
+              <button
+                onClick={onAction}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '8px 16px',
+                  borderRadius: 8,
+                  border: 'none',
+                  background: 'linear-gradient(135deg, #3182ce 0%, #2c7a7b 100%)',
+                  color: '#fff',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                {actionLabel}
+              </button>
+            ) : (
+              <Link
+                href={actionHref!}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '8px 16px',
+                  borderRadius: 8,
+                  background: 'linear-gradient(135deg, #3182ce 0%, #2c7a7b 100%)',
+                  color: '#fff',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  textDecoration: 'none',
+                }}
+              >
+                <Upload size={14} />
+                {actionLabel}
+              </Link>
+            )}
+          </>
+        )}
       </div>
     </div>
   );

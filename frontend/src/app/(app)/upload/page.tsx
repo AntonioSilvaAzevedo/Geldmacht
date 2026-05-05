@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { Suspense, useState, useCallback, useEffect, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Upload, FileText, FileSpreadsheet, X, AlertCircle, Loader2 } from 'lucide-react';
-import { uploadFile, type UploadResponse } from '@/lib/api';
+import { api, uploadFile, type Category, type CreditCardConfig, type UploadResponse } from '@/lib/api';
 import UploadPreview from '@/components/Upload/UploadPreview';
 
 type Stage = 'idle' | 'uploading' | 'preview' | 'error';
@@ -27,13 +28,41 @@ function isValidFile(file: File): boolean {
   return extOk && mimeOk;
 }
 
-export default function UploadPage() {
+function UploadPageInner() {
+  const searchParams = useSearchParams();
+  const uploadType = searchParams.get('type');
+  const cardIdParam = searchParams.get('cardId');
+  const cardId = cardIdParam ? Number(cardIdParam) : null;
+  const isCreditCardType = uploadType === 'credit_card';
   const [stage, setStage] = useState<Stage>('idle');
   const [dragOver, setDragOver] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadResult, setUploadResult] = useState<UploadResponse | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
+  const [card, setCard] = useState<CreditCardConfig | null>(null);
+  const [cards, setCards] = useState<CreditCardConfig[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!isCreditCardType) return;
+    void Promise.all([
+      api.listCards(),
+      api.listCategories('credit_card'),
+    ])
+      .then(([cardsData, categoryData]) => {
+        setCards(cardsData);
+        setCategories(categoryData);
+        if (cardId != null && Number.isFinite(cardId)) {
+          const preSelected = cardsData.find(c => c.id === cardId) ?? null;
+          setCard(preSelected);
+        }
+      })
+      .catch(err => {
+        setErrorMessage(err instanceof Error ? err.message : 'Erro ao carregar dados do cartão.');
+        setStage('error');
+      });
+  }, [isCreditCardType, cardId]);
 
   // ── Seleção de arquivo ──────────────────────────────────────────────────────
 
@@ -103,6 +132,10 @@ export default function UploadPage() {
     return (
       <UploadPreview
         result={uploadResult}
+        card={card}
+        cards={cards}
+        categories={categories}
+        uploadType={uploadType}
         onBack={clearFile}
         onImportDone={handleImportDone}
       />
@@ -117,7 +150,12 @@ export default function UploadPage() {
           Importar extrato
         </h1>
         <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>
-          Envie um extrato bancário (PDF) ou planilha (Excel) para extrair e revisar os lançamentos antes de salvar.
+          {isCreditCardType && card
+            ? `Envie a fatura do cartão ${card.name} para revisar e importar os lançamentos.`
+            : isCreditCardType
+            ? 'Envie a fatura do cartão de crédito. Você selecionará o cartão na próxima etapa.'
+            : 'Envie um extrato bancário (PDF) ou planilha (Excel) para extrair e revisar os lançamentos antes de salvar.'
+          }
         </p>
       </div>
 
@@ -328,5 +366,13 @@ export default function UploadPage() {
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
       `}</style>
     </div>
+  );
+}
+
+export default function UploadPage() {
+  return (
+    <Suspense fallback={<div style={{ padding: 32, color: 'var(--text-muted)' }}>Carregando...</div>}>
+      <UploadPageInner />
+    </Suspense>
   );
 }

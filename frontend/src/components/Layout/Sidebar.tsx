@@ -9,14 +9,16 @@ import {
   Briefcase,
   TrendingUp,
   Upload,
+  Tags,
 } from 'lucide-react';
 
 const navItems = [
   { href: '/',          label: 'Dashboard',  icon: LayoutDashboard },
   { href: '/mes/2026-04', label: 'Mensal',   icon: CalendarDays },
-  { href: '/cartao/2026-04', label: 'Cartão', icon: CreditCard },
+  { href: '/cartao', label: 'Cartão', icon: CreditCard },
   { href: '/carteira',  label: 'Carteira',   icon: Briefcase },
   { href: '/proventos', label: 'Proventos',  icon: TrendingUp },
+  { href: '/categorias', label: 'Categorias', icon: Tags },
 ];
 
 const toolItems = [
