@@ -59,6 +59,7 @@ frontend/
 │   │   │   └── UploadPreview.tsx         # Preview de transações antes de importar
 │   │   ├── Cards/
 │   │   │   └── CreditCardForm.tsx        # Form de criar/editar cartão
+│   │   ├── CategoryIcon.tsx              # Ícone de categoria (CATEGORY_ICONS map + ICON_OPTIONS)
 │   │   ├── EditableDescription.tsx       # Edição inline de descrição (hover → lápis → input)
 │   │   ├── EmptyState.tsx                # Tela quando não há dados no banco
 │   │   ├── ErrorState.tsx                # Tela de erro de API
@@ -322,9 +323,9 @@ Regras:
 | `/mes/[mes]` | Detalhe Mensal | `GET /api/transactions?limit=1000` | ✅ API real + edição inline |
 | `/cartao` | Cartões | `GET /api/cards` | ✅ API real + empty state + ações por card |
 | `/cartao/[cardId]` | Detalhe do cartão | `GET /api/cards/{id}` + `GET /api/cards/{id}/invoices` | ✅ API real — lista invoices reais |
-| `/cartao/[cardId]/fatura/[invoiceId]` | Fatura por ID | `GET /api/cards/{id}/invoices/{invoice_id}` | ✅ API real — rota preferencial |
+| `/cartao/[cardId]/fatura/[invoiceId]` | Fatura por ID | `GET /api/cards/{id}/invoices/{invoice_id}` | ✅ API real — compras parceladas + recategorização |
 | `/cartao/[cardId]/[anoMes]` | Fatura por Mês (legado) | `GET /api/cards/{id}/invoices-by-month/{due_month}` | ✅ API real + fallback legado |
-| `/categorias` | Categorias | `GET/POST/PATCH/DELETE /api/categories` | ✅ API real |
+| `/categorias` | Categorias | `GET/POST/PATCH/DELETE /api/categories` | ✅ API real — criar/editar/excluir com ícone |
 | `/carteira` | Carteira Investimentos | — | ⚫ pendente (Etapa 3.4) |
 | `/proventos` | Dividendos | — | ⚫ pendente (Etapa 3.4) |
 
@@ -393,29 +394,121 @@ Aplicado em:
 Categorias manuais para lançamentos de fatura de cartão de crédito.
 
 ### Modelo de dados
-- Tabela `categories` no banco: `id, user_id, name, scope, color`
-- `scope = 'credit_card'` — único escopo válido atualmente (`VALID_CATEGORY_SCOPES = {"credit_card"}` no backend)
+- Tabela `categories` no banco: `id, user_id, name, scope, color, icon`
+- `icon` — chave de ícone (ex: `"shopping-cart"`). Nullable. Campo principal de representação visual.
+- `color` — legado, mantido para compatibilidade.
+- `scope = 'credit_card'` — único escopo válido atualmente
 - Isoladas por `user_id` — cada usuário tem suas próprias categorias
 
+### Tipo no frontend (`api.ts`)
+```typescript
+interface Category {
+  id: number; user_id: number; name: string; scope: 'credit_card';
+  color: string | null; icon: string | null;
+  created_at: string; updated_at: string;
+}
+interface CategoryPayload     { name: string; scope: 'credit_card'; color?: string | null; icon?: string | null; }
+interface CategoryUpdatePayload { name?: string; color?: string | null; icon?: string | null; }
+```
+
 ### Fluxo de uso
-1. **Criar:** `/categorias` → formulário "Nome + cor" → `POST /api/categories` com `scope='credit_card'`
-2. **Atribuir no import:** `UploadPreview` exibe `<select>` por linha quando `uploadType='credit_card'` e há categorias cadastradas
-3. **Atribuir depois:** `PATCH /api/transactions/{id}` com `{ category_id: N }` — o backend valida que a categoria pertence ao usuário
-4. **Exibir:** `/cartao/[cardId]/fatura/[invoiceId]` agrupa lançamentos por `category_id`/`category_name` em acordeão
+1. **Criar:** `/categorias` → formulário "Nome + Ícone" → `POST /api/categories` com `scope='credit_card'`
+2. **Editar:** botão Editar por card → edição inline de nome e ícone → `PATCH /api/categories/{id}`
+3. **Atribuir no import:** `UploadPreview` exibe `<select>` por linha com nome da categoria
+4. **Atribuir depois:** `PATCH /api/transactions/{id}` com `{ category_id: N }` na fatura
+5. **Exibir:** `/cartao/[cardId]/fatura/[invoiceId]` agrupa lançamentos por categoria em acordeão com ícone
+
+### Componente `CategoryIcon`
+`src/components/CategoryIcon.tsx`
+```tsx
+<CategoryIcon icon={category.icon} size={16} color="var(--blue-400)" />
+```
+- Mapa seguro `iconKey → LucideComponent` em `CATEGORY_ICONS`
+- Fallback `Tag` quando `icon` é null/desconhecido
+- `ICON_OPTIONS` — lista de opções para o seletor (key + label amigável)
+- Nunca renderiza componente dinamicamente a partir de string arbitrária
 
 ### Agrupamento no detalhe da fatura
 ```
-CartaCategoryGroup { key, label, total, transactions[] }
-↑ gerado no frontend via useMemo() filtrando tx.amount < 0
+CategoryGroup { key, label, icon, total, transactions[] }
+↑ gerado via useMemo() filtrando tx.amount < 0
+↑ icon buscado de categories[] pelo category_id
 ↑ ordenado por total decrescente
-↑ "Sem categoria" para transações sem category_id
+↑ "Sem categoria" (key='uncategorized') para transações sem category_id
 ```
+
+### Recategorização de lançamentos na fatura
+Na tela `/cartao/[cardId]/fatura/[invoiceId]`, cada lançamento exibe:
+- categoria atual (ícone + nome) ou "Sem categoria"
+- botão "alterar" → abre select inline com todas as categorias do usuário + opção "Sem categoria"
+- `onChange` aciona `PATCH /api/transactions/{id}` com `{ category_id: N }` ou `{ category_id: 0 }` para remover
+- Após salvar: atualiza `transactions` local; `groups` é recalculado automaticamente via `useMemo`
+- Em caso de erro: estado não é alterado (mantém valor anterior)
 
 ### Regras
 - Só transações com `amount < 0` (gastos) entram nos grupos de categoria
-- Créditos/pagamentos ficam fora dos grupos (aparecem separados no summary)
 - `category_name` via JOIN é o campo a usar para exibição (não `category` denormalizado)
-- A página `/categorias` não usa `<select disabled>` — escopo é exibido como texto estático
+- `category_id = 0` na API remove a categoria da transaction
+- Categorias sem ícone exibem fallback `Tag`
+
+---
+
+## Compras Parceladas
+
+Compras parceladas são uma **classificação sistêmica** baseada nos campos `installment_current` e `installment_total` da `Transaction`. **Não** dependem de categoria manual.
+
+### Identificação
+O parser Nubank detecta "- Parcela X/Y" na linha e define:
+- `tx.installment_current` — parcela atual (ex: 2)
+- `tx.installment_total` — total de parcelas (ex: 4)
+- `tx.description` — sem o sufixo "- Parcela X/Y" (limpo pelo parser)
+
+Critério: `installment_current != null && installment_total != null && installment_total > 1`
+
+### Seção "Compras parceladas" na fatura
+Na tela `/cartao/[cardId]/fatura/[invoiceId]`:
+- Seção aparece **somente** quando há ≥1 transaction parcelada
+- Se não houver, a seção não é renderizada (sem estado vazio)
+- Exibido no topo, antes do agrupamento por categorias
+
+Layout:
+```
+Compras parceladas
+  Nesta fatura: R$ 625,30
+  Parcelas futuras estimadas: R$ 1.840,20
+  Compras parceladas: 8
+
+  [ Amazon — Parcela 2 de 4 · 04/03/2026
+    2 parcelas futuras estimadas: R$ 121,44 ]
+```
+
+### Cálculos (todos no frontend, nenhum persistido)
+```typescript
+// Por lançamento:
+futureCount  = tx.installment_total - tx.installment_current
+futureAmount = Math.abs(tx.amount) * futureCount
+
+// Total da seção:
+installmentsTotalHere  = sum(abs(tx.amount) for tx in installments)
+installmentsFutureTotal = sum(futureAmount for each)
+```
+
+- Última parcela (`futureCount === 0`) exibe "Última parcela ✓"
+- Esses cálculos são **estimativas** — não alteram `invoice.total_amount`
+- Não cria transações futuras automaticamente
+
+### Convivência com categorias manuais
+- A seção "Compras parceladas" é **complementar** ao agrupamento por categoria
+- Um lançamento parcelado pode aparecer em ambos (compras parceladas E na categoria "Compras")
+- Isso não é duplicidade no banco — é apenas duas visões do mesmo lançamento
+- `category_id` manual continua funcionando normalmente em lançamentos parcelados
+
+### Revisão de importação (`UploadPreview`)
+- Coluna "Parcela" na tabela de revisão exibe `X/Y` quando `installment_current != null`
+- Badge estilizado azul para parcelas; `—` para não parcelados
+- `installment_current` e `installment_total` são enviados no payload de importação
+
+---
 
 ---
 

@@ -669,6 +669,7 @@ export default function UploadPreview({ result, card, cards = [], categories = [
               </th>
               <th style={{ padding: '10px 12px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 500 }}>Data</th>
               <th style={{ padding: '10px 12px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 500 }}>Descrição</th>
+              <th style={{ padding: '10px 12px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 500 }}>Parcela</th>
               <th style={{ padding: '10px 12px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 500 }}>Categoria</th>
               <th style={{ padding: '10px 12px', textAlign: 'right', color: 'var(--text-muted)', fontWeight: 500 }}>Valor</th>
             </tr>
@@ -729,6 +730,28 @@ export default function UploadPreview({ result, card, cards = [], categories = [
                         onSave={val => setDescriptions(prev => ({ ...prev, [i]: val }))}
                       />
                     </div>
+                  </td>
+
+                  {/* Parcela */}
+                  <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>
+                    {tx.installment_current != null && tx.installment_total != null ? (
+                      <span style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        padding: '2px 7px',
+                        borderRadius: 5,
+                        background: 'rgba(49,130,206,0.12)',
+                        border: '1px solid rgba(49,130,206,0.2)',
+                        color: 'var(--blue-400)',
+                        fontSize: 11,
+                        fontWeight: 600,
+                        fontFamily: 'var(--font-mono)',
+                      }}>
+                        {tx.installment_current}/{tx.installment_total}
+                      </span>
+                    ) : (
+                      <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>—</span>
+                    )}
                   </td>
 
                   {/* Categoria (edição inline) */}

@@ -2,13 +2,14 @@
 
 import { use, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ChevronDown, ChevronRight, TrendingUp } from 'lucide-react';
+import { ChevronDown, ChevronRight, TrendingUp, Layers } from 'lucide-react';
 import EditableDescription from '@/components/EditableDescription';
+import CategoryIcon from '@/components/CategoryIcon';
 import Header from '@/components/Layout/Header';
 import ErrorState from '@/components/ErrorState';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import EmptyState from '@/components/EmptyState';
-import { api, type CardInvoiceDetail, type CreditCardConfig } from '@/lib/api';
+import { api, type CardInvoiceDetail, type CreditCardConfig, type Category } from '@/lib/api';
 import { formatCurrency, formatDate } from '@/lib/formatters';
 import type { Transaction } from '@/types/financial';
 
@@ -19,8 +20,15 @@ interface PageProps {
 interface CategoryGroup {
   key: string;
   label: string;
+  icon: string | null;
   total: number;
   transactions: Transaction[];
+}
+
+interface InstallmentInfo {
+  tx: Transaction;
+  futureCount: number;
+  futureAmount: number;
 }
 
 function buildTitle(invoice: CardInvoiceDetail): string {
@@ -46,21 +54,28 @@ export default function InvoiceDetailPage({ params }: PageProps) {
   const [card, setCard] = useState<CreditCardConfig | null>(null);
   const [invoice, setInvoice] = useState<CardInvoiceDetail | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Recategorize state: txId → category_id being edited
+  const [recatEdit, setRecatEdit] = useState<number | null>(null); // txId currently open
+  const [recatSaving, setRecatSaving] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [cardData, invoiceData] = await Promise.all([
+      const [cardData, invoiceData, catData] = await Promise.all([
         api.getCard(cid),
         api.getCardInvoiceDetail(cid, iid),
+        api.listCategories('credit_card'),
       ]);
       setCard(cardData);
       setInvoice(invoiceData);
       setTransactions(invoiceData.transactions);
+      setCategories(catData);
       setOpenGroups(new Set());
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao carregar fatura.');
@@ -71,24 +86,82 @@ export default function InvoiceDetailPage({ params }: PageProps) {
 
   useEffect(() => { void load(); }, [load]);
 
+  // ── Category groups ──────────────────────────────────────────────────────────
   const groups = useMemo<CategoryGroup[]>(() => {
     const grouped = new Map<string, CategoryGroup>();
     transactions
       .filter(tx => tx.amount < 0)
       .forEach(tx => {
         const label = tx.category_name || tx.category || 'Sem categoria';
-        const key = tx.category_id != null ? `category-${tx.category_id}` : `label-${label}`;
-        const current = grouped.get(key) ?? { key, label, total: 0, transactions: [] };
+        const key = tx.category_id != null ? `category-${tx.category_id}` : 'uncategorized';
+        const catObj = categories.find(c => c.id === tx.category_id) ?? null;
+        const current = grouped.get(key) ?? {
+          key,
+          label,
+          icon: catObj?.icon ?? null,
+          total: 0,
+          transactions: [],
+        };
         current.total += Math.abs(tx.amount);
         current.transactions.push(tx);
         grouped.set(key, current);
       });
     return [...grouped.values()].sort((a, b) => b.total - a.total);
+  }, [transactions, categories]);
+
+  // ── Installment info ─────────────────────────────────────────────────────────
+  const installments = useMemo<InstallmentInfo[]>(() => {
+    return transactions
+      .filter(tx =>
+        tx.amount < 0 &&
+        tx.installment_current != null &&
+        tx.installment_total != null &&
+        tx.installment_total > 1
+      )
+      .map(tx => {
+        const futureCount = (tx.installment_total ?? 0) - (tx.installment_current ?? 0);
+        const futureAmount = Math.abs(tx.amount) * futureCount;
+        return { tx, futureCount, futureAmount };
+      });
   }, [transactions]);
+
+  const installmentsTotalHere = useMemo(
+    () => installments.reduce((acc, i) => acc + Math.abs(i.tx.amount), 0),
+    [installments]
+  );
+
+  const installmentsFutureTotal = useMemo(
+    () => installments.reduce((acc, i) => acc + i.futureAmount, 0),
+    [installments]
+  );
+
+  // ── Handlers ─────────────────────────────────────────────────────────────────
 
   async function handleDescSave(txId: number, description: string) {
     await api.updateTransaction(txId, { description });
     setTransactions(prev => prev.map(tx => tx.id === txId ? { ...tx, description } : tx));
+  }
+
+  async function handleCategorySave(txId: number, categoryId: number | null) {
+    setRecatSaving(true);
+    try {
+      const updated = await api.updateTransaction(txId, {
+        category_id: categoryId ?? 0,
+      });
+      setTransactions(prev => prev.map(tx =>
+        tx.id === txId
+          ? {
+              ...tx,
+              category_id: updated.category_id,
+              category: updated.category,
+              category_name: updated.category_name,
+            }
+          : tx
+      ));
+      setRecatEdit(null);
+    } finally {
+      setRecatSaving(false);
+    }
   }
 
   function toggleGroup(key: string) {
@@ -99,6 +172,8 @@ export default function InvoiceDetailPage({ params }: PageProps) {
       return next;
     });
   }
+
+  // ── Render ───────────────────────────────────────────────────────────────────
 
   if (loading) {
     return (
@@ -133,15 +208,14 @@ export default function InvoiceDetailPage({ params }: PageProps) {
   const title = buildTitle(invoice);
   const hasPdfTotal = invoice.total_amount != null;
   const ledgerGrossExpenses = summary.total_invoice;
-  const pdfVsLedgerDiff =
-    hasPdfTotal ? Math.abs(invoice.total_amount! - ledgerGrossExpenses) : 0;
-  const showLedgerNote =
-    hasPdfTotal && pdfVsLedgerDiff > 0.01;
+  const pdfVsLedgerDiff = hasPdfTotal ? Math.abs(invoice.total_amount! - ledgerGrossExpenses) : 0;
+  const showLedgerNote = hasPdfTotal && pdfVsLedgerDiff > 0.01;
 
   return (
     <>
       <Header title={title} subtitle={card.name} />
       <main style={{ padding: 24, flex: 1 }}>
+
         {/* Navegação */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
           <Link href={`/cartao/${card.id}`} style={{ color: 'var(--blue-400)', fontSize: 13, textDecoration: 'none' }}>
@@ -152,7 +226,7 @@ export default function InvoiceDetailPage({ params }: PageProps) {
           </Link>
         </div>
 
-        {/* Cabeçalho: vencimento e período (total do PDF destacado na grade de métricas) */}
+        {/* Cabeçalho de datas */}
         {(invoice.due_date || (invoice.cycle_start_date && invoice.cycle_end_date)) && (
           <div style={{
             background: 'var(--surface-card)',
@@ -182,30 +256,19 @@ export default function InvoiceDetailPage({ params }: PageProps) {
         )}
 
         {showLedgerNote && (
-          <p style={{
-            margin: '-8px 0 18px',
-            fontSize: 12,
-            lineHeight: 1.45,
-            color: 'var(--text-muted)',
-            maxWidth: 720,
-          }}>
-            Conferência: soma apenas das compras nas linhas importadas é{' '}
+          <p style={{ margin: '-8px 0 18px', fontSize: 12, lineHeight: 1.45, color: 'var(--text-muted)', maxWidth: 720 }}>
+            Conferência: soma apenas das compras nos lançamentos importados é{' '}
             <strong style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>
               {formatCurrency(ledgerGrossExpenses)}
             </strong>
-            . Isso não é o “total a pagar” do banco quando há IOF/créditos já descontados no resumo.
+            . Isso não é o "total a pagar" do banco quando há IOF/créditos já descontados no resumo.
           </p>
         )}
 
-        {/* Métricas — primeiro card: total oficial do PDF (destaque). */}
+        {/* Métricas */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 14, marginBottom: 18 }}>
           {hasPdfTotal ? (
-            <MetricCard
-              label="Total da fatura (PDF)"
-              value={formatCurrency(invoice.total_amount!)}
-              color="var(--red-400)"
-              valueSize={22}
-            />
+            <MetricCard label="Total da fatura (PDF)" value={formatCurrency(invoice.total_amount!)} color="var(--red-400)" valueSize={22} />
           ) : (
             <MetricCard label="Soma dos gastos (lançamentos)" value={formatCurrency(summary.total_invoice)} color="var(--red-400)" />
           )}
@@ -214,6 +277,7 @@ export default function InvoiceDetailPage({ params }: PageProps) {
           <MetricCard label="Parcelas futuras" value={formatCurrency(summary.future_commitment)} color="var(--blue-400)" />
         </div>
 
+        {/* Pagamento recebido */}
         {summary.payment_amount > 0 && (
           <div style={{
             background: 'rgba(56,161,105,0.12)',
@@ -238,7 +302,93 @@ export default function InvoiceDetailPage({ params }: PageProps) {
           </div>
         )}
 
-        {/* Categorias */}
+        {/* ── Seção: Compras parceladas ─────────────────────────────────────── */}
+        {installments.length > 0 && (
+          <section style={{ marginBottom: 18 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+              <Layers size={16} color="var(--blue-400)" />
+              <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+                Compras parceladas
+              </h2>
+            </div>
+
+            {/* Resumo das parcelas */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+              gap: 10,
+              marginBottom: 12,
+            }}>
+              <MetricCard
+                label="Nesta fatura"
+                value={formatCurrency(installmentsTotalHere)}
+                color="var(--blue-400)"
+              />
+              <MetricCard
+                label="Parcelas futuras estimadas"
+                value={formatCurrency(installmentsFutureTotal)}
+                color="var(--amber-400)"
+              />
+              <MetricCard
+                label="Compras parceladas"
+                value={String(installments.length)}
+                color="var(--text-secondary)"
+              />
+            </div>
+
+            <div style={{ display: 'grid', gap: 8 }}>
+              {installments.map(({ tx, futureCount, futureAmount }) => (
+                <div key={tx.id} style={{
+                  background: 'var(--surface-card)',
+                  border: '1px solid rgba(49,130,206,0.2)',
+                  borderRadius: 10,
+                  padding: '12px 14px',
+                  display: 'grid',
+                  gridTemplateColumns: '1fr auto',
+                  gap: '4px 16px',
+                  alignItems: 'start',
+                }}>
+                  <div>
+                    <div style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: 13 }}>
+                      {tx.description}
+                    </div>
+                    <div style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 2 }}>
+                      Parcela{' '}
+                      <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--blue-400)', fontWeight: 600 }}>
+                        {tx.installment_current} de {tx.installment_total}
+                      </span>
+                      {' · '}{formatDate(tx.date)}
+                    </div>
+                    {futureCount > 0 && (
+                      <div style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 3 }}>
+                        {futureCount} parcela{futureCount !== 1 ? 's' : ''} futura{futureCount !== 1 ? 's' : ''} estimadas:{' '}
+                        <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--amber-400)' }}>
+                          {formatCurrency(futureAmount)}
+                        </span>
+                      </div>
+                    )}
+                    {futureCount === 0 && (
+                      <div style={{ color: 'var(--green-400)', fontSize: 11, marginTop: 3 }}>
+                        Última parcela ✓
+                      </div>
+                    )}
+                  </div>
+                  <div style={{
+                    textAlign: 'right',
+                    fontFamily: 'var(--font-mono)',
+                    color: 'var(--red-400)',
+                    fontWeight: 700,
+                    fontSize: 14,
+                  }}>
+                    {formatCurrency(tx.amount)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* ── Seção: Categorias ────────────────────────────────────────────── */}
         <section style={{ marginBottom: 18 }}>
           <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 12 }}>
             Categorias
@@ -266,6 +416,14 @@ export default function InvoiceDetailPage({ params }: PageProps) {
                       ? <ChevronDown size={15} color="var(--text-muted)" />
                       : <ChevronRight size={15} color="var(--text-muted)" />
                     }
+                    <span style={{
+                      width: 28, height: 28, borderRadius: 7,
+                      background: 'rgba(49,130,206,0.1)',
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      flexShrink: 0,
+                    }}>
+                      <CategoryIcon icon={group.icon} size={14} color="var(--blue-400)" />
+                    </span>
                     <div style={{ textAlign: 'left' }}>
                       <div style={{ color: 'var(--text-primary)', fontSize: 13, fontWeight: 600 }}>{group.label}</div>
                       <div style={{ color: 'var(--text-muted)', fontSize: 11 }}>
@@ -277,30 +435,116 @@ export default function InvoiceDetailPage({ params }: PageProps) {
                     {formatCurrency(group.total)}
                   </div>
                 </button>
+
                 {openGroups.has(group.key) && (
                   <div style={{ borderTop: '1px solid var(--border-subtle)' }}>
                     {group.transactions.map(tx => (
                       <div key={tx.id} style={{
                         padding: '10px 16px',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        gap: 12,
                         borderBottom: '1px solid var(--border-subtle)',
                       }}>
-                        <div style={{ display: 'flex', gap: 10, alignItems: 'center', minWidth: 0, flex: 1 }}>
-                          <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', fontSize: 11 }}>
-                            {formatDate(tx.date)}
-                          </span>
-                          <EditableDescription
-                            value={tx.description}
-                            onSave={value => handleDescSave(tx.id, value)}
-                            textStyle={{ fontSize: 13, color: 'var(--text-primary)' }}
-                          />
+                        {/* Linha principal: data + descrição + valor */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                          <div style={{ display: 'flex', gap: 10, alignItems: 'center', minWidth: 0, flex: 1 }}>
+                            <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', fontSize: 11, whiteSpace: 'nowrap' }}>
+                              {formatDate(tx.date)}
+                            </span>
+                            <div style={{ minWidth: 0, flex: 1 }}>
+                              <EditableDescription
+                                value={tx.description}
+                                onSave={value => handleDescSave(tx.id, value)}
+                                textStyle={{ fontSize: 13, color: 'var(--text-primary)' }}
+                              />
+                              {tx.installment_current != null && tx.installment_total != null && (
+                                <span style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  marginTop: 2,
+                                  padding: '1px 6px',
+                                  borderRadius: 4,
+                                  background: 'rgba(49,130,206,0.1)',
+                                  color: 'var(--blue-400)',
+                                  fontSize: 10,
+                                  fontWeight: 600,
+                                  fontFamily: 'var(--font-mono)',
+                                }}>
+                                  {tx.installment_current}/{tx.installment_total}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div style={{ fontFamily: 'var(--font-mono)', color: 'var(--red-400)', fontWeight: 600, fontSize: 13, whiteSpace: 'nowrap' }}>
+                            {formatCurrency(tx.amount)}
+                          </div>
                         </div>
-                        <div style={{ fontFamily: 'var(--font-mono)', color: 'var(--red-400)', fontWeight: 600, fontSize: 13 }}>
-                          {formatCurrency(tx.amount)}
-                        </div>
+
+                        {/* Recategorizar */}
+                        {recatEdit === tx.id ? (
+                          <div style={{ marginTop: 8, display: 'flex', gap: 8, alignItems: 'center' }}>
+                            <select
+                              autoFocus
+                              defaultValue={tx.category_id ?? ''}
+                              disabled={recatSaving}
+                              onChange={async e => {
+                                const val = e.target.value;
+                                await handleCategorySave(tx.id, val ? Number(val) : null);
+                              }}
+                              style={{
+                                padding: '4px 8px',
+                                borderRadius: 6,
+                                border: '1px solid var(--border-default)',
+                                background: 'var(--surface-panel)',
+                                color: 'var(--text-primary)',
+                                fontSize: 12,
+                                cursor: 'pointer',
+                                outline: 'none',
+                              }}
+                            >
+                              <option value="">Sem categoria</option>
+                              {categories.map(cat => (
+                                <option key={cat.id} value={cat.id}>{cat.name}</option>
+                              ))}
+                            </select>
+                            <button
+                              onClick={() => setRecatEdit(null)}
+                              style={{
+                                background: 'none', border: 'none',
+                                color: 'var(--text-muted)', fontSize: 11, cursor: 'pointer',
+                              }}
+                            >
+                              cancelar
+                            </button>
+                          </div>
+                        ) : (
+                          <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                            {tx.category_name || tx.category ? (
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--text-muted)' }}>
+                                <CategoryIcon
+                                  icon={categories.find(c => c.id === tx.category_id)?.icon}
+                                  size={11}
+                                  color="var(--text-muted)"
+                                />
+                                {tx.category_name ?? tx.category}
+                              </span>
+                            ) : (
+                              <span style={{ fontSize: 11, color: 'var(--text-muted)', opacity: 0.6 }}>
+                                Sem categoria
+                              </span>
+                            )}
+                            <button
+                              onClick={() => setRecatEdit(tx.id)}
+                              style={{
+                                background: 'none', border: 'none',
+                                color: 'var(--blue-400)', fontSize: 11, cursor: 'pointer',
+                                opacity: 0.7,
+                                padding: '0 2px',
+                              }}
+                              title="Alterar categoria"
+                            >
+                              alterar
+                            </button>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -323,7 +567,6 @@ function MetricCard({
   label: string;
   value: string;
   color: string;
-  /** Tamanho do valor monetário em px — maior para destacar total do PDF */
   valueSize?: number;
 }) {
   return (

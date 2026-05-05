@@ -189,6 +189,7 @@ export interface Category {
   name: string;
   scope: 'credit_card';
   color: string | null;
+  icon: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -197,6 +198,13 @@ export interface CategoryPayload {
   name: string;
   scope: 'credit_card';
   color?: string | null;
+  icon?: string | null;
+}
+
+export interface CategoryUpdatePayload {
+  name?: string;
+  color?: string | null;
+  icon?: string | null;
 }
 
 /** Parâmetros de filtro para GET /api/transactions. */
@@ -369,7 +377,7 @@ export const api = {
       body: JSON.stringify(payload),
     }),
 
-  updateCategory: (id: number, payload: Partial<CategoryPayload>): Promise<Category> =>
+  updateCategory: (id: number, payload: CategoryUpdatePayload): Promise<Category> =>
     request<Category>(`${BASE}/api/categories/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(payload),
