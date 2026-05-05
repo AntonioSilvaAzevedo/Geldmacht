@@ -11,10 +11,11 @@ function LoginForm() {
   const searchParams  = useSearchParams();
   const prefillEmail  = searchParams.get('email') ?? '';
 
-  const [email,    setEmail]    = useState(prefillEmail);
-  const [password, setPassword] = useState('');
-  const [error,    setError]    = useState('');
-  const [loading,  setLoading]  = useState(false);
+  const [email,      setEmail]      = useState(prefillEmail);
+  const [password,   setPassword]   = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
+  const [error,      setError]      = useState('');
+  const [loading,    setLoading]    = useState(false);
 
   // sincroniza se searchParam chegar depois da hidratação
   useEffect(() => {
@@ -29,6 +30,7 @@ function LoginForm() {
       const result = await signIn('credentials', {
         email,
         password,
+        rememberMe: rememberMe ? 'true' : 'false',
         redirect: false,
       });
       if (result?.error) {
@@ -131,6 +133,7 @@ function LoginForm() {
               />
               <input
                 id="email"
+                name="email"
                 type="email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
@@ -161,6 +164,7 @@ function LoginForm() {
               />
               <input
                 id="password"
+                name="password"
                 type="password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
@@ -171,6 +175,32 @@ function LoginForm() {
               />
             </div>
           </div>
+
+          {/* Manter logado */}
+          <label
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              cursor: 'pointer',
+              userSelect: 'none',
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={rememberMe}
+              onChange={e => setRememberMe(e.target.checked)}
+              style={{
+                width: 15,
+                height: 15,
+                accentColor: 'var(--blue-400)',
+                cursor: 'pointer',
+              }}
+            />
+            <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+              Manter logado por 30 dias
+            </span>
+          </label>
 
           {/* Entrar */}
           <button

@@ -5,6 +5,7 @@ import {
   Search, CreditCard, TrendingUp, TrendingDown, Hash,
   ArrowUpRight, ChevronDown, ChevronRight, AlertTriangle,
 } from 'lucide-react';
+import EditableDescription from '@/components/EditableDescription';
 import Link from 'next/link';
 import Header from '@/components/Layout/Header';
 import MonthSelector from '@/components/MonthSelector';
@@ -144,7 +145,13 @@ function Accordion({
 }
 
 // ── Linha de transação ────────────────────────────────────────────────────────
-function TxRow({ tx }: { tx: Transaction }) {
+function TxRow({
+  tx,
+  onDescriptionSave,
+}: {
+  tx: Transaction;
+  onDescriptionSave?: (id: number, desc: string) => Promise<void>;
+}) {
   const isParcelada = !!tx.installment_total;
   return (
     <div
@@ -160,7 +167,7 @@ function TxRow({ tx }: { tx: Transaction }) {
       onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.02)')}
       onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
         <span style={{
           fontFamily: 'var(--font-mono)',
           fontSize: 11,
@@ -170,15 +177,26 @@ function TxRow({ tx }: { tx: Transaction }) {
         }}>
           {formatDate(tx.date)}
         </span>
-        <span style={{
-          fontSize: 13,
-          color: tx.amount >= 0 ? 'var(--green-400)' : 'var(--text-primary)',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-        }}>
-          {tx.description}
-        </span>
+        {onDescriptionSave ? (
+          <EditableDescription
+            value={tx.description}
+            onSave={val => onDescriptionSave(tx.id, val)}
+            textStyle={{
+              fontSize: 13,
+              color: tx.amount >= 0 ? 'var(--green-400)' : 'var(--text-primary)',
+            }}
+          />
+        ) : (
+          <span style={{
+            fontSize: 13,
+            color: tx.amount >= 0 ? 'var(--green-400)' : 'var(--text-primary)',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}>
+            {tx.description}
+          </span>
+        )}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
         {isParcelada && tx.installment_current != null && tx.installment_total != null && (
@@ -252,6 +270,14 @@ export default function CartaoPage({ params }: PageProps) {
   const totalVista = Math.max(0, totalFatura - (summary?.total_installment_value ?? 0));
   const totalParcelado = summary?.total_installment_value ?? 0;
   const comprometimentoFuturo = summary?.future_commitment ?? 0;
+
+  // ── Edição inline de descrição ──────────────────────────────────────────────
+  const handleDescSave = async (txId: number, newDesc: string) => {
+    await api.updateTransaction(txId, { description: newDesc });
+    setTransactions(prev =>
+      prev.map(tx => tx.id === txId ? { ...tx, description: newDesc } : tx)
+    );
+  };
 
   // ── Filtro de busca (aplicado a todos) ──────────────────────────────────────
   const filteredVista = useMemo(() => {
@@ -488,7 +514,9 @@ export default function CartaoPage({ params }: PageProps) {
             isOpen={openVista}
             onToggle={() => setOpenVista(v => !v)}
           >
-            {filteredVista.map(tx => <TxRow key={tx.id} tx={tx} />)}
+            {filteredVista.map(tx => (
+              <TxRow key={tx.id} tx={tx} onDescriptionSave={handleDescSave} />
+            ))}
             {filteredVista.length === 0 && (
               <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
                 Nenhum lançamento encontrado.
@@ -507,7 +535,9 @@ export default function CartaoPage({ params }: PageProps) {
               isOpen={openParceladas}
               onToggle={() => setOpenParceladas(v => !v)}
             >
-              {filteredParceladas.map(tx => <TxRow key={tx.id} tx={tx} />)}
+              {filteredParceladas.map(tx => (
+                <TxRow key={tx.id} tx={tx} onDescriptionSave={handleDescSave} />
+              ))}
               {filteredParceladas.length === 0 && (
                 <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
                   Nenhuma parcelada encontrada.

@@ -7,6 +7,7 @@
 
 import { getSession, signOut } from 'next-auth/react';
 import { config } from '@/config/env';
+import type { Transaction } from '@/types/financial';
 
 const BASE = config.apiUrl;
 
@@ -181,6 +182,13 @@ export const api = {
   /** Dados agregados para o Dashboard Anual. */
   getDashboardMonthly: () =>
     request(ENDPOINTS.dashboardMonthly),
+
+  /** Edita descrição e/ou categoria de uma transação salva. */
+  updateTransaction: (id: number, patch: { description?: string; category?: string }): Promise<Transaction> =>
+    request<Transaction>(`${ENDPOINTS.transactions}/${id}`, {
+      method: 'PATCH',
+      body:   JSON.stringify(patch),
+    }),
 
 };
 

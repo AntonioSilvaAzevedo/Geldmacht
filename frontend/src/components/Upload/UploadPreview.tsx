@@ -17,6 +17,7 @@ import {
   AlertTriangle, TrendingUp, TrendingDown,
   Search, Filter, Loader2, CheckCircle2,
 } from 'lucide-react';
+import EditableDescription from '@/components/EditableDescription';
 import {
   type UploadResponse,
   type PreviewTransaction,
@@ -226,6 +227,11 @@ export default function UploadPreview({ result, onBack, onImportDone }: Props) {
     )
   );
 
+  // ── Edição inline de descrição (local, antes de importar) ───────────────────
+  const [descriptions, setDescriptions] = useState<Record<number, string>>(
+    () => Object.fromEntries(transactions.map((tx, i) => [i, tx.description]))
+  );
+
   // ── Edição inline de categoria ──────────────────────────────────────────────
   const [categories, setCategories] = useState<Record<number, string | null>>(
     () => Object.fromEntries(transactions.map((tx, i) => [i, tx.category]))
@@ -292,7 +298,8 @@ export default function UploadPreview({ result, onBack, onImportDone }: Props) {
 
     const toImport: PreviewTransaction[] = Array.from(selected).map(i => ({
       ...transactions[i],
-      category: categories[i] ?? null,
+      description: descriptions[i] ?? transactions[i].description,
+      category:    categories[i]   ?? null,
     }));
 
     try {
@@ -541,21 +548,20 @@ export default function UploadPreview({ result, onBack, onImportDone }: Props) {
                   </td>
 
                   {/* Descrição */}
-                  <td style={{ padding: '10px 12px', color: 'var(--text-primary)', maxWidth: 300 }}>
+                  <td
+                    style={{ padding: '10px 12px', color: 'var(--text-primary)', maxWidth: 300 }}
+                    onClick={e => e.stopPropagation()}
+                  >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       {isTransfer && (
                         <span title="Transferência interna">
                           <AlertTriangle size={13} color="var(--amber-400)" style={{ flexShrink: 0 }} />
                         </span>
                       )}
-                      <span style={{
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                        display: 'block',
-                      }}>
-                        {tx.description}
-                      </span>
+                      <EditableDescription
+                        value={descriptions[i] ?? tx.description}
+                        onSave={val => setDescriptions(prev => ({ ...prev, [i]: val }))}
+                      />
                     </div>
                   </td>
 

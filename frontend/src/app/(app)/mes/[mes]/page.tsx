@@ -11,7 +11,9 @@ import Header from '@/components/Layout/Header';
 import MonthSelector, { AVAILABLE_MONTHS } from '@/components/MonthSelector';
 import ErrorState from '@/components/ErrorState';
 import EmptyState from '@/components/EmptyState';
+import EditableDescription from '@/components/EditableDescription';
 import { useFinancialData } from '@/hooks/useFinancialData';
+import { api } from '@/lib/api';
 import { formatCurrency, formatDate } from '@/lib/formatters';
 import type { Transaction } from '@/types/financial';
 
@@ -92,7 +94,15 @@ function CollapsibleSection({ title, total, totalColor, icon, isOpen, onToggle, 
   );
 }
 
-function TxRow({ tx, informativo }: { tx: Transaction; informativo?: boolean }) {
+function TxRow({
+  tx,
+  informativo,
+  onDescriptionSave,
+}: {
+  tx: Transaction;
+  informativo?: boolean;
+  onDescriptionSave?: (id: number, desc: string) => Promise<void>;
+}) {
   const color = informativo
     ? 'var(--text-muted)'
     : tx.amount >= 0
@@ -107,8 +117,16 @@ function TxRow({ tx, informativo }: { tx: Transaction; informativo?: boolean }) 
       padding: '10px 20px',
       borderBottom: '1px solid var(--border-subtle)',
     }}>
-      <div>
-        <div style={{ fontSize: 13, color: 'var(--text-primary)' }}>{tx.description}</div>
+      <div style={{ minWidth: 0, flex: 1 }}>
+        {onDescriptionSave ? (
+          <EditableDescription
+            value={tx.description}
+            onSave={val => onDescriptionSave(tx.id, val)}
+            textStyle={{ fontSize: 13, color: 'var(--text-primary)' }}
+          />
+        ) : (
+          <div style={{ fontSize: 13, color: 'var(--text-primary)' }}>{tx.description}</div>
+        )}
         <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
           {formatDate(tx.date)}
           {tx.account_type && <> · <span style={{ fontFamily: 'var(--font-mono)' }}>{tx.account_type}</span></>}
@@ -142,6 +160,20 @@ export default function MesPage({ params }: PageProps) {
   const [openSections, setOpenSections] = useState<Set<string>>(
     new Set(['entradas', 'fixos', 'cartao', 'investimentos'])
   );
+
+  // ── Edição inline de descrição ──────────────────────────────────────────────
+  const [descOverrides, setDescOverrides] = useState<Record<number, string>>({});
+
+  const handleDescSave = async (txId: number, newDesc: string) => {
+    await api.updateTransaction(txId, { description: newDesc });
+    setDescOverrides(prev => ({ ...prev, [txId]: newDesc }));
+  };
+
+  /** Aplica override de descrição sem mutação da lista original. */
+  const withOverride = (tx: Transaction): Transaction =>
+    descOverrides[tx.id] !== undefined
+      ? { ...tx, description: descOverrides[tx.id] }
+      : tx;
 
   const toggleSection = (id: string) => {
     setOpenSections(prev => {
@@ -371,7 +403,9 @@ export default function MesPage({ params }: PageProps) {
             onToggle={() => toggleSection('entradas')}
           >
             {txEntradas.length > 0 ? (
-              txEntradas.map(tx => <TxRow key={tx.id} tx={tx} />)
+              txEntradas.map(tx => (
+                <TxRow key={tx.id} tx={withOverride(tx)} onDescriptionSave={handleDescSave} />
+              ))
             ) : (
               <div style={{ padding: '14px 20px', color: 'var(--text-muted)', fontSize: 13 }}>
                 Nenhuma entrada registrada neste mês.
@@ -413,7 +447,9 @@ export default function MesPage({ params }: PageProps) {
             onToggle={() => toggleSection('fixos')}
           >
             {txFixos.length > 0 ? (
-              txFixos.map(tx => <TxRow key={tx.id} tx={tx} />)
+              txFixos.map(tx => (
+                <TxRow key={tx.id} tx={withOverride(tx)} onDescriptionSave={handleDescSave} />
+              ))
             ) : (
               <div style={{ padding: '14px 20px', color: 'var(--text-muted)', fontSize: 13 }}>
                 Nenhuma conta fixa registrada neste mês.
@@ -430,7 +466,9 @@ export default function MesPage({ params }: PageProps) {
             isOpen={openSections.has('cartao')}
             onToggle={() => toggleSection('cartao')}
           >
-            {txCartao.map(tx => <TxRow key={tx.id} tx={tx} />)}
+            {txCartao.map(tx => (
+              <TxRow key={tx.id} tx={withOverride(tx)} onDescriptionSave={handleDescSave} />
+            ))}
             <div style={{ padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                 Ver todas as transações do cartão, filtros por categoria e gráfico de pizza
@@ -490,7 +528,9 @@ export default function MesPage({ params }: PageProps) {
             onToggle={() => toggleSection('investimentos')}
           >
             {txInvest.length > 0 ? (
-              txInvest.map(tx => <TxRow key={tx.id} tx={tx} />)
+              txInvest.map(tx => (
+                <TxRow key={tx.id} tx={withOverride(tx)} onDescriptionSave={handleDescSave} />
+              ))
             ) : (
               <div style={{ padding: '14px 20px', color: 'var(--text-muted)', fontSize: 13 }}>
                 Nenhum investimento registrado neste mês.
