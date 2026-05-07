@@ -469,17 +469,14 @@ Critério: `installment_current != null && installment_total != null && installm
 Na tela `/cartao/[cardId]/fatura/[invoiceId]`:
 - Seção aparece **somente** quando há ≥1 transaction parcelada
 - Se não houver, a seção não é renderizada (sem estado vazio)
-- Exibido no topo, antes do agrupamento por categorias
+- **Accordion**: o cabeçalho (chevron + resumo rápido) fica sempre visível; ao expandir, mostra os **três cards de resumo** (nesta fatura, parcelas futuras estimadas, quantidade de lançamentos) e a **lista** de compras parceladas
+- Estado inicial do accordion **fechado** (`installmentsOpen = false`)
 
-Layout:
+Layout (fechado: só o botão cabeçalho com valor nesta fatura à direita; expandido: cards + lista):
 ```
-Compras parceladas
-  Nesta fatura: R$ 625,30
-  Parcelas futuras estimadas: R$ 1.840,20
-  Compras parceladas: 8
-
-  [ Amazon — Parcela 2 de 4 · 04/03/2026
-    2 parcelas futuras estimadas: R$ 121,44 ]
+▼ Compras parceladas · N lançamentos · Nesta fatura R$ ...
+  Nesta fatura | Parcelas futuras estimadas | Lançamentos parcelados
+  [ Amazon — Parcela 2 de 4 · ...
 ```
 
 ### Cálculos (todos no frontend, nenhum persistido)

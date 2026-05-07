@@ -56,6 +56,7 @@ export default function InvoiceDetailPage({ params }: PageProps) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
+  const [installmentsOpen, setInstallmentsOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -261,7 +262,7 @@ export default function InvoiceDetailPage({ params }: PageProps) {
             <strong style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>
               {formatCurrency(ledgerGrossExpenses)}
             </strong>
-            . Isso não é o "total a pagar" do banco quando há IOF/créditos já descontados no resumo.
+            . Isso não é o total a pagar do banco quando há IOF ou créditos já descontados no resumo.
           </p>
         )}
 
@@ -302,88 +303,124 @@ export default function InvoiceDetailPage({ params }: PageProps) {
           </div>
         )}
 
-        {/* ── Seção: Compras parceladas ─────────────────────────────────────── */}
+        {/* ── Compras parceladas (accordion: resumo + lista) ───────────────── */}
         {installments.length > 0 && (
           <section style={{ marginBottom: 18 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-              <Layers size={16} color="var(--blue-400)" />
-              <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
-                Compras parceladas
-              </h2>
-            </div>
-
-            {/* Resumo das parcelas */}
             <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-              gap: 10,
-              marginBottom: 12,
+              background: 'var(--surface-card)',
+              border: '1px solid var(--border-subtle)',
+              borderRadius: 12,
+              overflow: 'hidden',
             }}>
-              <MetricCard
-                label="Nesta fatura"
-                value={formatCurrency(installmentsTotalHere)}
-                color="var(--blue-400)"
-              />
-              <MetricCard
-                label="Parcelas futuras estimadas"
-                value={formatCurrency(installmentsFutureTotal)}
-                color="var(--amber-400)"
-              />
-              <MetricCard
-                label="Compras parceladas"
-                value={String(installments.length)}
-                color="var(--text-secondary)"
-              />
-            </div>
-
-            <div style={{ display: 'grid', gap: 8 }}>
-              {installments.map(({ tx, futureCount, futureAmount }) => (
-                <div key={tx.id} style={{
-                  background: 'var(--surface-card)',
-                  border: '1px solid rgba(49,130,206,0.2)',
-                  borderRadius: 10,
-                  padding: '12px 14px',
-                  display: 'grid',
-                  gridTemplateColumns: '1fr auto',
-                  gap: '4px 16px',
-                  alignItems: 'start',
-                }}>
-                  <div>
-                    <div style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: 13 }}>
-                      {tx.description}
-                    </div>
-                    <div style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 2 }}>
-                      Parcela{' '}
-                      <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--blue-400)', fontWeight: 600 }}>
-                        {tx.installment_current} de {tx.installment_total}
-                      </span>
-                      {' · '}{formatDate(tx.date)}
-                    </div>
-                    {futureCount > 0 && (
-                      <div style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 3 }}>
-                        {futureCount} parcela{futureCount !== 1 ? 's' : ''} futura{futureCount !== 1 ? 's' : ''} estimadas:{' '}
-                        <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--amber-400)' }}>
-                          {formatCurrency(futureAmount)}
-                        </span>
-                      </div>
-                    )}
-                    {futureCount === 0 && (
-                      <div style={{ color: 'var(--green-400)', fontSize: 11, marginTop: 3 }}>
-                        Última parcela ✓
-                      </div>
-                    )}
-                  </div>
-                  <div style={{
-                    textAlign: 'right',
-                    fontFamily: 'var(--font-mono)',
-                    color: 'var(--red-400)',
-                    fontWeight: 700,
-                    fontSize: 14,
+              <button
+                type="button"
+                onClick={() => setInstallmentsOpen(v => !v)}
+                style={{
+                  width: '100%',
+                  padding: '13px 16px',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: 12,
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                }}
+                aria-expanded={installmentsOpen}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                  {installmentsOpen
+                    ? <ChevronDown size={15} color="var(--text-muted)" />
+                    : <ChevronRight size={15} color="var(--text-muted)" />
+                  }
+                  <span style={{
+                    width: 28, height: 28, borderRadius: 7,
+                    background: 'rgba(49,130,206,0.1)',
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    flexShrink: 0,
                   }}>
-                    {formatCurrency(tx.amount)}
+                    <Layers size={14} color="var(--blue-400)" />
+                  </span>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ color: 'var(--text-primary)', fontSize: 13, fontWeight: 600 }}>
+                      Compras parceladas
+                    </div>
+                    <div style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 2 }}>
+                      {installments.length} lançamento{installments.length !== 1 ? 's' : ''} · Nesta fatura{' '}
+                      <span style={{ fontFamily: 'var(--font-mono)' }}>{formatCurrency(installmentsTotalHere)}</span>
+                    </div>
                   </div>
                 </div>
-              ))}
+                <div style={{ fontFamily: 'var(--font-mono)', color: 'var(--blue-400)', fontWeight: 700, fontSize: 13, flexShrink: 0 }}>
+                  {formatCurrency(installmentsTotalHere)}
+                </div>
+              </button>
+
+              {installmentsOpen && (
+                <div style={{ borderTop: '1px solid var(--border-subtle)', padding: '14px 16px 16px' }}>
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                    gap: 10,
+                    marginBottom: 14,
+                  }}>
+                    <MetricCard label="Nesta fatura" value={formatCurrency(installmentsTotalHere)} color="var(--blue-400)" />
+                    <MetricCard label="Parcelas futuras estimadas" value={formatCurrency(installmentsFutureTotal)} color="var(--amber-400)" />
+                    <MetricCard label="Lançamentos parcelados" value={String(installments.length)} color="var(--text-secondary)" />
+                  </div>
+
+                  <div style={{ display: 'grid', gap: 8 }}>
+                    {installments.map(({ tx, futureCount, futureAmount }) => (
+                      <div key={tx.id} style={{
+                        background: 'rgba(49,130,206,0.06)',
+                        border: '1px solid rgba(49,130,206,0.2)',
+                        borderRadius: 10,
+                        padding: '12px 14px',
+                        display: 'grid',
+                        gridTemplateColumns: '1fr auto',
+                        gap: '4px 16px',
+                        alignItems: 'start',
+                      }}>
+                        <div>
+                          <div style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: 13 }}>
+                            {tx.description}
+                          </div>
+                          <div style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 2 }}>
+                            Parcela{' '}
+                            <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--blue-400)', fontWeight: 600 }}>
+                              {tx.installment_current} de {tx.installment_total}
+                            </span>
+                            {' · '}{formatDate(tx.date)}
+                          </div>
+                          {futureCount > 0 && (
+                            <div style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 3 }}>
+                              {futureCount} parcela{futureCount !== 1 ? 's' : ''} futura{futureCount !== 1 ? 's' : ''} estimadas:{' '}
+                              <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--amber-400)' }}>
+                                {formatCurrency(futureAmount)}
+                              </span>
+                            </div>
+                          )}
+                          {futureCount === 0 && (
+                            <div style={{ color: 'var(--green-400)', fontSize: 11, marginTop: 3 }}>
+                              Última parcela ✓
+                            </div>
+                          )}
+                        </div>
+                        <div style={{
+                          textAlign: 'right',
+                          fontFamily: 'var(--font-mono)',
+                          color: 'var(--red-400)',
+                          fontWeight: 700,
+                          fontSize: 14,
+                        }}>
+                          {formatCurrency(tx.amount)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </section>
         )}
