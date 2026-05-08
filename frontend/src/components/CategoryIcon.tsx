@@ -1,81 +1,26 @@
 'use client';
 
+import { Tag } from 'lucide-react';
+
 import {
-  ShoppingCart,
-  Utensils,
-  Car,
-  Home,
-  HeartPulse,
-  Gamepad2,
-  Plane,
-  Dumbbell,
-  Receipt,
-  Tag,
-  Shirt,
-  BookOpen,
-  Music,
-  Wifi,
-  Coffee,
-  Baby,
-  PawPrint,
-  Wrench,
-  Gift,
-  Zap,
-} from 'lucide-react';
-import type { LucideProps } from 'lucide-react';
+  CATEGORY_ICONS,
+  getFlatIconOptions,
+  resolveIconKey,
+} from './category-icons-catalog';
 
-// ── Mapa de chave → componente ────────────────────────────────────────────────
-// Nunca renderizar ícone dinamicamente a partir de string arbitrária.
-// Adicionar ícones aqui conforme necessário.
+export {
+  CATEGORY_ICONS,
+  CATEGORY_ICON_GROUPS,
+  getFlatIconOptions,
+  ICON_KEY_ALIASES,
+  ICON_LABELS,
+  resolveIconKey,
+} from './category-icons-catalog';
 
-type IconComponent = React.ComponentType<LucideProps>;
+export type { CategoryIconGroup } from './category-icons-catalog';
 
-export const CATEGORY_ICONS: Record<string, IconComponent> = {
-  'shopping-cart': ShoppingCart,
-  'utensils':      Utensils,
-  'car':           Car,
-  'home':          Home,
-  'heart-pulse':   HeartPulse,
-  'gamepad':       Gamepad2,
-  'plane':         Plane,
-  'dumbbell':      Dumbbell,
-  'receipt':       Receipt,
-  'tag':           Tag,
-  'shirt':         Shirt,
-  'book':          BookOpen,
-  'music':         Music,
-  'wifi':          Wifi,
-  'coffee':        Coffee,
-  'baby':          Baby,
-  'paw':           PawPrint,
-  'wrench':        Wrench,
-  'gift':          Gift,
-  'zap':           Zap,
-};
-
-/** Opções para o seletor de ícones — label amigável + chave. */
-export const ICON_OPTIONS: { key: string; label: string }[] = [
-  { key: 'tag',           label: 'Genérico' },
-  { key: 'shopping-cart', label: 'Compras' },
-  { key: 'utensils',      label: 'Alimentação' },
-  { key: 'car',           label: 'Transporte' },
-  { key: 'home',          label: 'Casa' },
-  { key: 'heart-pulse',   label: 'Saúde' },
-  { key: 'gamepad',       label: 'Lazer' },
-  { key: 'plane',         label: 'Viagem' },
-  { key: 'dumbbell',      label: 'Academia' },
-  { key: 'receipt',       label: 'Contas' },
-  { key: 'shirt',         label: 'Vestuário' },
-  { key: 'book',          label: 'Educação' },
-  { key: 'music',         label: 'Música' },
-  { key: 'wifi',          label: 'Internet' },
-  { key: 'coffee',        label: 'Café' },
-  { key: 'baby',          label: 'Filhos' },
-  { key: 'paw',           label: 'Pets' },
-  { key: 'wrench',        label: 'Serviços' },
-  { key: 'gift',          label: 'Presente' },
-  { key: 'zap',           label: 'Energia' },
-];
+/** Lista plana para compatibilidade com código legado (`ICON_OPTIONS`). */
+export const ICON_OPTIONS = getFlatIconOptions();
 
 interface CategoryIconProps {
   icon?: string | null;
@@ -85,10 +30,11 @@ interface CategoryIconProps {
 }
 
 /**
- * Renderiza o ícone de uma categoria.
- * Usa fallback `Tag` quando o ícone não existe ou é nulo.
+ * Renderiza o ícone de uma categoria ou subcategoria.
+ * Usa fallback `Tag` quando a chave não existe após aliases.
  */
 export default function CategoryIcon({ icon, size = 14, color, className }: CategoryIconProps) {
-  const IconComponent = (icon && CATEGORY_ICONS[icon]) ? CATEGORY_ICONS[icon] : Tag;
+  const key = resolveIconKey(icon);
+  const IconComponent = CATEGORY_ICONS[key] ?? Tag;
   return <IconComponent size={size} color={color} className={className} />;
 }

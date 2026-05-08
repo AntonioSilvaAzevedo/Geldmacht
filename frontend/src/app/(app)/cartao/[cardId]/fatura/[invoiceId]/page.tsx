@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { ChevronDown, ChevronLeft, ChevronRight, TrendingUp, Layers, Lock } from 'lucide-react';
 import EditableDescription from '@/components/EditableDescription';
 import CategoryIcon from '@/components/CategoryIcon';
+import { CategoryChoiceSelect } from '@/components/category-choice-select';
 import CategoryBudgetProgress from '@/components/CategoryBudgetProgress';
 import Header from '@/components/Layout/Header';
 import ErrorState from '@/components/ErrorState';
@@ -101,6 +102,16 @@ export default function InvoiceDetailPage({ params }: PageProps) {
     return m;
   }, [categories]);
 
+  const recategorizeOptions = useMemo(() => {
+    return categories
+      .map(c => {
+        const parent = c.parent_id != null ? categoriesById.get(c.parent_id) : null;
+        const label = parent ? `${parent.name} / ${c.name}` : c.name;
+        return { id: c.id, label, icon: c.icon ?? null };
+      })
+      .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'));
+  }, [categories, categoriesById]);
+
   function categoryLabel(cat: Category | null | undefined, fallback: string): string {
     if (!cat) return fallback;
     if (cat.parent_id != null) {
@@ -108,6 +119,20 @@ export default function InvoiceDetailPage({ params }: PageProps) {
       return parent ? `${parent.name} / ${cat.name}` : cat.name;
     }
     return cat.name;
+  }
+
+  function resolveTxCategoryLabel(tx: Transaction, catObj: Category | null): string {
+    if (tx.category_display_label) return tx.category_display_label;
+    return categoryLabel(catObj, tx.category_name || tx.category || 'Sem categoria');
+  }
+
+  function resolveTxBudgetLimit(tx: Transaction, catObj: Category | null): number | null {
+    if (tx.category_invoice_budget_limit != null) return tx.category_invoice_budget_limit;
+    return catObj?.invoice_budget_limit ?? null;
+  }
+
+  function resolveTxCategoryIcon(tx: Transaction, catObj: Category | null): string | null {
+    return catObj?.icon ?? tx.category_icon ?? null;
   }
 
   // ── Category groups ──────────────────────────────────────────────────────────
@@ -123,14 +148,14 @@ export default function InvoiceDetailPage({ params }: PageProps) {
       .filter(tx => !isSystemicTx(tx))
       .forEach(tx => {
         const catObj = tx.category_id != null ? categoriesById.get(tx.category_id) ?? null : null;
-        const label = categoryLabel(catObj, tx.category_name || tx.category || 'Sem categoria');
+        const label = resolveTxCategoryLabel(tx, catObj);
         const key = tx.category_id != null ? `category-${tx.category_id}` : 'uncategorized';
         const current = grouped.get(key) ?? {
           key,
           label,
-          icon: catObj?.icon ?? null,
+          icon: resolveTxCategoryIcon(tx, catObj),
           total: 0,
-          budgetLimit: catObj?.invoice_budget_limit ?? null,
+          budgetLimit: resolveTxBudgetLimit(tx, catObj),
           transactions: [],
         };
         current.total += Math.abs(tx.amount);
@@ -229,14 +254,7 @@ export default function InvoiceDetailPage({ params }: PageProps) {
         category_id: categoryId ?? 0,
       });
       setTransactions(prev => prev.map(tx =>
-        tx.id === txId
-          ? {
-              ...tx,
-              category_id: updated.category_id,
-              category: updated.category,
-              category_name: updated.category_name,
-            }
-          : tx
+        tx.id === txId ? { ...tx, ...updated } : tx,
       ));
       setRecatEdit(null);
     } finally {
@@ -702,7 +720,9 @@ export default function InvoiceDetailPage({ params }: PageProps) {
 
                 {openGroups.has(group.key) && (
                   <div style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                    {group.transactions.map(tx => (
+                    {group.transactions.map(tx => {
+                      const rowCat = tx.category_id != null ? categoriesById.get(tx.category_id) ?? null : null;
+                      return (
                       <div key={tx.id} style={{
                         padding: '10px 16px',
                         borderBottom: '1px solid var(--border-subtle)',
@@ -764,33 +784,16 @@ export default function InvoiceDetailPage({ params }: PageProps) {
                             </span>
                           </div>
                         ) : recatEdit === tx.id ? (
-                          <div style={{ marginTop: 8, display: 'flex', gap: 8, alignItems: 'center' }}>
-                            <select
-                              autoFocus
-                              defaultValue={tx.category_id ?? ''}
+                          <div style={{ marginTop: 8, display: 'flex', gap: 8, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                            <CategoryChoiceSelect
+                              value={tx.category_id ?? null}
+                              options={recategorizeOptions}
                               disabled={recatSaving}
-                              onChange={async e => {
-                                const val = e.target.value;
-                                await handleCategorySave(tx.id, val ? Number(val) : null);
+                              onChange={async id => {
+                                await handleCategorySave(tx.id, id);
                               }}
-                              style={{
-                                padding: '4px 8px',
-                                borderRadius: 6,
-                                border: '1px solid var(--border-default)',
-                                background: 'var(--surface-panel)',
-                                color: 'var(--text-primary)',
-                                fontSize: 12,
-                                cursor: 'pointer',
-                                outline: 'none',
-                              }}
-                            >
-                              <option value="">Sem categoria</option>
-                              {categories.map(cat => (
-                                <option key={cat.id} value={cat.id}>
-                                  {categoryLabel(cat, cat.name)}
-                                </option>
-                              ))}
-                            </select>
+                              maxWidth={280}
+                            />
                             <button
                               onClick={() => setRecatEdit(null)}
                               style={{
@@ -806,11 +809,11 @@ export default function InvoiceDetailPage({ params }: PageProps) {
                             {tx.category_name || tx.category ? (
                               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--text-muted)' }}>
                                 <CategoryIcon
-                                  icon={categories.find(c => c.id === tx.category_id)?.icon}
+                                  icon={resolveTxCategoryIcon(tx, rowCat)}
                                   size={11}
                                   color="var(--text-muted)"
                                 />
-                                {tx.category_name ?? tx.category}
+                                {resolveTxCategoryLabel(tx, rowCat)}
                               </span>
                             ) : (
                               <span style={{ fontSize: 11, color: 'var(--text-muted)', opacity: 0.6 }}>
@@ -832,7 +835,8 @@ export default function InvoiceDetailPage({ params }: PageProps) {
                           </div>
                         )}
                       </div>
-                    ))}
+                    );
+                    })}
                   </div>
                 )}
               </div>

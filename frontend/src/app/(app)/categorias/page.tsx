@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { Plus, Trash2, Pencil, X, ChevronRight, Search, Tags, AlertTriangle, RefreshCw } from 'lucide-react';
 import Header from '@/components/Layout/Header';
 import LoadingSpinner from '@/components/LoadingSpinner';
-import CategoryIcon, { ICON_OPTIONS } from '@/components/CategoryIcon';
+import CategoryIcon from '@/components/CategoryIcon';
+import { CategoryIconSelect } from '@/components/category-icon-select';
 import { api, type Category, type CreditCardConfig } from '@/lib/api';
 import { formatCurrency } from '@/lib/formatters';
 
@@ -615,7 +616,7 @@ function CategoryModal({
 
         <label style={labelStyle}>
           Ícone
-          <IconSelect value={form.icon} onChange={icon => setForm({ ...form, icon })} />
+          <CategoryIconSelect value={form.icon} onChange={icon => setForm({ ...form, icon })} disabled={saving} />
         </label>
 
         <label style={labelStyle}>
@@ -712,28 +713,6 @@ function SummaryCard({ label, value }: { label: string; value: string }) {
       <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', marginTop: 3 }}>
         {value}
       </div>
-    </div>
-  );
-}
-
-function IconSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  return (
-    <div style={{ position: 'relative' }}>
-      <select
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        style={{ ...inputStyle, paddingLeft: 36, appearance: 'none', cursor: 'pointer', width: '100%' }}
-      >
-        {ICON_OPTIONS.map(opt => (
-          <option key={opt.key} value={opt.key}>{opt.label}</option>
-        ))}
-      </select>
-      <span style={{
-        position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)',
-        pointerEvents: 'none',
-      }}>
-        <CategoryIcon icon={value} size={14} color="var(--blue-400)" />
-      </span>
     </div>
   );
 }

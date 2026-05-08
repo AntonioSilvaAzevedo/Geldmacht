@@ -60,7 +60,10 @@ frontend/
 │   │   │   └── UploadPreview.tsx         # Preview de transações antes de importar
 │   │   ├── Cards/
 │   │   │   └── CreditCardForm.tsx        # Form de criar/editar cartão
-│   │   ├── CategoryIcon.tsx              # Ícone de categoria (CATEGORY_ICONS map + ICON_OPTIONS)
+│   │   ├── CategoryIcon.tsx              # Renderização iconKey → Lucide (+ re-exports do catálogo)
+│   │   ├── category-icons-catalog.ts     # CATEGORY_ICONS, grupos, aliases, labels
+│   │   ├── category-icon-select.tsx      # CategoryIconSelect — escolher ícone no modal /categorias
+│   │   ├── category-choice-select.tsx    # CategoryChoiceSelect — escolher categoria com ícones (upload, fatura)
 │   │   ├── EditableDescription.tsx       # Edição inline de descrição (hover → lápis → input)
 │   │   ├── EmptyState.tsx                # Tela quando não há dados no banco
 │   │   ├── ErrorState.tsx                # Tela de erro de API
@@ -509,21 +512,35 @@ Mostra: gasto/limite, % usado, mensagem de status (ex: "Atenção · R$ 280,00 d
 
 Não bloqueia lançamentos. Não altera `invoice.total_amount` nem nenhuma transaction.
 
-### Componente `CategoryIcon`
-`src/components/CategoryIcon.tsx`
+### Ícones de categoria (catálogo, seleção, escolha de categoria)
+
+**Armazenamento:** apenas a **chave** string no campo `Category.icon` (API / banco) — nunca JSX ou SVG. Categoria principal e subcategoria têm `icon` independentes; nada herda o ícone do pai ao salvar.
+
+**Catálogo e mapa seguro:** `src/components/category-icons-catalog.ts`
+- `CATEGORY_ICONS` — `iconKey` → componente Lucide (import estático).
+- `resolveIconKey()` — normaliza entrada; aplica `ICON_KEY_ALIASES` para chaves antigas ou sinônimos (ex.: `food` → `utensils`); chave desconhecida cai no fallback.
+- `ICON_LABELS` — rótulos para busca e tooltips.
+- `CATEGORY_ICON_GROUPS` — grupos temáticos (uso comum, alimentação, transporte, etc.).
+- `getFlatIconOptions()` / export **`ICON_OPTIONS`** — lista plana para compatibilidade.
+
+**Renderização:** `src/components/CategoryIcon.tsx` — `<CategoryIcon icon={category.icon} />`; fallback **Tag** se null ou desconhecido após aliases.
+
+**Seleção de ícone (criar/editar categoria ou subcategoria):** `src/components/category-icon-select.tsx` — **`CategoryIconSelect`**: busca, grupos, grid com área mínima ~44px (touch), scroll vertical, sem scroll horizontal; usado no modal de `/categorias`.
+
+**Escolha de categoria em transação (pré-import e fatura):** `src/components/category-choice-select.tsx` — **`CategoryChoiceSelect`**: lista com ícone por linha (ícone da própria categoria/subcategoria, não do pai); filtro de busca quando há muitas opções; z-index alto para não ficar atrás de overlay.
+
+### Componente `CategoryIcon` (resumo)
 ```tsx
 <CategoryIcon icon={category.icon} size={16} color="var(--blue-400)" />
 ```
-- Mapa seguro `iconKey → LucideComponent` em `CATEGORY_ICONS`
-- Fallback `Tag` quando `icon` é null/desconhecido
-- `ICON_OPTIONS` — lista de opções para o seletor (key + label amigável)
-- Nunca renderiza componente dinamicamente a partir de string arbitrária
+- Nunca renderiza ícone a partir de string dinâmica sem passar pelo mapa + `resolveIconKey`.
 
 ### Agrupamento no detalhe da fatura
 ```
 CategoryGroup { key, label, icon, total, transactions[] }
 ↑ gerado via useMemo() filtrando tx.amount < 0
-↑ icon buscado de categories[] pelo category_id
+↑ label: prioriza tx.category_display_label (backend); senão monta hierarquia com listCategories + parent_id
+↑ icon / budgetLimit: priorizam category_icon e category_invoice_budget_limit na transação; fallback em categories[]
 ↑ ordenado por total decrescente
 ↑ "Sem categoria" (key='uncategorized') para transações sem category_id
 ```
@@ -531,14 +548,15 @@ CategoryGroup { key, label, icon, total, transactions[] }
 ### Recategorização de lançamentos na fatura
 Na tela `/cartao/[cardId]/fatura/[invoiceId]`, cada lançamento exibe:
 - categoria atual (ícone + nome) ou "Sem categoria"
-- botão "alterar" → abre select inline com todas as categorias do usuário + opção "Sem categoria"
+- botão "alterar" → `CategoryChoiceSelect` com ícone por categoria/subcategoria + "Sem categoria"
 - `onChange` aciona `PATCH /api/transactions/{id}` com `{ category_id: N }` ou `{ category_id: 0 }` para remover
 - Após salvar: atualiza `transactions` local; `groups` é recalculado automaticamente via `useMemo`
 - Em caso de erro: estado não é alterado (mantém valor anterior)
 
 ### Regras
 - Só transações com `amount < 0` (gastos) entram nos grupos de categoria
-- `category_name` via JOIN é o campo a usar para exibição (não `category` denormalizado)
+- `category_name` via JOIN é o campo a usar para exibição (não `category` denormalizado) quando não houver `category_display_label`
+- Quando o backend envia `category_display_label`, `category_invoice_budget_limit` ou `category_icon` no `TransactionOut`, a fatura usa esses valores antes do mapa local de categorias — garante hierarquia e limite mesmo com divergências na listagem `GET /api/categories`
 - `category_id = 0` na API remove a categoria da transaction
 - Categorias sem ícone exibem fallback `Tag`
 

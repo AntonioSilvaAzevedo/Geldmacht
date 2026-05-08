@@ -56,6 +56,12 @@ export interface Transaction {
   billing_month: string | null;     // legado
   source_file: string | null;
   imported_at: string;
+  /** Preenchido pelo backend (GET fatura / transações) quando category_ref + parent estão carregados. */
+  category_display_label?: string | null;
+  category_icon?: string | null;
+  category_parent_id?: number | null;
+  category_parent_name?: string | null;
+  category_invoice_budget_limit?: number | null;
 }
 
 export type Transactions = Transaction[];

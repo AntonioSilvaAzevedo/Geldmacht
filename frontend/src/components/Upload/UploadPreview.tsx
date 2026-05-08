@@ -19,6 +19,7 @@ import {
   Search, Filter, Loader2, CheckCircle2,
 } from 'lucide-react';
 import EditableDescription from '@/components/EditableDescription';
+import { CategoryChoiceSelect } from '@/components/category-choice-select';
 import {
   type UploadResponse,
   type PreviewTransaction,
@@ -287,7 +288,7 @@ export default function UploadPreview({ result, card, cards = [], categories = [
       .map(c => {
         const parent = c.parent_id != null ? byId.get(c.parent_id) : null;
         const label = parent ? `${parent.name} / ${c.name}` : c.name;
-        return { id: c.id, label, isSub: !!parent };
+        return { id: c.id, label, icon: c.icon ?? null, isSub: !!parent };
       })
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [categories, selectedCard]);
@@ -827,24 +828,12 @@ export default function UploadPreview({ result, card, cards = [], categories = [
                       {systemicLabel} · Bloqueado
                     </span>
                   ) : (
-                    <select
-                      value={categoryIds[i] ?? ''}
-                      onChange={e => setCategoryIds(prev => ({ ...prev, [i]: e.target.value ? Number(e.target.value) : null }))}
-                      style={{
-                        padding: '8px 10px',
-                        borderRadius: 7,
-                        border: '1px solid var(--border-default)',
-                        background: 'var(--surface-panel)',
-                        color: categoryIds[i] ? 'var(--text-primary)' : 'var(--text-muted)',
-                        fontSize: 13,
-                        width: '100%',
-                      }}
-                    >
-                      <option value="">Sem categoria</option>
-                      {categoryOptions.map(opt => (
-                        <option key={opt.id} value={opt.id}>{opt.label}</option>
-                      ))}
-                    </select>
+                    <CategoryChoiceSelect
+                      value={categoryIds[i] ?? null}
+                      options={categoryOptions}
+                      onChange={id => setCategoryIds(prev => ({ ...prev, [i]: id }))}
+                      maxWidth="100%"
+                    />
                   )}
                 </div>
               </div>
@@ -996,26 +985,12 @@ export default function UploadPreview({ result, card, cards = [], categories = [
                         );
                       }
                       return (
-                        <select
-                          value={categoryIds[i] ?? ''}
-                          onChange={e => setCategoryIds(prev => ({ ...prev, [i]: e.target.value ? Number(e.target.value) : null }))}
-                          style={{
-                            padding: '4px 8px',
-                            borderRadius: 6,
-                            border: '1px solid var(--border-default)',
-                            background: 'var(--surface-card)',
-                            color: categoryIds[i] ? 'var(--text-primary)' : 'var(--text-muted)',
-                            fontSize: 12,
-                            cursor: 'pointer',
-                            outline: 'none',
-                            maxWidth: 150,
-                          }}
-                        >
-                          <option value="">Sem categoria</option>
-                          {categoryOptions.map(opt => (
-                            <option key={opt.id} value={opt.id}>{opt.label}</option>
-                          ))}
-                        </select>
+                        <CategoryChoiceSelect
+                          value={categoryIds[i] ?? null}
+                          options={categoryOptions}
+                          onChange={id => setCategoryIds(prev => ({ ...prev, [i]: id }))}
+                          maxWidth={200}
+                        />
                       );
                     })()}
                   </td>
