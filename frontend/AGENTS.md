@@ -1284,6 +1284,7 @@ interface Transaction {
 | **Produção** | `https://geldmacht.com` | `https://geldmacht-api-production.up.railway.app` |
 
 - Frontend: **Vercel** — deploy automático no push para `main` (Root Directory: `frontend`)
+- **Railway (frontend a partir deste monorepo):** na **raiz** do repo existe um `Dockerfile` que monta a imagem a partir de `frontend/` (`npm ci`, `npm run build`, `npm start`). Assim o Railpack/Railway detectam o build sem precisar definir *Root Directory* como `frontend`. Definir `NEXT_PUBLIC_API_URL` e demais `NEXT_PUBLIC_*` como variáveis de **build** no serviço.
 - Backend: **Railway** — deploy automático no push para `main` do repo `geldmacht-api`
 - Banco: **Supabase** PostgreSQL (região `us-east-2`)
 

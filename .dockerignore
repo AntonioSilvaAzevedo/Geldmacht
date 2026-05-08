@@ -1,0 +1,11 @@
+# Contexto de build = raiz do repositório; reduz payload e acelera o deploy.
+.git
+.github
+**/.DS_Store
+**/*.log
+**/node_modules
+**/.next
+**/.vercel
+docs-geldmacht
+frontend/.env.local
+frontend/.env*.local
