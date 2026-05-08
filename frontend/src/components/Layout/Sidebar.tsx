@@ -179,38 +179,26 @@ export default function Sidebar() {
         })}
       </nav>
 
-      {/* Footer */}
+      {/* Footer — apenas versão do sistema (sem dados pessoais) */}
       <div
         style={{
           padding: '14px 20px',
           borderTop: '1px solid var(--border-subtle)',
-          fontSize: 11,
-          color: 'var(--text-muted)',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 8,
+          justifyContent: 'flex-end',
         }}
       >
-        <div style={{ minWidth: 0 }}>
-          <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            Antonio Carlos
-          </div>
-          <div style={{ marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            antonie.dev@gmail.com
-          </div>
-        </div>
         <span
           title={`Geldmacht v${config.appVersion}`}
           style={{
             fontFamily: 'var(--font-mono)',
             fontSize: 10,
-            padding: '2px 7px',
+            padding: '3px 8px',
             borderRadius: 5,
             background: 'rgba(255,255,255,0.05)',
             color: 'var(--text-muted)',
             border: '1px solid var(--border-subtle)',
-            flexShrink: 0,
           }}
         >
           v{config.appVersion}

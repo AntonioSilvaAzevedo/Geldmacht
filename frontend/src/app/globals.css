@@ -129,10 +129,19 @@ body {
 .recharts-cartesian-grid-vertical line { stroke: var(--border-subtle) !important; }
 
 /* ─── Mobile responsiveness ─── */
+/* Breakpoints:
+ *   mobile  : até 768px        (sidebar oculta por padrão)
+ *   tablet  : 769–1024px
+ *   desktop : > 1024px
+ */
 .sidebar-desktop { display: block; }
+.is-mobile-only  { display: none !important; }
 
 @media (max-width: 768px) {
   .sidebar-desktop { display: none; }
+  /* Em mobile, alterna: oculta itens desktop, mostra itens mobile com inline-flex (combina com botões/ícones). */
+  .is-mobile-only  { display: inline-flex !important; }
+  .is-desktop-only { display: none !important; }
 
   /* Stack KPI grids to 2 columns on mobile */
   .kpi-grid { grid-template-columns: repeat(2, 1fr) !important; }
@@ -141,5 +150,25 @@ body {
   /* Tighten padding */
   main { padding: 12px !important; }
 
-  /* Table horizontal scroll already works via overflow-x: auto */
+  /* Inputs/selects ficam mais altos para toque confortável (>=44px alvo). */
+  input[type="text"],
+  input[type="number"],
+  input[type="date"],
+  input[type="month"],
+  input[type="email"],
+  input[type="password"],
+  select,
+  textarea {
+    font-size: 16px !important;       /* evita zoom-on-focus do Safari iOS */
+    min-height: 40px;
+  }
+
+  /* Botões com toque confortável. */
+  button { min-height: 38px; }
+
+  /* Sem scroll horizontal global no mobile. */
+  html, body { overflow-x: hidden; }
+
+  /* Padding-bottom para conteúdo não ficar escondido atrás da action bar sticky. */
+  .has-mobile-actionbar { padding-bottom: 80px; }
 }

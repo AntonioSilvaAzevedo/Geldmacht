@@ -7,13 +7,13 @@ import {
 } from 'recharts';
 import {
   TrendingUp, TrendingDown, Wallet, PiggyBank,
-  ArrowUpRight, Activity,
+  ArrowUpRight,
 } from 'lucide-react';
 import Link from 'next/link';
 import Header from '@/components/Layout/Header';
 import ErrorState from '@/components/ErrorState';
 import EmptyState from '@/components/EmptyState';
-import ReleaseNotesGate from '@/components/ReleaseNotesGate';
+import WelcomeFlowGate from '@/components/WelcomeFlowGate';
 import { useFinancialData } from '@/hooks/useFinancialData';
 import { formatCurrency, classifyValue } from '@/lib/formatters';
 import type { MonthlyData } from '@/types/financial';
@@ -157,19 +157,46 @@ export default function DashboardPage() {
   const { data, loading, error } = useFinancialData('monthly');
 
   const months = data ? Object.keys(data) : [];
+  const monthCount = months.length || 1; // evita divisão por zero ao calcular médias
   const totalEntradas = data ? months.reduce((s, k) => s + data[k].totalEntradas, 0) : 0;
   const totalGastos   = data ? months.reduce((s, k) => s + data[k].totalGastos, 0) : 0;
   const totalInvest   = data ? months.reduce((s, k) => s + data[k].totalInvestimentos, 0) : 0;
   const saldoLiquido  = data ? months.reduce((s, k) => s + data[k].saldoLiquido, 0) : 0;
   const chartData = data ? buildChartData(data) : [];
 
+  // Range dinâmico: usa o primeiro e último mês carregados (ex: "Janeiro — Abril 2026")
+  const rangeLabel = (() => {
+    if (!data || months.length === 0) return undefined;
+    const first = data[months[0]];
+    const last = data[months[months.length - 1]];
+    if (!first || !last) return undefined;
+    if (months.length === 1) return `${first.month} ${first.year}`;
+    if (first.year === last.year) return `${first.month} — ${last.month} ${last.year}`;
+    return `${first.month}/${first.year} — ${last.month}/${last.year}`;
+  })();
+
+  // Melhor e pior mês calculados a partir dos dados reais (saldo líquido).
+  const { bestMonth, worstMonth } = (() => {
+    if (!data || months.length === 0) return { bestMonth: null, worstMonth: null };
+    let best = months[0];
+    let worst = months[0];
+    months.forEach(k => {
+      if (data[k].saldoLiquido > data[best].saldoLiquido) best = k;
+      if (data[k].saldoLiquido < data[worst].saldoLiquido) worst = k;
+    });
+    return {
+      bestMonth: { key: best, ...data[best] },
+      worstMonth: { key: worst, ...data[worst] },
+    };
+  })();
+
   if (error)              return <ErrorState message={error.message} />;
   if (!loading && !data)  return <EmptyState actionHref="/upload" actionLabel="Importar extrato" />;
 
   return (
     <>
-      <ReleaseNotesGate />
-      <Header title="Dashboard Anual" subtitle="Janeiro — Abril 2026" />
+      <WelcomeFlowGate />
+      <Header title="Dashboard Anual" subtitle={rangeLabel} />
 
       <main style={{ padding: '24px', flex: 1 }}>
 
@@ -186,7 +213,7 @@ export default function DashboardPage() {
                 color="var(--green-400)"
                 accent="#48bb78"
                 delay={1}
-                subtitle={`Média ${formatCurrency(totalEntradas / 4)}/mês`}
+                subtitle={`Média ${formatCurrency(totalEntradas / monthCount)}/mês`}
               />
               <StatCard
                 label="Total Gastos"
@@ -195,7 +222,7 @@ export default function DashboardPage() {
                 color="var(--red-400)"
                 accent="#fc8181"
                 delay={2}
-                subtitle={`Média ${formatCurrency(totalGastos / 4)}/mês`}
+                subtitle={`Média ${formatCurrency(totalGastos / monthCount)}/mês`}
               />
               <StatCard
                 label="Total Investido"
@@ -204,7 +231,7 @@ export default function DashboardPage() {
                 color="var(--blue-400)"
                 accent="#63b3ed"
                 delay={3}
-                subtitle={`Média ${formatCurrency(totalInvest / 4)}/mês`}
+                subtitle={`Média ${formatCurrency(totalInvest / monthCount)}/mês`}
               />
               <StatCard
                 label="Saldo Líquido"
@@ -213,7 +240,7 @@ export default function DashboardPage() {
                 color={saldoLiquido >= 0 ? 'var(--green-400)' : 'var(--red-400)'}
                 accent={saldoLiquido >= 0 ? '#48bb78' : '#fc8181'}
                 delay={4}
-                subtitle="Jan–Abr acumulado"
+                subtitle={rangeLabel ? `${rangeLabel} · acumulado` : 'Acumulado'}
               />
             </>
           )}
@@ -234,7 +261,9 @@ export default function DashboardPage() {
                   <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
                     Entradas vs Gastos vs Investimentos
                   </div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>Por mês — 2026</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                    {rangeLabel ? `Por mês · ${rangeLabel}` : 'Por mês'}
+                  </div>
                 </div>
                 <ResponsiveContainer width="100%" height={230}>
                   <BarChart data={chartData} barCategoryGap="28%" barGap={3}>
@@ -301,11 +330,12 @@ export default function DashboardPage() {
               }}>
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Resumo Mensal</div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1 }}>Consolidado Jan–Abr 2026</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1 }}>
+                    {rangeLabel ? `Consolidado · ${rangeLabel}` : 'Consolidado'}
+                  </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <Activity size={14} color="var(--text-muted)" />
-                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Dados mockados</span>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                  {months.length} {months.length === 1 ? 'mês' : 'meses'}
                 </div>
               </div>
 
@@ -395,10 +425,30 @@ export default function DashboardPage() {
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 0, borderTop: '1px solid var(--border-subtle)' }}>
                 {[
-                  { label: 'Taxa de Poupança', value: `${((totalInvest / totalEntradas) * 100).toFixed(1)}%`, color: 'var(--blue-400)' },
-                  { label: 'Gasto/Entrada',    value: `${((totalGastos / totalEntradas) * 100).toFixed(1)}%`, color: 'var(--amber-400)' },
-                  { label: 'Melhor Mês',        value: 'Abril (+R$ 4.530)', color: 'var(--green-400)' },
-                  { label: 'Pior Mês',          value: 'Março (-R$ 5.651)', color: 'var(--red-400)' },
+                  {
+                    label: 'Taxa de Poupança',
+                    value: totalEntradas > 0 ? `${((totalInvest / totalEntradas) * 100).toFixed(1)}%` : '—',
+                    color: 'var(--blue-400)',
+                  },
+                  {
+                    label: 'Gasto/Entrada',
+                    value: totalEntradas > 0 ? `${((totalGastos / totalEntradas) * 100).toFixed(1)}%` : '—',
+                    color: 'var(--amber-400)',
+                  },
+                  {
+                    label: 'Melhor Mês',
+                    value: bestMonth
+                      ? `${bestMonth.month} (${bestMonth.saldoLiquido >= 0 ? '+' : ''}${formatCurrency(bestMonth.saldoLiquido)})`
+                      : '—',
+                    color: 'var(--green-400)',
+                  },
+                  {
+                    label: 'Pior Mês',
+                    value: worstMonth
+                      ? `${worstMonth.month} (${worstMonth.saldoLiquido >= 0 ? '+' : ''}${formatCurrency(worstMonth.saldoLiquido)})`
+                      : '—',
+                    color: 'var(--red-400)',
+                  },
                 ].map((s, i) => (
                   <div key={i} style={{
                     padding: '14px 20px',

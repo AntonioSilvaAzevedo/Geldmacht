@@ -1,9 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, Trash2, Pencil, X, ChevronRight, Search, Tags } from 'lucide-react';
+import { Plus, Trash2, Pencil, X, ChevronRight, Search, Tags, AlertTriangle, RefreshCw } from 'lucide-react';
 import Header from '@/components/Layout/Header';
-import ErrorState from '@/components/ErrorState';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import CategoryIcon, { ICON_OPTIONS } from '@/components/CategoryIcon';
 import { api, type Category, type CreditCardConfig } from '@/lib/api';
@@ -69,16 +68,21 @@ export default function CategoriesPage() {
 
   // ── Derivados ─────────────────────────────────────────────────────────────
 
+  // ── Filtros defensivos ─────────────────────────────────────────────────────
+  // Importante: usar `== null` (loose) em vez de `=== null` para tratar `null` e
+  // `undefined` da mesma forma. Em produção, a API pode omitir o campo quando
+  // ele é null (FastAPI/Pydantic em algumas configurações), e o filtro estrito
+  // descartava todas as categorias mesmo o total estando correto.
   const parents = useMemo(
-    () => categories.filter(c => c.parent_id === null),
+    () => categories.filter(c => c.parent_id == null),
     [categories],
   );
   const subsByParent = useMemo(() => {
     const map = new Map<number, Category[]>();
-    categories.filter(c => c.parent_id !== null).forEach(c => {
-      const list = map.get(c.parent_id!) ?? [];
+    categories.filter(c => c.parent_id != null).forEach(c => {
+      const list = map.get(c.parent_id as number) ?? [];
       list.push(c);
-      map.set(c.parent_id!, list);
+      map.set(c.parent_id as number, list);
     });
     return map;
   }, [categories]);
@@ -88,7 +92,7 @@ export default function CategoriesPage() {
     return parents.filter(cat => {
       // Filtro por cartão: "all" mostra todas; cardId N mostra globais + do cartão N
       if (filterCardId !== 'all') {
-        if (cat.card_id !== null && cat.card_id !== filterCardId) return false;
+        if (cat.card_id != null && cat.card_id !== filterCardId) return false;
       }
       if (!q) return true;
       const hit = cat.name.toLowerCase().includes(q);
@@ -99,7 +103,7 @@ export default function CategoriesPage() {
 
   const summary = useMemo(() => {
     const withLimit = categories.filter(c => c.invoice_budget_limit != null).length;
-    const globals = parents.filter(c => c.card_id === null).length;
+    const globals = parents.filter(c => c.card_id == null).length;
     return {
       total: categories.length,
       withLimit,
@@ -107,6 +111,12 @@ export default function CategoriesPage() {
       globals,
     };
   }, [categories, parents]);
+
+  const filtersActive = filterCardId !== 'all' || search.trim() !== '';
+  function clearFilters() {
+    setFilterCardId('all');
+    setSearch('');
+  }
 
   // ── Modal handlers ────────────────────────────────────────────────────────
 
@@ -212,14 +222,47 @@ export default function CategoriesPage() {
   if (loading) {
     return (
       <>
-        <Header title="Categorias" subtitle="Carregando..." />
-        <main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Header title="Categorias" subtitle="Carregando suas categorias..." />
+        <main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12 }}>
           <LoadingSpinner />
+          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Carregando categorias...</div>
         </main>
       </>
     );
   }
-  if (error) return <ErrorState message={error} />;
+  if (error) {
+    return (
+      <>
+        <Header title="Categorias" subtitle="Erro ao carregar" />
+        <main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <div style={{
+            width: '100%', maxWidth: 480, textAlign: 'center',
+            background: 'var(--surface-card)', border: '1px solid var(--border-subtle)',
+            borderRadius: 14, padding: '32px 28px', display: 'grid', gap: 12, justifyItems: 'center',
+          }}>
+            <span style={{
+              width: 44, height: 44, borderRadius: 10,
+              background: 'rgba(245,101,101,0.10)', border: '1px solid rgba(245,101,101,0.25)',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <AlertTriangle size={20} color="var(--red-400)" />
+            </span>
+            <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>
+              Não foi possível carregar suas categorias
+            </h2>
+            <p style={{ margin: 0, fontSize: 12.5, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+              {error}
+            </p>
+            <button onClick={() => void load()} style={{
+              ...primaryButtonStyle, marginTop: 4,
+            }}>
+              <RefreshCw size={14} /> Tentar novamente
+            </button>
+          </div>
+        </main>
+      </>
+    );
+  }
 
   const cardName = (id: number | null) => {
     if (id === null) return 'Todos os cartões';
@@ -296,13 +339,39 @@ export default function CategoriesPage() {
             padding: 32,
             textAlign: 'center',
             color: 'var(--text-muted)',
+            display: 'grid', gap: 10, justifyItems: 'center',
           }}>
-            <Tags size={26} style={{ opacity: 0.5, marginBottom: 8 }} />
-            <div style={{ fontSize: 13 }}>
-              {categories.length === 0
-                ? 'Nenhuma categoria criada ainda.'
-                : 'Nenhuma categoria com os filtros aplicados.'}
-            </div>
+            {categories.length === 0 ? (
+              <>
+                <Tags size={26} style={{ opacity: 0.5 }} />
+                <div style={{ fontSize: 13 }}>Nenhuma categoria criada ainda.</div>
+                <button onClick={openCreateParent} style={primaryButtonStyle}>
+                  <Plus size={14} /> Criar primeira categoria
+                </button>
+              </>
+            ) : filtersActive ? (
+              <>
+                <Search size={22} style={{ opacity: 0.5 }} />
+                <div style={{ fontSize: 13 }}>Nenhuma categoria encontrada com os filtros atuais.</div>
+                <button onClick={clearFilters} style={{ ...ghostButtonStyle, fontSize: 12.5 }}>
+                  Limpar filtros
+                </button>
+              </>
+            ) : (
+              <>
+                <AlertTriangle size={22} color="var(--amber-400)" />
+                <div style={{ fontSize: 13 }}>
+                  Você tem <strong>{categories.length}</strong> categoria{categories.length === 1 ? '' : 's'} cadastrada{categories.length === 1 ? '' : 's'},
+                  mas nenhuma categoria principal foi encontrada para listar.
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', maxWidth: 360 }}>
+                  Isso pode indicar um problema de dados. Tente recarregar; se persistir, contate o suporte.
+                </div>
+                <button onClick={() => void load()} style={{ ...ghostButtonStyle, fontSize: 12.5 }}>
+                  <RefreshCw size={12} /> Recarregar
+                </button>
+              </>
+            )}
           </div>
         ) : (
           <div style={{ display: 'grid', gap: 10 }}>
@@ -695,6 +764,7 @@ const primaryButtonStyle: React.CSSProperties = {
 };
 
 const ghostButtonStyle: React.CSSProperties = {
+  display: 'inline-flex', alignItems: 'center', gap: 6,
   padding: '9px 14px', borderRadius: 8,
   border: '1px solid var(--border-default)',
   background: 'transparent', color: 'var(--text-secondary)',

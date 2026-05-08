@@ -30,6 +30,7 @@ import {
   importTransactions,
 } from '@/lib/api';
 import { formatCurrency, formatDate } from '@/lib/formatters';
+import { useIsMobile } from '@/hooks/useIsMobile';
 
 // ── Labels amigáveis por parser ───────────────────────────────────────────────
 const PARSER_LABELS: Record<string, string> = {
@@ -217,6 +218,7 @@ function InvoiceSummaryCards({ summary }: { summary: InvoiceSummary }) {
 }
 
 export default function UploadPreview({ result, card, cards = [], categories = [], uploadType, onBack, onImportDone }: Props) {
+  const isMobile = useIsMobile();
   const router = useRouter();
   const { transactions, parser_used, source_file, summary } = result;
   const isCreditCardType = uploadType === 'credit_card';
@@ -473,10 +475,19 @@ export default function UploadPreview({ result, card, cards = [], categories = [
 
   // ── Render principal ────────────────────────────────────────────────────────
   return (
-    <div style={{ padding: '28px 32px', display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+    <div
+      className={isMobile ? 'has-mobile-actionbar' : undefined}
+      style={{
+        padding: isMobile ? '20px 14px 16px' : '28px 32px',
+        display: 'flex',
+        flexDirection: 'column',
+        height: isMobile ? 'auto' : '100%',
+        minHeight: 0,
+      }}
+    >
 
       {/* Header */}
-      <div style={{ marginBottom: 20, flexShrink: 0 }}>
+      <div style={{ marginBottom: isMobile ? 14 : 20, flexShrink: 0 }}>
         <button
           onClick={onBack}
           style={{
@@ -534,7 +545,11 @@ export default function UploadPreview({ result, card, cards = [], categories = [
           <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>
             Dados da fatura
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '10px 16px' }}>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(180px, 1fr))',
+            gap: '12px 16px',
+          }}>
 
             {/* Cartão — obrigatório */}
             <label style={{ display: 'grid', gap: 4, fontSize: 12 }}>
@@ -694,7 +709,155 @@ export default function UploadPreview({ result, card, cards = [], categories = [
         </div>
       </div>
 
-      {/* Tabela com scroll interno */}
+      {/* Lista de lançamentos — cards no mobile, tabela no desktop */}
+      {isMobile ? (
+        <div style={{ display: 'grid', gap: 8 }}>
+          {filteredIndices.map(i => {
+            const tx = transactions[i];
+            const isSelected = selected.has(i);
+            const isInstallment =
+              tx.installment_current != null &&
+              tx.installment_total != null &&
+              tx.installment_total > 1;
+            const isPayment = !!tx.is_payment;
+            const systemicLabel = isPayment
+              ? 'Pagamento da fatura'
+              : isInstallment
+                ? 'Compra parcelada'
+                : null;
+            return (
+              <div
+                key={i}
+                onClick={() => toggle(i)}
+                style={{
+                  background: isSelected ? 'rgba(49,130,206,0.08)' : 'var(--surface-card)',
+                  border: `1px solid ${isSelected ? 'rgba(49,130,206,0.35)' : 'var(--border-subtle)'}`,
+                  borderRadius: 10,
+                  padding: '12px 12px 10px',
+                  display: 'grid',
+                  gap: 8,
+                  cursor: 'pointer',
+                  opacity: tx.is_internal_transfer && !isSelected ? 0.7 : 1,
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
+                  <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', minWidth: 0, flex: 1 }}>
+                    <span style={{ color: isSelected ? 'var(--blue-400)' : 'var(--text-muted)', flexShrink: 0, marginTop: 2 }}>
+                      {isSelected ? <CheckSquare size={17} /> : <Square size={17} />}
+                    </span>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{
+                        fontFamily: 'var(--font-mono)',
+                        fontSize: 11,
+                        color: 'var(--text-muted)',
+                        marginBottom: 3,
+                      }}>
+                        {formatDate(tx.date)}
+                      </div>
+                      <div onClick={e => e.stopPropagation()}>
+                        <EditableDescription
+                          value={descriptions[i] ?? tx.description}
+                          onSave={val => setDescriptions(prev => ({ ...prev, [i]: val }))}
+                          textStyle={{ fontSize: 13.5, fontWeight: 500, color: 'var(--text-primary)' }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: 14,
+                    fontWeight: 700,
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0,
+                  }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      {tx.amount > 0
+                        ? <TrendingUp size={12} color="var(--green-400)" />
+                        : <TrendingDown size={12} color="var(--red-400)" />
+                      }
+                      <span className={tx.amount >= 0 ? 'value-positive' : 'value-negative'}>
+                        {formatCurrency(tx.amount)}
+                      </span>
+                    </span>
+                  </div>
+                </div>
+
+                {isInstallment && (
+                  <div style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 5,
+                    fontSize: 11,
+                    color: 'var(--blue-400)',
+                  }}>
+                    <span style={{
+                      padding: '2px 7px',
+                      borderRadius: 5,
+                      background: 'rgba(49,130,206,0.12)',
+                      border: '1px solid rgba(49,130,206,0.20)',
+                      fontFamily: 'var(--font-mono)',
+                      fontWeight: 600,
+                    }}>
+                      Parcela {tx.installment_current}/{tx.installment_total}
+                    </span>
+                  </div>
+                )}
+
+                <div onClick={e => e.stopPropagation()} style={{
+                  display: 'grid', gap: 4,
+                  paddingTop: 4,
+                  borderTop: '1px dashed var(--border-subtle)',
+                }}>
+                  <span style={{ fontSize: 10.5, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                    Categoria
+                  </span>
+                  {systemicLabel ? (
+                    <span style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      padding: '6px 10px',
+                      borderRadius: 6,
+                      background: 'rgba(255,255,255,0.04)',
+                      border: '1px dashed var(--border-default)',
+                      color: 'var(--text-muted)',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      width: 'fit-content',
+                    }}>
+                      {systemicLabel} · Bloqueado
+                    </span>
+                  ) : (
+                    <select
+                      value={categoryIds[i] ?? ''}
+                      onChange={e => setCategoryIds(prev => ({ ...prev, [i]: e.target.value ? Number(e.target.value) : null }))}
+                      style={{
+                        padding: '8px 10px',
+                        borderRadius: 7,
+                        border: '1px solid var(--border-default)',
+                        background: 'var(--surface-panel)',
+                        color: categoryIds[i] ? 'var(--text-primary)' : 'var(--text-muted)',
+                        fontSize: 13,
+                        width: '100%',
+                      }}
+                    >
+                      <option value="">Sem categoria</option>
+                      {categoryOptions.map(opt => (
+                        <option key={opt.id} value={opt.id}>{opt.label}</option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+          {filteredIndices.length === 0 && (
+            <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)', border: '1px dashed var(--border-subtle)', borderRadius: 10 }}>
+              <Filter size={22} style={{ margin: '0 auto 8px', display: 'block', opacity: 0.4 }} />
+              Nenhum lançamento para este filtro.
+            </div>
+          )}
+        </div>
+      ) : (
       <div style={{ maxHeight: '60vh', overflowY: 'auto', borderRadius: 10, border: '1px solid var(--border-subtle)', flexShrink: 0 }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
           <thead>
@@ -882,20 +1045,40 @@ export default function UploadPreview({ result, card, cards = [], categories = [
           </div>
         )}
       </div>
+      )}
 
-      {/* Rodapé — sempre visível */}
+      {/* Rodapé — sticky no mobile, normal no desktop */}
       <div style={{
         marginTop: 14,
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'space-between',
+        justifyContent: isMobile ? 'space-between' : 'space-between',
         flexShrink: 0,
-        gap: 12,
+        gap: 10,
+        ...(isMobile ? {
+          position: 'fixed',
+          left: 0, right: 0, bottom: 0,
+          padding: '10px 14px calc(10px + env(safe-area-inset-bottom))',
+          background: 'var(--surface-card)',
+          borderTop: '1px solid var(--border-default)',
+          boxShadow: '0 -8px 24px rgba(0,0,0,0.30)',
+          zIndex: 50,
+          marginTop: 0,
+        } : {}),
       }}>
         {/* Contador */}
-        <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-          Mostrando {filteredTotal} de {transactions.length} ·{' '}
-          <strong style={{ color: 'var(--text-primary)' }}>{selectedCount}</strong> serão importados
+        <span style={{ fontSize: 12, color: 'var(--text-muted)', minWidth: 0 }}>
+          {isMobile ? (
+            <>
+              <strong style={{ color: 'var(--text-primary)' }}>{selectedCount}</strong>
+              {' '}selecionado{selectedCount === 1 ? '' : 's'}
+            </>
+          ) : (
+            <>
+              Mostrando {filteredTotal} de {transactions.length} ·{' '}
+              <strong style={{ color: 'var(--text-primary)' }}>{selectedCount}</strong> serão importados
+            </>
+          )}
         </span>
 
         {/* Ações */}
@@ -971,7 +1154,11 @@ export default function UploadPreview({ result, card, cards = [], categories = [
               onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
             >
               {importing ? <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} /> : <Download size={15} />}
-              {importing ? 'Importando...' : `Importar ${selectedCount} selecionados`}
+              {importing
+                ? 'Importando...'
+                : isMobile
+                  ? `Importar (${selectedCount})`
+                  : `Importar ${selectedCount} selecionados`}
             </button>
           )}
         </div>

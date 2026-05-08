@@ -2,37 +2,33 @@
 
 import { useEffect } from 'react';
 import { Sparkles, X } from 'lucide-react';
+import type { ReleaseNote } from '@/lib/api';
 
 interface ReleaseNotesModalProps {
-  version: string;
-  title: string;
-  description: string | null;
-  items: string[];
+  /** Lista cronológica de releases não visualizadas (mais antigas primeiro). */
+  releases: ReleaseNote[];
   /**
-   * Chamado quando o usuário fecha o modal (botão X ou clique no overlay).
-   * Deve registrar como visualizado no backend.
+   * Chamado quando o usuário fecha o modal (X, overlay, Esc).
+   * O Gate decide se persiste a marcação (normalmente sim).
    */
   onClose: () => void;
   /**
-   * Chamado quando o usuário clica em "Entendi".
-   * Pode ser igual ao onClose — separados para permitir telemetria.
+   * Chamado ao clicar em "Entendi". Pode ser igual a onClose.
    */
   onConfirm: () => void;
 }
 
 /**
- * Modal de novidades exibido após login na Dashboard.
+ * Modal acumulativo de novidades.
  *
- * Características:
- * - Fechar (X, overlay, "Entendi" ou tecla Esc) marca como visualizado.
- * - Não bloqueia permanentemente; sempre tem caminho de saída claro.
- * - Conteúdo curto e amigável; renderiza items como lista.
+ * - Quando há **uma** release: título "Novidades da versão X".
+ * - Quando há **várias** releases: título "Novidades desde seu último acesso".
+ * - Cada release vira uma seção com versão + título + lista de tópicos.
+ * - O conteúdo rola dentro do modal quando excede a altura.
+ * - Botão "Entendi" e botão X disparam o mesmo fluxo (fechar + marcar como visto).
  */
 export default function ReleaseNotesModal({
-  version,
-  title,
-  description,
-  items,
+  releases,
   onClose,
   onConfirm,
 }: ReleaseNotesModalProps) {
@@ -44,6 +40,16 @@ export default function ReleaseNotesModal({
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [onClose]);
+
+  if (releases.length === 0) return null;
+
+  const isMulti = releases.length > 1;
+  const headerTitle = isMulti
+    ? 'Novidades desde seu último acesso'
+    : `Novidades da versão ${releases[0].version}`;
+  const headerEyebrow = isMulti
+    ? `${releases.length} atualizações acumuladas`
+    : `v${releases[0].version}`;
 
   return (
     <div
@@ -65,9 +71,8 @@ export default function ReleaseNotesModal({
           background: 'var(--surface-card)',
           border: '1px solid var(--border-default)',
           borderRadius: 16,
-          padding: '0',
           width: '100%',
-          maxWidth: 480,
+          maxWidth: 520,
           boxShadow: '0 32px 80px rgba(0,0,0,0.55)',
           maxHeight: '90vh',
           overflow: 'hidden',
@@ -76,7 +81,7 @@ export default function ReleaseNotesModal({
           animation: 'rnSlideIn 0.22s cubic-bezier(0.2, 0.8, 0.2, 1)',
         }}
       >
-        {/* Header com gradiente discreto */}
+        {/* Header */}
         <div style={{
           padding: '20px 22px 16px',
           background: 'linear-gradient(135deg, rgba(49,130,206,0.18) 0%, rgba(44,122,123,0.12) 100%)',
@@ -102,7 +107,7 @@ export default function ReleaseNotesModal({
                 letterSpacing: '0.08em', textTransform: 'uppercase',
                 fontFamily: 'var(--font-mono)',
               }}>
-                Novidades · v{version}
+                Novidades · {headerEyebrow}
               </div>
               <h2
                 id="release-notes-title"
@@ -114,8 +119,18 @@ export default function ReleaseNotesModal({
                   letterSpacing: '-0.01em',
                 }}
               >
-                {title}
+                {headerTitle}
               </h2>
+              {isMulti && (
+                <div style={{
+                  marginTop: 6,
+                  fontSize: 12.5,
+                  color: 'var(--text-secondary)',
+                  lineHeight: 1.4,
+                }}>
+                  Veja o que mudou enquanto você esteve fora.
+                </div>
+              )}
             </div>
           </div>
           <button
@@ -136,56 +151,25 @@ export default function ReleaseNotesModal({
           </button>
         </div>
 
-        {/* Conteúdo */}
+        {/* Conteúdo — scroll interno quando longo */}
         <div style={{
-          padding: '18px 22px 6px',
+          padding: '14px 22px 6px',
           overflowY: 'auto',
           flex: 1,
         }}>
-          {description && (
-            <p style={{
-              margin: '0 0 14px',
-              fontSize: 13.5,
-              color: 'var(--text-secondary)',
-              lineHeight: 1.55,
-            }}>
-              {description}
-            </p>
-          )}
-
-          {items.length > 0 && (
-            <ul style={{
-              listStyle: 'none',
-              padding: 0,
-              margin: 0,
-              display: 'grid',
-              gap: 8,
-            }}>
-              {items.map((item, i) => (
-                <li
-                  key={i}
-                  style={{
-                    display: 'flex', gap: 10, alignItems: 'flex-start',
-                    fontSize: 13,
-                    color: 'var(--text-primary)',
-                    lineHeight: 1.5,
-                  }}
-                >
-                  <span style={{
-                    width: 6, height: 6, borderRadius: '50%',
-                    background: 'var(--blue-400)',
-                    marginTop: 7, flexShrink: 0,
-                  }} />
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
-          )}
+          {releases.map((rn, idx) => (
+            <ReleaseSection
+              key={rn.id}
+              release={rn}
+              showDivider={idx < releases.length - 1}
+              singleMode={!isMulti}
+            />
+          ))}
         </div>
 
         {/* Footer */}
         <div style={{
-          padding: '16px 22px 18px',
+          padding: '14px 22px 18px',
           display: 'flex',
           justifyContent: 'flex-end',
           gap: 8,
@@ -195,7 +179,7 @@ export default function ReleaseNotesModal({
             type="button"
             onClick={onConfirm}
             style={{
-              padding: '9px 20px',
+              padding: '9px 22px',
               borderRadius: 8,
               border: 'none',
               background: 'linear-gradient(135deg, #3182ce 0%, #2c7a7b 100%)',
@@ -219,5 +203,91 @@ export default function ReleaseNotesModal({
         }
       `}</style>
     </div>
+  );
+}
+
+function ReleaseSection({
+  release,
+  showDivider,
+  singleMode,
+}: {
+  release: ReleaseNote;
+  showDivider: boolean;
+  singleMode: boolean;
+}) {
+  return (
+    <section style={{ paddingTop: singleMode ? 4 : 12, paddingBottom: 12 }}>
+      {!singleMode && (
+        <header style={{ marginBottom: 8, display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+          <span style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 10.5,
+            padding: '2px 7px',
+            borderRadius: 5,
+            background: 'rgba(49,130,206,0.15)',
+            color: 'var(--blue-400)',
+            border: '1px solid rgba(49,130,206,0.30)',
+            fontWeight: 600,
+            letterSpacing: '0.02em',
+          }}>
+            v{release.version}
+          </span>
+          <span style={{
+            fontSize: 13.5,
+            fontWeight: 600,
+            color: 'var(--text-primary)',
+          }}>
+            {release.title}
+          </span>
+        </header>
+      )}
+
+      {release.description && (
+        <p style={{
+          margin: '0 0 10px',
+          fontSize: 12.5,
+          color: 'var(--text-secondary)',
+          lineHeight: 1.5,
+        }}>
+          {release.description}
+        </p>
+      )}
+
+      {release.items.length > 0 && (
+        <ul style={{
+          listStyle: 'none',
+          padding: 0,
+          margin: 0,
+          display: 'grid',
+          gap: 7,
+        }}>
+          {release.items.map((item, i) => (
+            <li
+              key={i}
+              style={{
+                display: 'flex', gap: 10, alignItems: 'flex-start',
+                fontSize: 13,
+                color: 'var(--text-primary)',
+                lineHeight: 1.5,
+              }}
+            >
+              <span style={{
+                width: 6, height: 6, borderRadius: '50%',
+                background: 'var(--blue-400)',
+                marginTop: 7, flexShrink: 0,
+              }} />
+              <span>{item}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {showDivider && (
+        <div style={{
+          marginTop: 14,
+          borderTop: '1px solid var(--border-subtle)',
+        }} />
+      )}
+    </section>
   );
 }

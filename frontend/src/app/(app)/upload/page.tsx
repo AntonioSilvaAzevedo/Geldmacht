@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { Upload, FileText, FileSpreadsheet, X, AlertCircle, Loader2 } from 'lucide-react';
 import { api, uploadFile, type Category, type CreditCardConfig, type UploadResponse } from '@/lib/api';
 import UploadPreview from '@/components/Upload/UploadPreview';
+import { useIsMobile } from '@/hooks/useIsMobile';
 
 type Stage = 'idle' | 'uploading' | 'preview' | 'error';
 
@@ -29,6 +30,7 @@ function isValidFile(file: File): boolean {
 }
 
 function UploadPageInner() {
+  const isMobile = useIsMobile();
   const searchParams = useSearchParams();
   const uploadType = searchParams.get('type');
   const cardIdParam = searchParams.get('cardId');
@@ -143,13 +145,23 @@ function UploadPageInner() {
   }
 
   return (
-    <div style={{ padding: '32px 40px', maxWidth: 680, margin: '0 auto' }}>
+    <div style={{
+      padding: isMobile ? '20px 16px 28px' : '32px 40px',
+      maxWidth: 680,
+      margin: '0 auto',
+      width: '100%',
+    }}>
       {/* Header */}
-      <div style={{ marginBottom: 32 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 }}>
+      <div style={{ marginBottom: isMobile ? 20 : 32 }}>
+        <h1 style={{
+          fontSize: isMobile ? 19 : 22,
+          fontWeight: 700,
+          color: 'var(--text-primary)',
+          marginBottom: 6,
+        }}>
           Importar extrato
         </h1>
-        <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>
+        <p style={{ color: 'var(--text-secondary)', fontSize: isMobile ? 13 : 14, lineHeight: 1.45 }}>
           {isCreditCardType && card
             ? `Envie a fatura do cartão ${card.name} para revisar e importar os lançamentos.`
             : isCreditCardType
@@ -173,7 +185,7 @@ function UploadPageInner() {
             : selectedFile
             ? 'rgba(56,161,105,0.05)'
             : 'var(--surface-panel)',
-          padding: '48px 32px',
+          padding: isMobile ? '32px 20px' : '48px 32px',
           textAlign: 'center',
           cursor: selectedFile ? 'default' : 'pointer',
           transition: 'all 0.2s ease',
@@ -203,11 +215,17 @@ function UploadPageInner() {
             }}>
               <Upload size={24} color="var(--blue-400)" />
             </div>
-            <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 }}>
-              {dragOver ? 'Solte o arquivo aqui' : 'Arraste o arquivo ou clique para selecionar'}
+            <p style={{ fontSize: isMobile ? 14 : 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 }}>
+              {dragOver
+                ? 'Solte o arquivo aqui'
+                : isMobile
+                  ? 'Toque para selecionar arquivo'
+                  : 'Arraste o arquivo ou clique para selecionar'}
             </p>
-            <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-              PDF ou Excel (.xlsx) — extratos Nubank, Itaú, Mercado Pago, Fatura Nubank
+            <p style={{ fontSize: isMobile ? 12 : 13, color: 'var(--text-muted)', lineHeight: 1.4 }}>
+              {isMobile
+                ? 'PDF ou Excel (.xlsx)'
+                : 'PDF ou Excel (.xlsx) — extratos Nubank, Itaú, Mercado Pago, Fatura Nubank'}
             </p>
           </>
         ) : (

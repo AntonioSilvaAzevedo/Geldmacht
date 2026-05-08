@@ -201,8 +201,11 @@ antes de redirecionar (evita loop de redirect).
 | `POST` | `/api/categories` | Cria categoria manual |
 | `PATCH` | `/api/categories/{id}` | Edita categoria manual |
 | `DELETE` | `/api/categories/{id}` | Remove categoria manual |
-| `GET` | `/api/release-notes/pending` | Próxima release note pendente do usuário (204 quando não há) |
-| `POST` | `/api/release-notes/{id}/mark-seen` | Marca release note como visualizada (idempotente) |
+| `GET` | `/api/release-notes/pending` | **Lista acumulativa** de releases pendentes (`{releases:[...]}`) |
+| `POST` | `/api/release-notes/mark-seen` | Marca múltiplas releases como vistas (bulk, idempotente) |
+| `POST` | `/api/release-notes/{id}/mark-seen` | Legado — marca uma única release como vista |
+| `GET` | `/api/onboarding/status` | Status do onboarding inicial do usuário |
+| `POST` | `/api/onboarding/mark-seen` | Marca onboarding como visualizado (idempotente) |
 
 ### Regras do backend para cartões
 
@@ -324,15 +327,17 @@ Regras:
 | `/register` | Cadastro | `POST /auth/register` | ✅ API real |
 | `/` | Dashboard Anual | `GET /api/dashboard/monthly` | ✅ API real |
 | `/upload` | Importar Extratos | `POST /api/upload` + `POST /api/import` | ✅ API real + invoice_metadata |
-| `/mes/[mes]` | Detalhe Mensal | `GET /api/transactions?limit=1000` | ✅ API real + edição inline |
+| `/mes/[mes]` | Detalhe Mensal | — | 🚧 ComingSoonState (em desenvolvimento) |
 | `/cartao` | Cartões | `GET /api/cards` | ✅ API real + empty state + ações por card |
 | `/cartao/[cardId]` | Dashboard do cartão | `GET /api/cards/{id}` + `GET /api/cards/{id}/dashboard` | ✅ API real — métricas, gráfico, top categorias e faturas recentes |
 | `/cartao/[cardId]/faturas` | Listagem completa de faturas | `GET /api/cards/{id}/invoices` | ✅ API real — todas as faturas ordenadas por vencimento |
 | `/cartao/[cardId]/fatura/[invoiceId]` | Fatura por ID | `GET /api/cards/{id}/invoices/{invoice_id}` + `GET /api/cards/{id}/invoices` | ✅ API real — compras parceladas + recategorização + navegação prev/next |
 | `/cartao/[cardId]/[anoMes]` | Fatura por Mês (legado) | `GET /api/cards/{id}/invoices-by-month/{due_month}` | ✅ API real + fallback legado |
 | `/categorias` | Categorias | `GET/POST/PATCH/DELETE /api/categories` | ✅ API real — criar/editar/excluir com ícone |
-| `/carteira` | Carteira Investimentos | — | ⚫ pendente (Etapa 3.4) |
-| `/proventos` | Dividendos | — | ⚫ pendente (Etapa 3.4) |
+| `/carteira` | Carteira Investimentos | — | 🚧 ComingSoonState (em desenvolvimento) |
+| `/proventos` | Dividendos | — | 🚧 ComingSoonState (em desenvolvimento) |
+| `/perfil` | Perfil do usuário | — | 🚧 ComingSoonState (acessado via UserProfileMenu) |
+| `/configuracoes` | Configurações | — | 🚧 ComingSoonState (acessado via UserProfileMenu) |
 
 ### Comportamentos específicos da página `/cartao`
 
@@ -676,29 +681,117 @@ Rota separada para **todas** as faturas do cartão.
 
 ---
 
-## Release Notes / Notas de atualização
+## Onboarding Inicial (Bem-vindo ao Geldmacht)
 
-Modal de novidades exibido após login na Dashboard quando há uma release note pendente para o usuário.
+Modal de boas-vindas exibido **uma única vez** para novos usuários, antes do fluxo de release notes.
 
 ### Componentes
 
-- `src/components/ReleaseNotesModal.tsx` — UI pura do modal. Props: `version`, `title`, `description`, `items`, `onClose`, `onConfirm`. Acessível (role=dialog, aria-modal, aria-labelledby), fecha por Esc, X, clique no overlay ou botão "Entendi".
-- `src/components/ReleaseNotesGate.tsx` — orquestra o ciclo. Busca `getPendingReleaseNote()` quando a sessão Auth.js está autenticada; se houver, renderiza o `ReleaseNotesModal`; ao fechar/confirmar, chama `markReleaseNoteSeen(id)`.
+- `src/components/OnboardingModal.tsx` — UI pura. Props: `onClose`, `onComplete`. Layout: header com gradiente + título "Bem-vindo ao Geldmacht", lista de tópicos com ícones, observação sobre áreas em desenvolvimento, botões "Pular" e "Começar". Ambos os botões disparam o mesmo fluxo (marcar como visto). Acessível: `role=dialog`, `aria-modal`, `aria-labelledby`, fecha por Esc/X/overlay.
+
+- `src/components/WelcomeFlowGate.tsx` — orquestrador. Substitui o antigo `ReleaseNotesGate`. Após `useSession()` virar `'authenticated'`, dispara em paralelo `getOnboardingStatus()` e `getPendingReleaseNotes()` e decide qual modal mostrar.
+
+### Conteúdo atual do onboarding
+
+Tópicos do que o sistema faz **hoje** (não promete features inexistentes):
+
+- Cadastre seus cartões de crédito.
+- Importe faturas em PDF.
+- Revise os lançamentos antes de salvar.
+- Categorize seus gastos com categorias e subcategorias.
+- Defina limites de gasto por categoria.
+- Acompanhe compras parceladas e parcelas futuras.
+- Veja dashboards com resumo dos seus cartões.
+
+Observação: "Algumas áreas, como o dashboard geral, ainda estão em desenvolvimento." — exibida em caixa pontilhada como aviso honesto, sem prometer prazo.
+
+### Prioridade entre modais
+
+`WelcomeFlowGate` segue uma máquina de estados simples:
+
+```
+'loading' → carrega status (onboarding + pending releases) em paralelo
+   ↓
+'onboarding'   ← se should_show_onboarding === true
+   ↓ (após dismissOnboarding)
+'releases'     ← se houver releases pendentes
+   ↓ (após dismissReleases)
+'done'         ← nada mais a mostrar
+```
+
+Regras:
+
+- **Onboarding tem prioridade** sobre release notes — só uma janela aparece por vez.
+- Usuário antigo (já viu onboarding) sem releases pendentes → fase vai direto para `done`, nenhum modal aparece.
+- Usuário antigo com releases pendentes → pula direto para `releases`.
+- Usuário novo sem releases pendentes → mostra apenas onboarding e termina em `done`.
+- Usuário novo com releases pendentes → onboarding primeiro, releases depois (transição automática após `dismissOnboarding`).
+
+### Marcar como visto
+
+- Carregar a Dashboard **não** marca como visto. Só `dismissOnboarding()` chama `markOnboardingSeen()`.
+- Pular, Começar, fechar (X), Esc e clicar no overlay disparam o mesmo `dismissOnboarding()` — todos marcam como visto. Isso evita o modal reaparecer.
+- Idempotente: chamadas repetidas no backend mantêm o timestamp original.
+- Falha silenciosa: se o `markOnboardingSeen` falhar, o modal fecha localmente e o backend volta a indicar pendência na próxima sessão (não perdemos info).
+
+### Tipos no `api.ts`
+
+```typescript
+api.getOnboardingStatus(): Promise<{
+  should_show_onboarding: boolean;
+  onboarding_key: string;            // "initial_app_overview"
+  seen_at: string | null;
+}>
+api.markOnboardingSeen(): Promise<{ success: boolean; seen_at: string }>
+```
+
+### Diferença em relação a release notes
+
+| Aspecto      | Onboarding                          | Release notes                         |
+|--------------|-------------------------------------|---------------------------------------|
+| Quando       | Apenas no primeiro acesso           | A cada nova versão `show_modal=true`  |
+| Frequência   | Uma única vez por usuário           | Acumulativa por versão                |
+| Conteúdo     | "O que o sistema faz"               | "O que mudou nesta versão"            |
+| Persistência | `users.onboarding_seen_at`          | `user_release_note_views`             |
+| Prioridade   | **Maior** (vem antes)               | Menor (após onboarding)               |
+
+## Release Notes / Notas de atualização
+
+Modal **acumulativo** de novidades exibido após login na Dashboard quando há ≥ 1 release pendente para o usuário.
+
+### Componentes
+
+- `src/components/ReleaseNotesModal.tsx` — UI pura. Props: `releases: ReleaseNote[]`, `onClose`, `onConfirm`. Acessível (role=dialog, aria-modal, aria-labelledby), fecha por Esc, X, clique no overlay ou botão "Entendi". Exibe scroll interno quando o conteúdo excede a altura.
+- `src/components/ReleaseNotesGate.tsx` — orquestra o ciclo. Busca `getPendingReleaseNotes()` quando a sessão Auth.js está autenticada; se a lista vier não vazia, renderiza o `ReleaseNotesModal`; ao fechar/confirmar, chama `markReleaseNotesSeen(ids)` em **uma única chamada bulk**.
 
 ### Onde é carregado
 
 `ReleaseNotesGate` é montado no topo da Dashboard (`src/app/(app)/page.tsx`). Não aparece em `/login`, `/register` (não estão sob `(app)`), nem antes da sessão estar autenticada — o `useSession()` aguarda `status === 'authenticated'` antes de chamar a API.
+
+### Modal acumulativo (uma versão vs múltiplas)
+
+- **Uma release** pendente → cabeçalho `Novidades · v0.X.Y` + título `Novidades da versão 0.X.Y`. Sem badge de versão repetido na seção.
+- **Múltiplas releases** pendentes → cabeçalho `Novidades · N atualizações acumuladas` + título `Novidades desde seu último acesso` + subtítulo "Veja o que mudou enquanto você esteve fora.". Cada release vira uma seção própria com badge `vX.Y.Z` + título + descrição + lista de tópicos. Divisor entre seções.
+- Releases vêm do backend já ordenadas da mais antiga para a mais recente — o modal renderiza nessa ordem.
 
 ### Regra de exibição única
 
 A regra oficial é **no backend**. O `Gate`:
 
 1. Pergunta ao backend o que está pendente (`GET /api/release-notes/pending`).
-2. Mostra o modal se a resposta for 200; nada se for 204.
-3. Ao fechar, chama `POST /api/release-notes/{id}/mark-seen` (idempotente).
-4. Não usa `localStorage` como fonte primária. Se um chamada falhar, na próxima sessão o backend continua sendo a verdade.
+2. Backend retorna `{ releases: [...] }` (sempre 200, lista pode ser vazia).
+3. Se `releases.length === 0` → modal não monta.
+4. Ao fechar/confirmar, chama `POST /api/release-notes/mark-seen` com **todos** os `release_note_ids` exibidos (bulk, idempotente).
+5. Não usa `localStorage` como fonte primária. Se a chamada de mark-seen falhar, na próxima sessão o backend ainda devolverá as releases.
 
-A mesma versão **nunca** aparece duas vezes para o mesmo usuário. O modal só reabre quando o backend tiver uma versão nova com `show_modal=true` ainda não visualizada.
+A mesma versão **nunca** aparece duas vezes para o mesmo usuário. Usuários inativos (que ficaram tempo sem acessar) recebem **todas** as versões que perderam de uma só vez.
+
+### Marcar como visto apenas no fechamento
+
+- Carregar a lista **não** marca como visto. Só `mark-seen` persiste.
+- Recarregar a Dashboard antes de fechar o modal mantém as releases pendentes.
+- Fechar pelo X, overlay, Esc ou "Entendi" disparam o mesmo fluxo (`dismiss()` → `markReleaseNotesSeen(ids)` → fecha modal localmente).
+- Se o backend recusar o bulk (offline, 500), o modal fecha localmente para não trapear o usuário, mas as releases continuam pendentes — voltam no próximo acesso.
 
 ### Como a versão é obtida
 
@@ -746,9 +839,244 @@ RELEASE NOTES:
   - show_modal: true (padrão).
 ```
 
+## Responsividade — Fluxo de Importação
+
+A aplicação está sendo migrada gradualmente para mobile. **O primeiro fluxo migrado é a importação** (`/upload`). Outras telas seguem o padrão desktop atual e serão adaptadas em prompts futuros.
+
+### Breakpoints
+
+| Breakpoint | Largura          | Comportamento                                           |
+|------------|------------------|---------------------------------------------------------|
+| mobile     | ≤ 768px          | Sidebar oculta + drawer hamburger; layouts em coluna    |
+| tablet     | 769–1024px       | Igual desktop; espaçamento padrão                       |
+| desktop    | > 1024px         | Padrão completo                                         |
+
+### Hook `useIsMobile`
+
+Em `src/hooks/useIsMobile.ts`. Usa `window.matchMedia('(max-width: 768px)')` e atualiza no resize. SSR retorna `false` no primeiro render — componentes que dependem do valor mobile só atualizam após mount.
+
+```typescript
+const isMobile = useIsMobile();
+```
+
+### Utilities CSS (em `globals.css`)
+
+- `.sidebar-desktop` — sidebar fixa visível só em > 768px.
+- `.is-mobile-only` — `display: none` em desktop, `display: inline-flex` em mobile.
+- `.is-desktop-only` — `display: none` em mobile.
+- `.has-mobile-actionbar` — adiciona `padding-bottom: 80px` em mobile, reservando espaço para a barra sticky.
+- Em mobile, `input/select/textarea` recebem `font-size: 16px` (evita zoom-on-focus do Safari iOS) e `min-height: 40px`. Botões: `min-height: 38px`. `html/body` ganham `overflow-x: hidden` para impedir scroll horizontal global.
+
+### Drawer mobile (Sidebar overlay)
+
+`src/components/Layout/MobileSidebarDrawer.tsx` — botão hamburger no Header (visível só ≤ 768px) que abre a `Sidebar` original como drawer overlay (`min(82vw, 280px)`). Fecha por X, clique no overlay escuro, Esc ou ao clicar em um link da sidebar (delegação no container).
+
+O Header também:
+- Mostra título/subtítulo com `text-overflow: ellipsis` para evitar quebra.
+- Esconde a data atual e o botão de notificações em mobile (classe `is-desktop-only`).
+- Mantém o `UserProfileMenu` sempre visível.
+
+### Upload page (`/upload`)
+
+- Padding reduzido em mobile (`20px 14px 28px` vs `32px 40px`).
+- Header com fonte ligeiramente menor.
+- Dropzone com padding interno reduzido e texto adaptado: **"Toque para selecionar arquivo"** em mobile (drag-and-drop continua funcionando, mas a mensagem foca no toque).
+- Botão "Processar arquivo" continua `width: 100%` — naturalmente bom para toque.
+- Lista de "Formatos suportados" funciona com `flex-wrap`.
+
+### UploadPreview — cards mobile + tabela desktop
+
+O componente decide o layout via `useIsMobile()`:
+
+**Desktop (> 768px)**: tabela completa (Data, Descrição, Parcela, Categoria, Valor) com scroll interno e `max-height: 60vh`.
+
+**Mobile (≤ 768px)**: lista vertical de **cards**, um por lançamento. Cada card mostra:
+
+- Checkbox (toque grande, 17px)
+- Data + descrição editável (`EditableDescription`)
+- Valor à direita
+- Badge de parcela (`Parcela X/Y`) quando aplicável
+- Bloco de categoria com label + select de largura total OU badge "Compra parcelada · Bloqueado" / "Pagamento da fatura · Bloqueado" para sistêmicos
+
+Cards têm visual diferente quando selecionados (fundo azul claro + borda azul) e quando o lançamento é uma transferência interna (opacidade reduzida).
+
+### Bloco "Dados da fatura" responsivo
+
+Grid alterna entre `repeat(auto-fill, minmax(180px, 1fr))` (desktop) e `1fr` (mobile, empilhado). Os inputs já tinham `width: 100%` natural — no mobile ficam confortáveis para toque graças aos `min-height: 40px` do CSS global.
+
+### Barra de ações sticky no mobile
+
+No mobile, a faixa final de "Cancelar / Importar" vira **sticky bottom**:
+
+- `position: fixed; left: 0; right: 0; bottom: 0`
+- Padding com `env(safe-area-inset-bottom)` para iPhones com notch
+- `box-shadow: 0 -8px 24px rgba(0,0,0,0.30)` para destacar do conteúdo
+- O container externo recebe `class="has-mobile-actionbar"` que reserva `padding-bottom: 80px` no conteúdo abaixo
+
+Texto do botão também é compactado: `Importar (5)` em vez de `Importar 5 selecionados`. Contador mostra `5 selecionados` em vez de `Mostrando 82 de 100 · 5 serão importados`.
+
+No desktop, a barra continua inline no final do conteúdo (sem sticky).
+
+### Selects, modais e dropdowns
+
+- Selects nativos `<select>` abrem com a UI nativa do dispositivo (segura no mobile).
+- Modais (Onboarding, ReleaseNotes, Categorias) já usam `max-height: 90vh` + `overflow: auto` interno — caem dentro da tela mobile.
+- Dropdown do `UserProfileMenu` tem `position: absolute` + `right: 0` — pode ficar próximo da borda em mobile mas não corta porque o container é do tamanho do viewport.
+
+### Padrão para futuras telas mobile
+
+1. Importar `useIsMobile` quando o layout precisar de variação significativa (cards vs tabela, sticky bar, navegação).
+2. Para variações simples (font/padding), usar style condicional `isMobile ? X : Y`.
+3. Para visibilidade alternada, preferir classes utilitárias `.is-mobile-only` / `.is-desktop-only`.
+4. Reservar espaço quando houver barra sticky com `class="has-mobile-actionbar"`.
+5. Não duplicar dados — sempre mesma fonte de verdade, só layout muda.
+6. Inputs nativos respeitam o reset global (font-size 16px, min-height 40px) — não sobrescrever para valores menores em mobile.
+
+## Sidebar e Header
+
+### Sidebar (`src/components/Layout/Sidebar.tsx`)
+
+- **Não exibe nome, e-mail ou qualquer dado pessoal hardcoded.** Avatar e dados do usuário ficam exclusivamente no `UserProfileMenu` (no Header).
+- Logo + lista de itens de navegação (Menu) e Ferramentas (Importar).
+- **Rodapé contém apenas a versão do sistema** como chip discreto à direita: `v{config.appVersion}`. Sem nome de usuário, sem e-mail, sem botão de sair.
+- A versão **nunca** é hardcoded — sempre vem de `config.appVersion` (que lê `NEXT_PUBLIC_APP_VERSION` ou `package.json#version`).
+
+### Header (`src/components/Layout/Header.tsx`)
+
+Simplificado para conter apenas:
+- Título e subtítulo da página.
+- Data atual (capitalize, `pt-BR`).
+- Botão de notificações (placeholder).
+- `UserProfileMenu` — avatar com popover de ações.
+
+**Não tem mais** botão "Atualizar dados" (RefreshCw) nem botão de Sair solto. Logout só está dentro do popover do perfil.
+
+### `UserProfileMenu` (`src/components/Layout/UserProfileMenu.tsx`)
+
+Avatar circular com iniciais derivadas do nome/e-mail real da sessão Auth.js. Quando não há sessão, exibe ícone de usuário genérico (sem dados fake). Clicar abre popover com:
+
+- **Perfil** → `/perfil` (ComingSoonState)
+- **Configurações** → `/configuracoes` (ComingSoonState)
+- **Sair** → chama `signOut({ callbackUrl: '/login' })` do `next-auth/react`.
+
+Comportamento:
+- Cabeçalho do popover mostra nome + e-mail vindos da sessão (apenas se existirem).
+- Fecha por clique fora, tecla `Esc` ou ao selecionar uma ação.
+- `aria-haspopup`, `aria-expanded`, `role="menu"`, `role="menuitem"` para acessibilidade.
+
+Regras importantes:
+- Nunca renderizar nome/e-mail fixos como fallback — se a sessão não tem, simplesmente não exibe.
+- O popover é a **única** porta de saída para logout no app autenticado.
+
+## Estado "em desenvolvimento" (ComingSoonState)
+
+Componente: `src/components/ComingSoonState.tsx`.
+
+Use sempre que uma página estiver acessível pela navegação mas ainda não tiver dados reais ou implementação concluída — evita mostrar mocks ou layouts vazios sem explicação.
+
+```tsx
+<ComingSoonState
+  title="Página mensal em desenvolvimento"
+  description="Em breve você poderá acompanhar gastos, entradas e evolução mensal por aqui."
+  icon={<CalendarDays size={20} color="var(--blue-400)" />}
+/>
+```
+
+Páginas atualmente em desenvolvimento que usam o componente:
+- `/mes/[mes]` — detalhamento mensal completo.
+- `/carteira` — investimentos e ativos.
+- `/proventos` — dividendos e rendimentos.
+- `/perfil` — perfil do usuário (acessado pelo `UserProfileMenu`).
+- `/configuracoes` — configurações do app (acessado pelo `UserProfileMenu`).
+
+**Regras:**
+- Não renderizar números, gráficos ou listas com dados inventados.
+- Não deixar a página em branco.
+- Não criar dados simulados como fallback.
+- Quando o backend ganhar suporte real, substituir o `ComingSoonState` pela implementação completa.
+
+## Dashboard sem dados fixos
+
+`/(app)/page.tsx` consome **sempre** dados reais via `useFinancialData('monthly')`. Regras:
+
+- **Subtítulo do Header é dinâmico** — derivado do primeiro e último mês carregados (ex: `"Janeiro — Abril 2026"`); ausente quando ainda não há dados.
+- **Médias por mês** dividem por `months.length`, nunca por número fixo.
+- **Subtítulos dos cards e gráficos** referenciam `rangeLabel` calculado, não strings literais com mês/ano.
+- **Melhor Mês / Pior Mês** são calculados dos dados reais (mês com maior/menor `saldoLiquido`). Nunca hardcoded.
+- **Taxa de Poupança / Gasto-Entrada** mostram `—` quando `totalEntradas <= 0` (evita NaN/Infinity).
+- Nenhum badge tipo "Dados mockados" — em vez disso, exibe a contagem real de meses (`N meses`).
+- Estados de erro (`<ErrorState>`) e sem dados (`<EmptyState>`) já existiam e são preservados.
+
+Ao adicionar novos cards/gráficos à Dashboard, **siga o mesmo padrão**: nada hardcoded; calcule de `data` ou exiba placeholder explícito quando não houver número real.
+
+## Logout obrigatório por versão
+
+Mecanismo client-side para forçar relogin quando uma nova versão exige sessão renovada (Opção B do design — frontend-controlado; o backend não precisa de mudanças).
+
+### Como configurar
+
+1. No `.env.production`, defina `NEXT_PUBLIC_MIN_AUTH_VERSION` igual à versão atual do app:
+   ```
+   NEXT_PUBLIC_MIN_AUTH_VERSION=0.4.0
+   ```
+2. Faça bump em `frontend/package.json#version` para a mesma versão.
+3. Deploy. Ao próximo acesso autenticado, sessões emitidas em versões anteriores são forçadas a relogar.
+
+Se a próxima versão não exigir relogin, **não atualize** `NEXT_PUBLIC_MIN_AUTH_VERSION` — mantenha o valor anterior. Sessões já feitas naquela versão continuam válidas.
+
+### Como funciona
+
+- `src/config/env.ts` expõe `config.minAuthVersion` (lido de `NEXT_PUBLIC_MIN_AUTH_VERSION`; vazio = sem força).
+- `src/lib/version.ts::compareVersions` faz comparação semver-style (sem dependências).
+- `src/lib/authVersion.ts` controla o `localStorage["geldmacht_auth_version"]`:
+  - `markAuthVersionCurrent()` — grava `appVersion` após login bem-sucedido.
+  - `getStoredAuthVersion()` / `clearStoredAuthVersion()` — leitura/limpeza.
+  - `shouldForceRelogin()` — true quando `stored < minAuthVersion` e `stored` existe.
+- `src/components/AuthVersionGate.tsx` é montado em `src/app/(app)/layout.tsx` e:
+  - Se `status === 'authenticated'` e `shouldForceRelogin()` → limpa storage e chama `signOut({ callbackUrl: '/login' })`.
+  - Se `status === 'authenticated'` e storage está vazio → grava a versão atual (primeiro acesso pós-login).
+  - Não faz nada quando não autenticado.
+
+### Por que não dispara em loop
+
+A função `shouldForceRelogin()` exige que **já exista** valor armazenado e ele seja **menor** que o mínimo. Em primeiro login pós-deploy, storage está vazio → função retorna false → o Gate apenas grava o storage com a versão atual. Após o relogin, novo acesso na mesma versão não dispara.
+
+### Integração com release notes
+
+`AuthVersionGate` roda em **paralelo** ao `ReleaseNotesGate` na Dashboard. Como `AuthVersionGate` chama `signOut` antes do modal carregar, o usuário é redirecionado para `/login` sem que a release note seja marcada como vista. Após o login, a Dashboard carrega normalmente e `ReleaseNotesGate` exibe a release note pendente — fechá-la marca como vista no backend.
+
+### Limpeza coordenada
+
+- `UserProfileMenu` (logout manual): `clearStoredAuthVersion()` antes de `signOut`.
+- `lib/api.ts`: ao receber 401 do backend, também limpa o storage antes de redirecionar para `/login`.
+- `AuthVersionGate` (logout automático): limpa storage antes de chamar `signOut`.
+
+Isso evita estado inconsistente: storage = versão velha + sessão Auth.js já invalidada.
+
+## Página Categorias — estados e robustez
+
+A página `/categorias` (`src/app/(app)/categorias/page.tsx`) trata explicitamente cinco estados:
+
+1. **Carregando** — spinner + texto "Carregando categorias...".
+2. **Erro de carregamento** — caixa com ícone de alerta, mensagem do erro e botão "Tentar novamente" que chama `load()` de novo.
+3. **Sem categorias (`categories.length === 0`)** — empty state com botão "Criar primeira categoria".
+4. **Sem resultado por filtro (`filtersActive`)** — mensagem "Nenhuma categoria encontrada com os filtros atuais" + botão "Limpar filtros".
+5. **Mismatch (total > 0 mas `parents.length === 0`)** — alerta amarelo informando que existem N categorias cadastradas mas nenhuma principal foi encontrada, com botão "Recarregar". Esse estado captura situações anômalas (todas as categorias se tornaram subcategorias órfãs, etc.).
+
+### Filtros defensivos
+
+Os filtros de hierarquia usam **comparação loose (`== null`)**, não estrita (`=== null`):
+
+```typescript
+const parents = categories.filter(c => c.parent_id == null);
+const subsByParent = ...categories.filter(c => c.parent_id != null);
+```
+
+Isso casa tanto `null` quanto `undefined`. Foi a correção do bug em produção onde o `total` aparecia mas a lista ficava vazia: a API podia retornar `parent_id`/`card_id` como ausentes em alguns cenários (cache stale, schema antigo) e o filtro estrito descartava todos os registros.
+
 ## Versão do sistema na sidebar
 
-A versão é exibida no rodapé da sidebar (em `Sidebar.tsx`), ao lado do bloco do usuário, como um chip discreto: `v0.1.0`.
+A versão é exibida no rodapé da sidebar (em `Sidebar.tsx`) como um chip discreto: `v0.3.0`.
 
 ### Fonte da versão
 
@@ -811,8 +1139,10 @@ api.listCategories(scope?, cardId?)              // GET /api/categories[?scope=c
 api.createCategory(payload)                     // POST /api/categories
 api.updateCategory(id, payload)                 // PATCH /api/categories/{id}
 api.deleteCategory(id)                          // DELETE /api/categories/{id}
-api.getPendingReleaseNote()                     // GET /api/release-notes/pending (204 → null)
-api.markReleaseNoteSeen(id)                     // POST /api/release-notes/{id}/mark-seen
+api.getPendingReleaseNotes()                    // GET /api/release-notes/pending → { releases: ReleaseNote[] }
+api.markReleaseNotesSeen(ids: number[])         // POST /api/release-notes/mark-seen (bulk, idempotente)
+api.getOnboardingStatus()                       // GET /api/onboarding/status
+api.markOnboardingSeen()                        // POST /api/onboarding/mark-seen
 ```
 
 ---

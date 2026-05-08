@@ -297,6 +297,9 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
     if (res.status === 401 && typeof window !== 'undefined') {
       // signOut limpa a sessão Auth.js antes de redirecionar,
       // evitando o loop: middleware vê sessão ativa → volta para /
+      try {
+        window.localStorage.removeItem('geldmacht_auth_version');
+      } catch { /* ignore */ }
       await signOut({ callbackUrl: '/login', redirect: true });
       return undefined as T; // never reached
     }
@@ -462,32 +465,38 @@ export const api = {
     }),
 
   /**
-   * Próxima release note pendente para o usuário (showModal=true não vista).
-   * Retorna null quando o backend responde 204 No Content.
+   * Status do onboarding inicial para o usuário autenticado.
+   * `should_show_onboarding=true` indica que o modal de boas-vindas deve aparecer.
    */
-  getPendingReleaseNote: async (): Promise<ReleaseNote | null> => {
-    const headers = await getAuthHeader();
-    const res = await fetch(`${BASE}/api/release-notes/pending`, {
-      headers: { 'Content-Type': 'application/json', ...headers },
-    });
-    if (res.status === 204) return null;
-    if (!res.ok) {
-      if (res.status === 401 && typeof window !== 'undefined') {
-        await signOut({ callbackUrl: '/login', redirect: true });
-        return null;
-      }
-      const detail = await res.text().catch(() => '');
-      throw new Error(`API error ${res.status} — release-notes/pending${detail ? `: ${detail}` : ''}`);
-    }
-    return res.json() as Promise<ReleaseNote>;
-  },
+  getOnboardingStatus: (): Promise<{
+    should_show_onboarding: boolean;
+    onboarding_key: string;
+    seen_at: string | null;
+  }> => request(`${BASE}/api/onboarding/status`),
 
-  /** Marca a release note como visualizada pelo usuário (idempotente). */
-  markReleaseNoteSeen: (id: number): Promise<{ success: boolean; seen: boolean }> =>
-    request<{ success: boolean; seen: boolean }>(
-      `${BASE}/api/release-notes/${id}/mark-seen`,
-      { method: 'POST' },
-    ),
+  /** Marca o onboarding inicial como visualizado (idempotente). */
+  markOnboardingSeen: (): Promise<{ success: boolean; seen_at: string }> =>
+    request(`${BASE}/api/onboarding/mark-seen`, { method: 'POST' }),
+
+  /**
+   * Lista acumulativa de release notes pendentes para o usuário.
+   * Backend retorna `{ releases: [...] }` ordenadas da mais antiga para a
+   * mais recente. Lista vazia quando não há pendências.
+   */
+  getPendingReleaseNotes: (): Promise<{ releases: ReleaseNote[] }> =>
+    request<{ releases: ReleaseNote[] }>(`${BASE}/api/release-notes/pending`),
+
+  /**
+   * Marca múltiplas release notes como vistas (bulk, idempotente).
+   * Use ao fechar o modal acumulativo.
+   */
+  markReleaseNotesSeen: (
+    releaseNoteIds: number[],
+  ): Promise<{ success: boolean; seen: boolean; marked_as_seen: number[] }> =>
+    request(`${BASE}/api/release-notes/mark-seen`, {
+      method: 'POST',
+      body: JSON.stringify({ release_note_ids: releaseNoteIds }),
+    }),
 
 };
 
