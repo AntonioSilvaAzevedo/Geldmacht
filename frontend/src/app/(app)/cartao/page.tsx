@@ -52,15 +52,22 @@ export default function CardsPage() {
 
   useEffect(() => { void loadCards(); }, []);
 
-  async function createCard(payload: Pick<CreditCardConfig, 'name' | 'institution' | 'closing_day' | 'due_day'>) {
+  type CardFormPayload = Pick<CreditCardConfig, 'name' | 'institution' | 'closing_day' | 'due_day'> & { credit_limit: number | null };
+
+  async function createCard(payload: CardFormPayload) {
     const card = await api.createCard(payload);
     setCards(prev => [...prev, card].sort((a, b) => a.name.localeCompare(b.name)));
     setShowCreateForm(false);
   }
 
-  async function saveEditCard(payload: Pick<CreditCardConfig, 'name' | 'institution' | 'closing_day' | 'due_day'>) {
+  async function saveEditCard(payload: CardFormPayload) {
     if (!editingCard) return;
-    const updated = await api.updateCard(editingCard.id, payload);
+    // Sentinela: backend usa 0 para limpar credit_limit (vira null).
+    const apiPayload = {
+      ...payload,
+      credit_limit: payload.credit_limit ?? 0,
+    };
+    const updated = await api.updateCard(editingCard.id, apiPayload);
     setCards(prev => prev.map(c => c.id === editingCard.id ? updated : c));
     setEditingCard(null);
   }

@@ -2,7 +2,7 @@
 
 import { use, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Edit3, Upload, ArrowRight, TrendingUp, Layers, Calendar, BarChart3 } from 'lucide-react';
+import { Edit3, Upload, ArrowRight, TrendingUp, Layers, Calendar, BarChart3, CreditCard as CreditCardIcon } from 'lucide-react';
 import {
   ResponsiveContainer,
   BarChart,
@@ -75,8 +75,9 @@ export default function CardDetailPage({ params }: PageProps) {
 
   useEffect(() => { void load(); }, [load]);
 
-  async function updateCard(payload: Pick<CreditCardConfig, 'name' | 'institution' | 'closing_day' | 'due_day'>) {
-    setCard(await api.updateCard(id, payload));
+  async function updateCard(payload: Pick<CreditCardConfig, 'name' | 'institution' | 'closing_day' | 'due_day'> & { credit_limit: number | null }) {
+    // Sentinela: 0 limpa o credit_limit no backend.
+    setCard(await api.updateCard(id, { ...payload, credit_limit: payload.credit_limit ?? 0 }));
     setEditing(false);
   }
 
@@ -202,6 +203,28 @@ export default function CardDetailPage({ params }: PageProps) {
                 icon={<Layers size={14} color="var(--green-400)" />}
                 color="var(--green-400)"
               />
+              {/* Card de limite do cartão — só aparece quando o usuário informou. */}
+              {card.credit_limit != null && card.credit_limit > 0 && (() => {
+                const latestTotal = dashboard.latest_invoice
+                  ? (dashboard.latest_invoice.total_amount ?? dashboard.latest_invoice.computed_total)
+                  : null;
+                const usagePct = latestTotal != null
+                  ? (latestTotal / card.credit_limit) * 100
+                  : null;
+                return (
+                  <MetricCard
+                    label="Limite do cartão"
+                    value={formatCurrency(card.credit_limit)}
+                    subtitle={
+                      usagePct != null
+                        ? `Última fatura: ${usagePct.toFixed(1)}% do limite informado`
+                        : 'Informado pelo usuário'
+                    }
+                    icon={<CreditCardIcon size={14} color="var(--teal-400)" />}
+                    color="var(--teal-400)"
+                  />
+                );
+              })()}
             </div>
 
             {/* ── Evolução das faturas ───────────────────────────────────── */}

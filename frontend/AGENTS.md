@@ -544,6 +544,43 @@ Na tela `/cartao/[cardId]/fatura/[invoiceId]`, cada lançamento exibe:
 
 ---
 
+## Limite do Cartão (`credit_limit`)
+
+Campo opcional informado manualmente pelo usuário ao criar/editar cartão. **Não** representa o limite real do banco — é apenas referência local para cálculos visuais.
+
+### Form (`CreditCardForm`)
+
+`src/components/Cards/CreditCardForm.tsx` agora inclui o campo "Limite do cartão (opcional)". Aceita valores monetários decimais (vírgula ou ponto). Vazio = sem limite.
+
+Sentinelas para o backend:
+- Criação (`POST /api/cards`): omitido ou `null` = sem limite; `> 0` = valor.
+- Edição (`PATCH /api/cards/{id}`): `0` (zero) **limpa** o limite (vira `null`); `> 0` define o novo valor; ausência preserva o anterior.
+
+O wrapper `saveEditCard` em `/cartao/page.tsx` e `updateCard` em `/cartao/[cardId]/page.tsx` converte automaticamente `credit_limit: null` do form para `credit_limit: 0` (sentinela do PATCH).
+
+### Tipo
+
+```typescript
+interface CreditCardConfig {
+  // ... campos existentes
+  credit_limit: number | null;  // null = não informado
+}
+```
+
+### Exibição no dashboard do cartão (`/cartao/[cardId]`)
+
+Quando `card.credit_limit != null && > 0`, um quinto MetricCard "Limite do cartão" aparece no grid:
+
+```
+Limite do cartão
+R$ 10.000,00
+Última fatura: 59,8% do limite informado
+```
+
+Subtítulo é dinâmico — se há `dashboard.latest_invoice`, calcula `total / credit_limit * 100`. Sem fatura, mostra apenas "Informado pelo usuário".
+
+**Não** é exibido para cartões sem limite informado — não usa `R$ 0,00` ou placeholder fake.
+
 ## Compras Parceladas
 
 Compras parceladas são uma **classificação sistêmica** baseada nos campos `installment_current` e `installment_total` da `Transaction`. **Não** dependem de categoria manual.
@@ -586,10 +623,48 @@ installmentsFutureTotal = sum(futureAmount for each)
 - Não cria transações futuras automaticamente
 
 ### Convivência com categorias manuais
-- A seção "Compras parceladas" é **complementar** ao agrupamento por categoria
-- Um lançamento parcelado pode aparecer em ambos (compras parceladas E na categoria "Compras")
-- Isso não é duplicidade no banco — é apenas duas visões do mesmo lançamento
-- `category_id` manual continua funcionando normalmente em lançamentos parcelados
+- A seção "Compras parceladas" é **complementar** ao agrupamento por categoria.
+- Um lançamento parcelado pode aparecer em ambos quando o usuário atribuiu uma categoria manual a ele (compras parceladas E na categoria "Compras", por exemplo).
+- Isso não é duplicidade no banco — é apenas duas visões do mesmo lançamento.
+- `category_id` manual continua funcionando normalmente em lançamentos parcelados.
+
+### "Sem categoria" — exclusão de sistêmicos (correção do bug)
+
+Compras parceladas têm `category_id = null` por design. Sem o filtro abaixo, todas elas cairiam no grupo `uncategorized` ("Sem categoria"), aparecendo **duplicadas** lado a lado com a seção dedicada de Compras parceladas. Bug fix:
+
+```typescript
+const groups = useMemo<CategoryGroup[]>(() => {
+  // ...
+  transactions
+    .filter(tx => tx.amount < 0)
+    .filter(tx => !isSystemicTx(tx))   // ← exclui parcelas e pagamentos
+    .forEach(tx => { ... });
+}, [transactions, categoriesById]);
+```
+
+Regra resultante:
+- "Sem categoria" mostra **apenas** lançamentos comuns sem `category_id`.
+- Compras parceladas vivem só na seção "Compras parceladas".
+- Pagamentos da fatura (`is_payment=true`) não inflam o grupo "Sem categoria" (não são consumo).
+
+### Card "Orçamento liberado" (parcelas finalizadas)
+
+Quando há ≥ 1 compra parcelada com `installment_current === installment_total` na fatura atual, um card destacado aparece **acima** da seção "Compras parceladas":
+
+```
+Orçamento liberado
+R$ 450,00
+4 compras parceladas terminaram nesta fatura.
+Esse valor deixa de comprometer suas próximas faturas.
+```
+
+- Cor verde para destacar como informação positiva.
+- Cálculo:
+  - `finishedInstallments = installments.filter(i => i.futureCount === 0)`
+  - `releasedBudgetTotal = soma dos abs(amount) das finalizadas`
+- Não aparece quando não há finalizadas (não exibe `R$ 0,00` fake).
+- **Não altera** `invoice.total_amount` nem qualquer total. É apenas visão derivada.
+- Texto evita prometer aumento de limite real do banco — fala em "deixa de comprometer suas próximas faturas".
 
 ### Revisão de importação (`UploadPreview`)
 - Coluna "Parcela" na tabela de revisão exibe `X/Y` quando `installment_current != null`

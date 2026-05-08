@@ -111,10 +111,16 @@ export default function InvoiceDetailPage({ params }: PageProps) {
   }
 
   // ── Category groups ──────────────────────────────────────────────────────────
+  // IMPORTANTE: lançamentos **sistêmicos** (compras parceladas e pagamentos da
+  // fatura) não entram em "Sem categoria" — parcelas vivem na seção dedicada
+  // "Compras parceladas"; pagamentos não são consumo. Sem este filtro, todos os
+  // sistêmicos cairiam em `uncategorized` (porque têm `category_id = null`),
+  // duplicando-os visualmente em dois lugares.
   const groups = useMemo<CategoryGroup[]>(() => {
     const grouped = new Map<string, CategoryGroup>();
     transactions
       .filter(tx => tx.amount < 0)
+      .filter(tx => !isSystemicTx(tx))
       .forEach(tx => {
         const catObj = tx.category_id != null ? categoriesById.get(tx.category_id) ?? null : null;
         const label = categoryLabel(catObj, tx.category_name || tx.category || 'Sem categoria');
@@ -159,6 +165,17 @@ export default function InvoiceDetailPage({ params }: PageProps) {
   const installmentsFutureTotal = useMemo(
     () => installments.reduce((acc, i) => acc + i.futureAmount, 0),
     [installments]
+  );
+
+  // Parcelas finalizadas nesta fatura — última parcela paga.
+  // Critério: installment_current === installment_total (e total > 1, garantido por `installments`).
+  const finishedInstallments = useMemo(
+    () => installments.filter(i => i.futureCount === 0),
+    [installments]
+  );
+  const releasedBudgetTotal = useMemo(
+    () => finishedInstallments.reduce((acc, i) => acc + Math.abs(i.tx.amount), 0),
+    [finishedInstallments]
   );
 
   // ── Navegação entre faturas ──────────────────────────────────────────────────
@@ -443,6 +460,60 @@ export default function InvoiceDetailPage({ params }: PageProps) {
               {formatCurrency(summary.payment_amount)}
             </div>
           </div>
+        )}
+
+        {/* ── Orçamento liberado por parcelas finalizadas ──────────────────── */}
+        {finishedInstallments.length > 0 && (
+          <section style={{ marginBottom: 18 }}>
+            <div
+              style={{
+                background: 'linear-gradient(135deg, rgba(72,187,120,0.12) 0%, rgba(56,178,172,0.08) 100%)',
+                border: '1px solid rgba(72,187,120,0.30)',
+                borderRadius: 12,
+                padding: '14px 16px',
+                display: 'flex',
+                gap: 14,
+                alignItems: 'flex-start',
+              }}
+            >
+              <span style={{
+                width: 36, height: 36, borderRadius: 10,
+                background: 'rgba(72,187,120,0.20)',
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                flexShrink: 0,
+              }}>
+                <TrendingUp size={18} color="var(--green-400)" />
+              </span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{
+                  fontSize: 10.5, color: 'var(--text-muted)',
+                  letterSpacing: '0.08em', textTransform: 'uppercase',
+                  fontFamily: 'var(--font-mono)',
+                }}>
+                  Orçamento liberado
+                </div>
+                <div style={{
+                  fontSize: 22,
+                  fontWeight: 700,
+                  color: 'var(--green-400)',
+                  fontFamily: 'var(--font-mono)',
+                  letterSpacing: '-0.01em',
+                  marginTop: 2,
+                }}>
+                  {formatCurrency(releasedBudgetTotal)}
+                </div>
+                <div style={{
+                  marginTop: 4,
+                  fontSize: 12.5,
+                  color: 'var(--text-secondary)',
+                  lineHeight: 1.45,
+                }}>
+                  {finishedInstallments.length} compra{finishedInstallments.length === 1 ? ' parcelada terminou' : 's parceladas terminaram'} nesta fatura.
+                  {' '}Esse valor deixa de comprometer suas próximas faturas.
+                </div>
+              </div>
+            </div>
+          </section>
         )}
 
         {/* ── Compras parceladas (accordion: resumo + lista) ───────────────── */}

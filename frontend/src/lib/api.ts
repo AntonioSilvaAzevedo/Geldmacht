@@ -201,6 +201,8 @@ export interface CreditCardConfig {
   institution: string | null;
   closing_day: number;
   due_day: number;
+  /** Limite informado manualmente pelo usuário. null = não informado. */
+  credit_limit: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -374,13 +376,31 @@ export const api = {
   getCard: (id: number): Promise<CreditCardConfig> =>
     request<CreditCardConfig>(`${BASE}/api/cards/${id}`),
 
-  createCard: (payload: Pick<CreditCardConfig, 'name' | 'institution' | 'closing_day' | 'due_day'>): Promise<CreditCardConfig> =>
+  /**
+   * Cria cartão. `credit_limit`:
+   *   - omitido/null → cartão sem limite informado
+   *   - >0 → valor do limite
+   */
+  createCard: (
+    payload: Pick<CreditCardConfig, 'name' | 'institution' | 'closing_day' | 'due_day'>
+      & { credit_limit?: number | null },
+  ): Promise<CreditCardConfig> =>
     request<CreditCardConfig>(`${BASE}/api/cards`, {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
 
-  updateCard: (id: number, payload: Partial<Pick<CreditCardConfig, 'name' | 'institution' | 'closing_day' | 'due_day'>>): Promise<CreditCardConfig> =>
+  /**
+   * Edita cartão. `credit_limit` aceita sentinelas no PATCH:
+   *   - undefined/ausente → não altera
+   *   - 0 → remove limite (vira null)
+   *   - >0 → define novo limite
+   */
+  updateCard: (
+    id: number,
+    payload: Partial<Pick<CreditCardConfig, 'name' | 'institution' | 'closing_day' | 'due_day'>>
+      & { credit_limit?: number | null },
+  ): Promise<CreditCardConfig> =>
     request<CreditCardConfig>(`${BASE}/api/cards/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(payload),

@@ -3,10 +3,17 @@
 import { useState } from 'react';
 import type { CreditCardConfig } from '@/lib/api';
 
-type CardFormData = Pick<CreditCardConfig, 'name' | 'institution' | 'closing_day' | 'due_day'>;
+/**
+ * Payload do form. `credit_limit`:
+ *   - null  → não informado/limpa (no PATCH usamos sentinela 0 para limpar)
+ *   - >0    → valor do limite informado pelo usuário
+ */
+type CardFormData = Pick<CreditCardConfig, 'name' | 'institution' | 'closing_day' | 'due_day'> & {
+  credit_limit: number | null;
+};
 
 interface Props {
-  initial?: Partial<CardFormData>;
+  initial?: Partial<CreditCardConfig>;
   submitLabel: string;
   onSubmit: (payload: CardFormData) => Promise<void>;
   onCancel?: () => void;
@@ -17,6 +24,9 @@ export default function CreditCardForm({ initial, submitLabel, onSubmit, onCance
   const [institution, setInstitution] = useState(initial?.institution ?? '');
   const [closingDay, setClosingDay] = useState(String(initial?.closing_day ?? 25));
   const [dueDay, setDueDay] = useState(String(initial?.due_day ?? 5));
+  const [creditLimit, setCreditLimit] = useState(
+    initial?.credit_limit != null ? String(initial.credit_limit) : '',
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -32,6 +42,18 @@ export default function CreditCardForm({ initial, submitLabel, onSubmit, onCance
       setError('Fechamento e vencimento devem estar entre 1 e 31.');
       return;
     }
+
+    let credit_limit: number | null = null;
+    const limitTrim = creditLimit.trim();
+    if (limitTrim !== '') {
+      const parsed = parseFloat(limitTrim.replace(',', '.'));
+      if (Number.isNaN(parsed) || parsed <= 0) {
+        setError('O limite do cartão deve ser maior que zero.');
+        return;
+      }
+      credit_limit = parsed;
+    }
+
     setSaving(true);
     setError('');
     try {
@@ -40,6 +62,7 @@ export default function CreditCardForm({ initial, submitLabel, onSubmit, onCance
         institution: institution.trim() || null,
         closing_day,
         due_day,
+        credit_limit,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao salvar cartão.');
@@ -75,6 +98,21 @@ export default function CreditCardForm({ initial, submitLabel, onSubmit, onCance
           <input type="number" min={1} max={31} value={dueDay} onChange={e => setDueDay(e.target.value)} style={inputStyle} />
         </label>
       </div>
+      <label style={{ display: 'grid', gap: 6, fontSize: 12, color: 'var(--text-muted)' }}>
+        Limite do cartão <span style={{ color: 'var(--text-muted)' }}>(opcional)</span>
+        <input
+          type="number"
+          min={0}
+          step={0.01}
+          placeholder="Ex: 10000.00"
+          value={creditLimit}
+          onChange={e => setCreditLimit(e.target.value)}
+          style={inputStyle}
+        />
+        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+          Informe o limite do cartão para visualizar quanto da fatura ele representa. Deixe vazio se preferir.
+        </span>
+      </label>
       {error && <div style={{ color: 'var(--red-400)', fontSize: 12 }}>{error}</div>}
       <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
         {onCancel && (
