@@ -220,6 +220,12 @@ export interface Category {
   scope: 'credit_card';
   color: string | null;
   icon: string | null;
+  /** null = aplica em todos os cartões. */
+  card_id: number | null;
+  /** null = categoria principal. Preenchido = subcategoria (1 nível). */
+  parent_id: number | null;
+  /** null = sem limite. > 0 quando definido. */
+  invoice_budget_limit: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -229,12 +235,33 @@ export interface CategoryPayload {
   scope: 'credit_card';
   color?: string | null;
   icon?: string | null;
+  card_id?: number | null;
+  parent_id?: number | null;
+  invoice_budget_limit?: number | null;
+}
+
+export interface ReleaseNote {
+  id: number;
+  version: string;
+  title: string;
+  description: string | null;
+  items: string[];
+  show_modal: boolean;
+  released_at: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface CategoryUpdatePayload {
   name?: string;
   color?: string | null;
   icon?: string | null;
+  /** 0 limpa (vira global); >0 define o cartão. */
+  card_id?: number | null;
+  /** 0 limpa (vira categoria principal); >0 define a pai. */
+  parent_id?: number | null;
+  /** 0 remove o limite; >0 define. */
+  invoice_budget_limit?: number | null;
 }
 
 /** Parâmetros de filtro para GET /api/transactions. */
@@ -400,9 +427,12 @@ export const api = {
     return request<CardInvoiceResponse>(`${ENDPOINTS.transactions}/invoice?${p}`);
   },
 
-  listCategories: (scope?: 'credit_card'): Promise<Category[]> => {
-    const params = scope ? `?${new URLSearchParams({ scope })}` : '';
-    return request<Category[]>(`${BASE}/api/categories${params}`);
+  listCategories: (scope?: 'credit_card', cardId?: number): Promise<Category[]> => {
+    const p = new URLSearchParams();
+    if (scope) p.set('scope', scope);
+    if (cardId != null) p.set('card_id', String(cardId));
+    const qs = p.toString();
+    return request<Category[]>(`${BASE}/api/categories${qs ? `?${qs}` : ''}`);
   },
 
   createCategory: (payload: CategoryPayload): Promise<Category> =>
@@ -430,6 +460,34 @@ export const api = {
       method: 'PATCH',
       body:   JSON.stringify(patch),
     }),
+
+  /**
+   * Próxima release note pendente para o usuário (showModal=true não vista).
+   * Retorna null quando o backend responde 204 No Content.
+   */
+  getPendingReleaseNote: async (): Promise<ReleaseNote | null> => {
+    const headers = await getAuthHeader();
+    const res = await fetch(`${BASE}/api/release-notes/pending`, {
+      headers: { 'Content-Type': 'application/json', ...headers },
+    });
+    if (res.status === 204) return null;
+    if (!res.ok) {
+      if (res.status === 401 && typeof window !== 'undefined') {
+        await signOut({ callbackUrl: '/login', redirect: true });
+        return null;
+      }
+      const detail = await res.text().catch(() => '');
+      throw new Error(`API error ${res.status} — release-notes/pending${detail ? `: ${detail}` : ''}`);
+    }
+    return res.json() as Promise<ReleaseNote>;
+  },
+
+  /** Marca a release note como visualizada pelo usuário (idempotente). */
+  markReleaseNoteSeen: (id: number): Promise<{ success: boolean; seen: boolean }> =>
+    request<{ success: boolean; seen: boolean }>(
+      `${BASE}/api/release-notes/${id}/mark-seen`,
+      { method: 'POST' },
+    ),
 
 };
 

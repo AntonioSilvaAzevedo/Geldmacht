@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { ChevronDown, ChevronLeft, ChevronRight, TrendingUp, Layers, Lock } from 'lucide-react';
 import EditableDescription from '@/components/EditableDescription';
 import CategoryIcon from '@/components/CategoryIcon';
+import CategoryBudgetProgress from '@/components/CategoryBudgetProgress';
 import Header from '@/components/Layout/Header';
 import ErrorState from '@/components/ErrorState';
 import LoadingSpinner from '@/components/LoadingSpinner';
@@ -23,6 +24,7 @@ interface CategoryGroup {
   label: string;
   icon: string | null;
   total: number;
+  budgetLimit: number | null;
   transactions: Transaction[];
 }
 
@@ -74,7 +76,7 @@ export default function InvoiceDetailPage({ params }: PageProps) {
       const [cardData, invoiceData, catData, invoicesList] = await Promise.all([
         api.getCard(cid),
         api.getCardInvoiceDetail(cid, iid),
-        api.listCategories('credit_card'),
+        api.listCategories('credit_card', cid),
         api.getCardInvoices(cid),
       ]);
       setCard(cardData);
@@ -92,20 +94,37 @@ export default function InvoiceDetailPage({ params }: PageProps) {
 
   useEffect(() => { void load(); }, [load]);
 
+  // Map de id → categoria, usado também para resolver subcategoria e label hierárquico.
+  const categoriesById = useMemo(() => {
+    const m = new Map<number, Category>();
+    categories.forEach(c => m.set(c.id, c));
+    return m;
+  }, [categories]);
+
+  function categoryLabel(cat: Category | null | undefined, fallback: string): string {
+    if (!cat) return fallback;
+    if (cat.parent_id != null) {
+      const parent = categoriesById.get(cat.parent_id);
+      return parent ? `${parent.name} / ${cat.name}` : cat.name;
+    }
+    return cat.name;
+  }
+
   // ── Category groups ──────────────────────────────────────────────────────────
   const groups = useMemo<CategoryGroup[]>(() => {
     const grouped = new Map<string, CategoryGroup>();
     transactions
       .filter(tx => tx.amount < 0)
       .forEach(tx => {
-        const label = tx.category_name || tx.category || 'Sem categoria';
+        const catObj = tx.category_id != null ? categoriesById.get(tx.category_id) ?? null : null;
+        const label = categoryLabel(catObj, tx.category_name || tx.category || 'Sem categoria');
         const key = tx.category_id != null ? `category-${tx.category_id}` : 'uncategorized';
-        const catObj = categories.find(c => c.id === tx.category_id) ?? null;
         const current = grouped.get(key) ?? {
           key,
           label,
           icon: catObj?.icon ?? null,
           total: 0,
+          budgetLimit: catObj?.invoice_budget_limit ?? null,
           transactions: [],
         };
         current.total += Math.abs(tx.amount);
@@ -113,7 +132,8 @@ export default function InvoiceDetailPage({ params }: PageProps) {
         grouped.set(key, current);
       });
     return [...grouped.values()].sort((a, b) => b.total - a.total);
-  }, [transactions, categories]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [transactions, categoriesById]);
 
   // ── Installment info ─────────────────────────────────────────────────────────
   const installments = useMemo<InstallmentInfo[]>(() => {
@@ -595,6 +615,20 @@ export default function InvoiceDetailPage({ params }: PageProps) {
                   </div>
                 </button>
 
+                {/* Progresso do limite (quando definido) */}
+                {group.budgetLimit != null && group.budgetLimit > 0 && (
+                  <div style={{
+                    padding: '0 16px 12px',
+                    borderTop: '1px dashed var(--border-subtle)',
+                    paddingTop: 10,
+                  }}>
+                    <CategoryBudgetProgress
+                      spentAmount={group.total}
+                      limitAmount={group.budgetLimit}
+                    />
+                  </div>
+                )}
+
                 {openGroups.has(group.key) && (
                   <div style={{ borderTop: '1px solid var(--border-subtle)' }}>
                     {group.transactions.map(tx => (
@@ -681,7 +715,9 @@ export default function InvoiceDetailPage({ params }: PageProps) {
                             >
                               <option value="">Sem categoria</option>
                               {categories.map(cat => (
-                                <option key={cat.id} value={cat.id}>{cat.name}</option>
+                                <option key={cat.id} value={cat.id}>
+                                  {categoryLabel(cat, cat.name)}
+                                </option>
                               ))}
                             </select>
                             <button

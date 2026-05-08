@@ -10,7 +10,7 @@
  * Implementado no Passo 3 desta etapa.
  */
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -269,6 +269,40 @@ export default function UploadPreview({ result, card, cards = [], categories = [
   // ── Import state ────────────────────────────────────────────────────────────
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<ImportResponse | null>(null);
+
+  // ── Opções de categoria válidas para o cartão selecionado ──────────────────
+  // Inclui categorias globais (card_id=null) + específicas do cartão atual.
+  // Sub aparece com label hierárquico "Pai / Sub". Ordena por label.
+  const categoryOptions = useMemo(() => {
+    const cardId = selectedCard?.id;
+    const valid = categories.filter(c => {
+      if (c.scope !== 'credit_card') return false;
+      if (c.card_id == null) return true;
+      return cardId != null && c.card_id === cardId;
+    });
+    const byId = new Map(valid.map(c => [c.id, c] as const));
+    return valid
+      .map(c => {
+        const parent = c.parent_id != null ? byId.get(c.parent_id) : null;
+        const label = parent ? `${parent.name} / ${c.name}` : c.name;
+        return { id: c.id, label, isSub: !!parent };
+      })
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [categories, selectedCard]);
+
+  // Limpa categoryIds que ficaram inválidos quando o cartão muda
+  useEffect(() => {
+    const validIds = new Set(categoryOptions.map(o => o.id));
+    setCategoryIds(prev => {
+      let changed = false;
+      const next: Record<number, number | null> = {};
+      Object.entries(prev).forEach(([k, v]) => {
+        if (v === null || validIds.has(v)) next[Number(k)] = v;
+        else { next[Number(k)] = null; changed = true; }
+      });
+      return changed ? next : prev;
+    });
+  }, [categoryOptions]);
 
   // ── Transações filtradas ────────────────────────────────────────────────────
   const filteredIndices = useMemo(() => {
@@ -815,8 +849,8 @@ export default function UploadPreview({ result, card, cards = [], categories = [
                           }}
                         >
                           <option value="">Sem categoria</option>
-                          {categories.map(cat => (
-                            <option key={cat.id} value={cat.id}>{cat.name}</option>
+                          {categoryOptions.map(opt => (
+                            <option key={opt.id} value={opt.id}>{opt.label}</option>
                           ))}
                         </select>
                       );

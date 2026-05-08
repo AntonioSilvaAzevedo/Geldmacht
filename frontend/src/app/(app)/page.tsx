@@ -13,6 +13,7 @@ import Link from 'next/link';
 import Header from '@/components/Layout/Header';
 import ErrorState from '@/components/ErrorState';
 import EmptyState from '@/components/EmptyState';
+import ReleaseNotesGate from '@/components/ReleaseNotesGate';
 import { useFinancialData } from '@/hooks/useFinancialData';
 import { formatCurrency, classifyValue } from '@/lib/formatters';
 import type { MonthlyData } from '@/types/financial';
@@ -167,6 +168,7 @@ export default function DashboardPage() {
 
   return (
     <>
+      <ReleaseNotesGate />
       <Header title="Dashboard Anual" subtitle="Janeiro — Abril 2026" />
 
       <main style={{ padding: '24px', flex: 1 }}>

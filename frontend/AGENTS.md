@@ -201,6 +201,8 @@ antes de redirecionar (evita loop de redirect).
 | `POST` | `/api/categories` | Cria categoria manual |
 | `PATCH` | `/api/categories/{id}` | Edita categoria manual |
 | `DELETE` | `/api/categories/{id}` | Remove categoria manual |
+| `GET` | `/api/release-notes/pending` | Próxima release note pendente do usuário (204 quando não há) |
+| `POST` | `/api/release-notes/{id}/mark-seen` | Marca release note como visualizada (idempotente) |
 
 ### Regras do backend para cartões
 
@@ -397,10 +399,13 @@ Aplicado em:
 Categorias manuais para lançamentos de fatura de cartão de crédito.
 
 ### Modelo de dados
-- Tabela `categories` no banco: `id, user_id, name, scope, color, icon`
+- Tabela `categories` no banco: `id, user_id, name, scope, color, icon, card_id, parent_id, invoice_budget_limit`
 - `icon` — chave de ícone (ex: `"shopping-cart"`). Nullable. Campo principal de representação visual.
 - `color` — legado, mantido para compatibilidade.
 - `scope = 'credit_card'` — único escopo válido atualmente
+- `card_id` — FK para `credit_cards`. `null` = aplica em todos os cartões (global); `N` = exclusiva do cartão.
+- `parent_id` — FK self-referencial. `null` = categoria principal; `N` = subcategoria. Profundidade máxima 1 nível.
+- `invoice_budget_limit` — limite de gasto **por fatura** (numérico, nullable). Quando definido, deve ser `> 0`. É apenas visual — não bloqueia lançamentos.
 - Isoladas por `user_id` — cada usuário tem suas próprias categorias
 
 ### Tipo no frontend (`api.ts`)
@@ -408,18 +413,96 @@ Categorias manuais para lançamentos de fatura de cartão de crédito.
 interface Category {
   id: number; user_id: number; name: string; scope: 'credit_card';
   color: string | null; icon: string | null;
+  card_id: number | null;             // null = todos os cartões
+  parent_id: number | null;           // null = categoria principal
+  invoice_budget_limit: number | null;// null = sem limite
   created_at: string; updated_at: string;
 }
-interface CategoryPayload     { name: string; scope: 'credit_card'; color?: string | null; icon?: string | null; }
-interface CategoryUpdatePayload { name?: string; color?: string | null; icon?: string | null; }
+interface CategoryPayload {
+  name: string; scope: 'credit_card';
+  color?: string | null; icon?: string | null;
+  card_id?: number | null;            // null/omitido = global
+  parent_id?: number | null;          // null/omitido = principal
+  invoice_budget_limit?: number | null;
+}
+interface CategoryUpdatePayload {
+  name?: string; color?: string | null; icon?: string | null;
+  card_id?: number | null;            // 0 limpa (vira global)
+  parent_id?: number | null;          // 0 limpa (vira categoria principal)
+  invoice_budget_limit?: number | null; // 0 remove o limite
+}
 ```
 
 ### Fluxo de uso
-1. **Criar:** `/categorias` → formulário "Nome + Ícone" → `POST /api/categories` com `scope='credit_card'`
-2. **Editar:** botão Editar por card → edição inline de nome e ícone → `PATCH /api/categories/{id}`
-3. **Atribuir no import:** `UploadPreview` exibe `<select>` por linha com nome da categoria
-4. **Atribuir depois:** `PATCH /api/transactions/{id}` com `{ category_id: N }` na fatura
-5. **Exibir:** `/cartao/[cardId]/fatura/[invoiceId]` agrupa lançamentos por categoria em acordeão com ícone
+1. **Criar:** `/categorias` → botão "Nova categoria" → modal com nome, ícone, escopo, cartão aplicado, limite por fatura.
+2. **Adicionar subcategoria:** dentro do card de uma categoria, botão `+` → modal já com a categoria pai fixada (herda card_id).
+3. **Editar:** botão de lápis no card → modal de edição com mesmos campos (sentinelas `0` para limpar valores).
+4. **Atribuir no import:** `UploadPreview` exibe `<select>` por linha já filtrado pelo cartão da fatura, com label hierárquico para subcategorias (`Pai / Sub`).
+5. **Atribuir depois:** `PATCH /api/transactions/{id}` com `{ category_id: N }` na tela da fatura. O backend valida que `card_id` da categoria é compatível com o cartão da transação.
+6. **Exibir:** `/cartao/[cardId]/fatura/[invoiceId]` agrupa lançamentos por categoria em acordeão com ícone, mostrando barra de progresso quando há limite definido.
+
+### Página `/categorias` — layout
+
+Header explica o propósito: "Gerencie categorias, subcategorias, ícones, cartões vinculados e limites de gasto por fatura."
+
+Resumo (cards): total de categorias, com limite definido, sem limite, aplicadas a todos os cartões.
+
+Filtros: select de cartão (`Todos os cartões` ou cartão específico) + busca textual (filtra por nome da categoria ou nome da subcategoria).
+
+Lista de categorias principais (parents):
+- Card por categoria com ícone, nome, chip de limite, contador de subcategorias, label do cartão aplicado.
+- Ações: `+` (adicionar subcategoria), lápis (editar), lixeira (excluir).
+- Subcategorias aparecem dentro do card pai ao expandir o chip "N subcategorias".
+
+Modal de criar/editar:
+- Nome
+- Ícone (com seletor visual)
+- Usar esta categoria em (`Fatura de cartão de crédito`, fixo)
+- Aplicar em (apenas para categorias principais — `Todos os cartões` ou cartão específico)
+- Limite de gasto por fatura (opcional)
+- Categoria pai (fixa quando criando subcategoria; bloqueada como "Nenhuma — categoria principal" ao criar principal)
+
+Sentinelas para limpar campos no PATCH:
+- `card_id: 0` → vira global
+- `parent_id: 0` → vira categoria principal
+- `invoice_budget_limit: 0` → remove o limite
+
+### Filtragem por cartão na revisão da importação
+
+`UploadPreview` calcula `categoryOptions` com `useMemo`:
+
+1. Filtra `categories` aceitando apenas `scope === 'credit_card'` e (`card_id === null` || `card_id === selectedCard.id`).
+2. Mapeia para `{ id, label, isSub }` onde `label` vira `Pai / Sub` quando `parent_id != null`.
+3. Ordena por `label` para apresentação consistente.
+
+Quando o usuário troca o cartão selecionado, um `useEffect` limpa `categoryIds` que deixaram de ser válidos (categoria de outro cartão), evitando enviar payloads que o backend rejeitaria.
+
+Lançamentos sistêmicos (parcelas, pagamentos) continuam mostrando badge bloqueado em vez do `<select>`.
+
+### Filtragem por cartão na tela da fatura
+
+`/cartao/[cardId]/fatura/[invoiceId]` chama `api.listCategories('credit_card', cardId)` — o backend já retorna apenas categorias aplicáveis àquele cartão. Categorias de outros cartões nunca aparecem no `<select>` de recategorize.
+
+O label das opções usa `categoryLabel(cat, fallback)` que prefixa com o nome da pai quando há `parent_id`. O agrupamento por categoria (`groups`) também usa esse label hierárquico.
+
+### Barra de progresso de limite (`CategoryBudgetProgress`)
+
+Componente: `src/components/CategoryBudgetProgress.tsx`.
+
+Renderizado dentro de cada card de grupo de categoria na tela da fatura, **apenas** quando a categoria do grupo tem `invoice_budget_limit != null && > 0`.
+
+Estados (faixas de % do gasto vs limite):
+
+| Faixa     | Status         | Cor      |
+|-----------|----------------|----------|
+| 0–70%     | within_limit   | verde    |
+| 71–90%    | attention      | amarelo  |
+| 91–100%   | near_limit     | laranja  |
+| > 100%    | exceeded       | vermelho |
+
+Mostra: gasto/limite, % usado, mensagem de status (ex: "Atenção · R$ 280,00 disponível" ou "Limite ultrapassado em R$ 180,00"). Quando `> 100%`, a barra fica preenchida com padrão diagonal hachurado.
+
+Não bloqueia lançamentos. Não altera `invoice.total_amount` nem nenhuma transaction.
 
 ### Componente `CategoryIcon`
 `src/components/CategoryIcon.tsx`
@@ -593,6 +676,76 @@ Rota separada para **todas** as faturas do cartão.
 
 ---
 
+## Release Notes / Notas de atualização
+
+Modal de novidades exibido após login na Dashboard quando há uma release note pendente para o usuário.
+
+### Componentes
+
+- `src/components/ReleaseNotesModal.tsx` — UI pura do modal. Props: `version`, `title`, `description`, `items`, `onClose`, `onConfirm`. Acessível (role=dialog, aria-modal, aria-labelledby), fecha por Esc, X, clique no overlay ou botão "Entendi".
+- `src/components/ReleaseNotesGate.tsx` — orquestra o ciclo. Busca `getPendingReleaseNote()` quando a sessão Auth.js está autenticada; se houver, renderiza o `ReleaseNotesModal`; ao fechar/confirmar, chama `markReleaseNoteSeen(id)`.
+
+### Onde é carregado
+
+`ReleaseNotesGate` é montado no topo da Dashboard (`src/app/(app)/page.tsx`). Não aparece em `/login`, `/register` (não estão sob `(app)`), nem antes da sessão estar autenticada — o `useSession()` aguarda `status === 'authenticated'` antes de chamar a API.
+
+### Regra de exibição única
+
+A regra oficial é **no backend**. O `Gate`:
+
+1. Pergunta ao backend o que está pendente (`GET /api/release-notes/pending`).
+2. Mostra o modal se a resposta for 200; nada se for 204.
+3. Ao fechar, chama `POST /api/release-notes/{id}/mark-seen` (idempotente).
+4. Não usa `localStorage` como fonte primária. Se um chamada falhar, na próxima sessão o backend continua sendo a verdade.
+
+A mesma versão **nunca** aparece duas vezes para o mesmo usuário. O modal só reabre quando o backend tiver uma versão nova com `show_modal=true` ainda não visualizada.
+
+### Como a versão é obtida
+
+O modal usa o campo `version` retornado pelo backend (vindo da release note cadastrada via seed em `app/services/release_notes_seed.py`). A sidebar continua exibindo `config.appVersion` (lido de `package.json` ou `NEXT_PUBLIC_APP_VERSION`).
+
+**Convenção:** ao adicionar uma release note no backend, atualize `frontend/package.json#version` para a mesma string. Isso mantém sidebar e modal alinhados.
+
+### Tipos no `api.ts`
+
+```typescript
+interface ReleaseNote {
+  id: number;
+  version: string;
+  title: string;
+  description: string | null;
+  items: string[];
+  show_modal: boolean;
+  released_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+api.getPendingReleaseNote(): Promise<ReleaseNote | null>      // 204 → null
+api.markReleaseNoteSeen(id): Promise<{ success, seen }>       // idempotente
+```
+
+`getPendingReleaseNote` trata `204 No Content` retornando `null` em vez de erro de parse JSON.
+
+### Como inserir release notes em novos prompts/features
+
+Sempre que um prompt entregar mudança visível ao usuário, adicione/atualize a nota no backend:
+
+1. Edite `RELEASE_NOTES` em `app/services/release_notes_seed.py` (mais nova primeiro).
+2. Atualize `frontend/package.json#version` para a nova versão.
+3. Use linguagem simples e amigável — **nunca** termos técnicos (`schema`, `migration`, `endpoint`, `refactor`, etc.).
+4. `show_modal: true` é o padrão; use `false` apenas para ajustes internos.
+5. No deploy, o seed roda no startup do backend e popula a versão idempotentemente.
+
+Resumo do bloco para adicionar em prompts:
+
+```
+RELEASE NOTES:
+  - Atualizar release note da versão atual.
+  - Texto amigável, sem termos técnicos.
+  - show_modal: true (padrão).
+```
+
 ## Versão do sistema na sidebar
 
 A versão é exibida no rodapé da sidebar (em `Sidebar.tsx`), ao lado do bloco do usuário, como um chip discreto: `v0.1.0`.
@@ -654,10 +807,12 @@ api.deleteCard(id)                              // DELETE /api/cards/{id}
 api.getCardInvoices(cardId)                     // GET /api/cards/{id}/invoices → lista CardInvoice[]
 api.getCardInvoiceDetail(cardId, invoiceId)     // GET /api/cards/{id}/invoices/{invoice_id}
 api.getCardInvoiceByMonth(cardId, dueMonth)     // GET /api/cards/{id}/invoices-by-month/{due_month}
-api.listCategories(scope?)                      // GET /api/categories[?scope=credit_card]
+api.listCategories(scope?, cardId?)              // GET /api/categories[?scope=credit_card][&card_id=N]
 api.createCategory(payload)                     // POST /api/categories
 api.updateCategory(id, payload)                 // PATCH /api/categories/{id}
 api.deleteCategory(id)                          // DELETE /api/categories/{id}
+api.getPendingReleaseNote()                     // GET /api/release-notes/pending (204 → null)
+api.markReleaseNoteSeen(id)                     // POST /api/release-notes/{id}/mark-seen
 ```
 
 ---
