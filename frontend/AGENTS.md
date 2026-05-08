@@ -44,7 +44,8 @@ frontend/
 │   │       ├── upload/page.tsx           # /upload → Importar extratos
 │   │       ├── mes/[mes]/page.tsx        # /mes/2026-04 → Detalhe mensal
 │   │       ├── cartao/page.tsx           # /cartao → Cartões cadastrados
-│   │       ├── cartao/[cardId]/page.tsx  # /cartao/1 → Detalhe do cartão
+│   │       ├── cartao/[cardId]/page.tsx  # /cartao/1 → Dashboard / visão geral do cartão
+│   │       ├── cartao/[cardId]/faturas/page.tsx # /cartao/1/faturas → Listagem completa de faturas
 │   │       ├── cartao/[cardId]/[anoMes]/page.tsx # /cartao/1/2026-04 → Fatura (legado/compat.)
 │   │       ├── cartao/[cardId]/fatura/[invoiceId]/page.tsx # /cartao/1/fatura/10 → Fatura por ID (preferencial)
 │   │       ├── categorias/page.tsx       # /categorias → Categorias manuais
@@ -192,8 +193,9 @@ antes de redirecionar (evita loop de redirect).
 | `POST` | `/api/cards` | Cria cartão |
 | `PATCH` | `/api/cards/{id}` | Edita cartão |
 | `DELETE` | `/api/cards/{id}` | Remove cartão, invoices e transações em cascata |
-| `GET` | `/api/cards/{id}/invoices` | Lista invoices reais da tabela `Invoice` |
+| `GET` | `/api/cards/{id}/invoices` | Lista invoices reais (usado para nav e listagem) |
 | `GET` | `/api/cards/{id}/invoices/{invoice_id}` | Detalhes da fatura + transactions + summary |
+| `GET` | `/api/cards/{id}/dashboard` | Visão geral agregada do cartão (Feature 3) |
 | `GET` | `/api/cards/{id}/invoices-by-month/{due_month}` | Busca invoice por `due_month` (compat. legada) |
 | `GET` | `/api/categories?scope=credit_card` | Lista categorias manuais de cartão |
 | `POST` | `/api/categories` | Cria categoria manual |
@@ -322,8 +324,9 @@ Regras:
 | `/upload` | Importar Extratos | `POST /api/upload` + `POST /api/import` | ✅ API real + invoice_metadata |
 | `/mes/[mes]` | Detalhe Mensal | `GET /api/transactions?limit=1000` | ✅ API real + edição inline |
 | `/cartao` | Cartões | `GET /api/cards` | ✅ API real + empty state + ações por card |
-| `/cartao/[cardId]` | Detalhe do cartão | `GET /api/cards/{id}` + `GET /api/cards/{id}/invoices` | ✅ API real — lista invoices reais |
-| `/cartao/[cardId]/fatura/[invoiceId]` | Fatura por ID | `GET /api/cards/{id}/invoices/{invoice_id}` | ✅ API real — compras parceladas + recategorização |
+| `/cartao/[cardId]` | Dashboard do cartão | `GET /api/cards/{id}` + `GET /api/cards/{id}/dashboard` | ✅ API real — métricas, gráfico, top categorias e faturas recentes |
+| `/cartao/[cardId]/faturas` | Listagem completa de faturas | `GET /api/cards/{id}/invoices` | ✅ API real — todas as faturas ordenadas por vencimento |
+| `/cartao/[cardId]/fatura/[invoiceId]` | Fatura por ID | `GET /api/cards/{id}/invoices/{invoice_id}` + `GET /api/cards/{id}/invoices` | ✅ API real — compras parceladas + recategorização + navegação prev/next |
 | `/cartao/[cardId]/[anoMes]` | Fatura por Mês (legado) | `GET /api/cards/{id}/invoices-by-month/{due_month}` | ✅ API real + fallback legado |
 | `/categorias` | Categorias | `GET/POST/PATCH/DELETE /api/categories` | ✅ API real — criar/editar/excluir com ícone |
 | `/carteira` | Carteira Investimentos | — | ⚫ pendente (Etapa 3.4) |
@@ -504,6 +507,116 @@ installmentsFutureTotal = sum(futureAmount for each)
 - Coluna "Parcela" na tabela de revisão exibe `X/Y` quando `installment_current != null`
 - Badge estilizado azul para parcelas; `—` para não parcelados
 - `installment_current` e `installment_total` são enviados no payload de importação
+
+---
+
+## Bloqueio de Categoria em Lançamentos Sistêmicos
+
+Compras parceladas (`installment_total > 1`) e pagamentos da fatura (`is_payment = true`) são lançamentos **sistêmicos** e não recebem `category_id` manual.
+
+### Visual
+
+**`UploadPreview` (revisão de importação):**
+- Para parceladas: célula da coluna Categoria mostra um badge `Compra parcelada` com borda tracejada, em vez do `<select>`. Tooltip: *"Este lançamento é sistêmico e não pode ser categorizado manualmente."*
+- Para pagamento: badge `Pagamento da fatura` com mesmo estilo.
+- Ao montar o payload de importação, `category_id` desses lançamentos é forçado a `null` localmente — o backend faz o mesmo, mas o frontend deve evitar enviar valores inválidos.
+
+**Detalhe da fatura (`/cartao/[cardId]/fatura/[invoiceId]`):**
+- A linha de "alterar categoria" é substituída por um chip com ícone de cadeado: `Compra parcelada` ou `Pagamento da fatura`.
+- O botão "alterar" não aparece para sistêmicos.
+- Tooltip informativo idêntico ao do UploadPreview.
+
+### Fluxo no backend
+
+- **Importação**: backend normaliza silenciosamente — `category_id` enviado para sistêmicos é gravado como `null`.
+- **Recategorização**: `PATCH /api/transactions/{id}` com `category_id` em sistêmico retorna `400 — Este lançamento é sistêmico e não pode ser categorizado manualmente.`
+
+### Helper `isSystemicTx(tx)`
+
+Função local na página de fatura:
+```typescript
+function isSystemicTx(tx: Transaction): boolean {
+  if (tx.is_payment) return true;
+  if (tx.installment_current != null && tx.installment_total != null && tx.installment_total > 1) return true;
+  return false;
+}
+```
+
+---
+
+## Navegação entre faturas
+
+Na tela `/cartao/[cardId]/fatura/[invoiceId]`, quando o cartão tem mais de uma fatura, aparece uma barra de navegação:
+
+- **Botão Anterior** (`ChevronLeft + label do mês`): navega para `due_month` imediatamente menor.
+- **Select / dropdown** com todas as faturas do cartão (rotuladas como `<Mês/Ano> — vence DD/MM/YYYY — R$ valor`).
+- **Botão Próxima** (`label + ChevronRight`): navega para `due_month` imediatamente maior.
+
+Regras:
+- Lista de faturas vem de `api.getCardInvoices(cardId)`, carregada em paralelo com o detalhe da fatura.
+- Ordenação por `due_month` ascendente para localizar prev/next.
+- Se não houver fatura anterior/posterior, o botão correspondente fica desabilitado (opacity 0.4, cursor not-allowed).
+- Trocar fatura no dropdown faz `router.push('/cartao/{cardId}/fatura/{newInvoiceId}')`.
+- Faturas de outros cartões nunca aparecem (lista é filtrada por `card_id` no backend).
+- A barra é ocultada quando o cartão tem apenas 1 fatura (sem nada para navegar).
+
+---
+
+## Dashboard do cartão (`/cartao/[cardId]`)
+
+A rota `/cartao/[cardId]` agora é o **dashboard / visão geral** do cartão (não mais a listagem completa de faturas — essa migrou para `/cartao/[cardId]/faturas`).
+
+Carrega via `api.getCardDashboard(cardId)` (`GET /api/cards/{id}/dashboard`).
+
+### Layout
+
+1. **Cabeçalho** com nome do cartão, instituição e dias de fechamento/vencimento. Botões `Importar fatura` e `Editar configurações` (form inline).
+2. **4 metric cards** (`grid auto-fit`): Última fatura, Média mensal, Maior fatura, Parcelas futuras estimadas.
+3. **Gráfico de evolução das faturas** (BarChart de `recharts`, já presente em `package.json`) — última 12 faturas em ordem cronológica crescente.
+4. **Categorias principais** — top 5 categorias do cartão, com `CategoryIcon` e total formatado.
+5. **Faturas recentes** — últimas 5 faturas com link para o detalhe + botão "Ver todas as faturas →" para `/cartao/[cardId]/faturas`.
+
+### Empty state
+
+Sem faturas: mostra apenas dados do cartão + `EmptyState` com botão "Importar fatura". Não exibe metric cards zerados nem gráficos vazios.
+
+---
+
+## Listagem completa de faturas (`/cartao/[cardId]/faturas`)
+
+Rota separada para **todas** as faturas do cartão.
+
+- Carrega via `api.getCardInvoices(cardId)` e ordena por `due_date` (fallback `due_month`) decrescente.
+- Cada item navega para `/cartao/[cardId]/fatura/[invoiceId]`.
+- Header com link "← Voltar à visão geral" e "Importar nova fatura".
+- Empty state se não houver faturas.
+
+---
+
+## Versão do sistema na sidebar
+
+A versão é exibida no rodapé da sidebar (em `Sidebar.tsx`), ao lado do bloco do usuário, como um chip discreto: `v0.1.0`.
+
+### Fonte da versão
+
+Centralizada em `src/config/env.ts`:
+
+```typescript
+import pkg from '../../package.json';
+const APP_VERSION =
+  process.env.NEXT_PUBLIC_APP_VERSION ?? (pkg as { version?: string }).version ?? '0.0.0';
+
+export const config = { apiUrl, appVersion: APP_VERSION, ... };
+```
+
+Prioridade:
+1. `NEXT_PUBLIC_APP_VERSION` (variável pública injetada no build) — pode ser usada por CI/CD para sobrescrever em deploy.
+2. `package.json#version` (default em dev) — embutido em build-time pelo Next.js (`resolveJsonModule: true` já habilitado).
+
+### Regras
+- Não hardcodar a versão diretamente em `Sidebar.tsx` — sempre via `config.appVersion`.
+- Atualizar a versão em `package.json` ao fazer release significativo.
+- Convenção: `0.1.0` primeira versão, `0.1.x` correções, `0.x.0` features relevantes.
 
 ---
 

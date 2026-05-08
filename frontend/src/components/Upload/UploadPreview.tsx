@@ -322,12 +322,22 @@ export default function UploadPreview({ result, card, cards = [], categories = [
     if (isCreditCardType && !selectedCard) return;
     setImporting(true);
 
-    const toImport: PreviewTransaction[] = Array.from(selected).map(i => ({
-      ...transactions[i],
-      description: descriptions[i] ?? transactions[i].description,
-      category_id: categoryIds[i] ?? null,
-      category: categories.find(cat => cat.id === categoryIds[i])?.name ?? null,
-    }));
+    const toImport: PreviewTransaction[] = Array.from(selected).map(i => {
+      const tx = transactions[i];
+      const isInstallment =
+        tx.installment_current != null &&
+        tx.installment_total != null &&
+        tx.installment_total > 1;
+      const isPayment = !!tx.is_payment;
+      const isSystemic = isInstallment || isPayment;
+      const catId = isSystemic ? null : (categoryIds[i] ?? null);
+      return {
+        ...tx,
+        description: descriptions[i] ?? tx.description,
+        category_id: catId,
+        category: isSystemic ? null : (categories.find(cat => cat.id === catId)?.name ?? null),
+      };
+    });
 
     try {
       const res = await importTransactions({
@@ -756,26 +766,61 @@ export default function UploadPreview({ result, card, cards = [], categories = [
 
                   {/* Categoria (edição inline) */}
                   <td style={{ padding: '8px 12px' }} onClick={e => e.stopPropagation()}>
-                    <select
-                      value={categoryIds[i] ?? ''}
-                      onChange={e => setCategoryIds(prev => ({ ...prev, [i]: e.target.value ? Number(e.target.value) : null }))}
-                      style={{
-                        padding: '4px 8px',
-                        borderRadius: 6,
-                        border: '1px solid var(--border-default)',
-                        background: 'var(--surface-card)',
-                        color: categoryIds[i] ? 'var(--text-primary)' : 'var(--text-muted)',
-                        fontSize: 12,
-                        cursor: 'pointer',
-                        outline: 'none',
-                        maxWidth: 150,
-                      }}
-                    >
-                      <option value="">Sem categoria</option>
-                      {categories.map(cat => (
-                        <option key={cat.id} value={cat.id}>{cat.name}</option>
-                      ))}
-                    </select>
+                    {(() => {
+                      const isInstallment =
+                        tx.installment_current != null &&
+                        tx.installment_total != null &&
+                        tx.installment_total > 1;
+                      const isPayment = !!tx.is_payment;
+                      const systemicLabel = isPayment
+                        ? 'Pagamento da fatura'
+                        : isInstallment
+                          ? 'Compra parcelada'
+                          : null;
+                      if (systemicLabel) {
+                        return (
+                          <span
+                            title="Este lançamento é sistêmico e não pode ser categorizado manualmente."
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              padding: '3px 8px',
+                              borderRadius: 6,
+                              background: 'rgba(255,255,255,0.04)',
+                              border: '1px dashed var(--border-default)',
+                              color: 'var(--text-muted)',
+                              fontSize: 11,
+                              fontWeight: 600,
+                              maxWidth: 150,
+                            }}
+                          >
+                            {systemicLabel}
+                          </span>
+                        );
+                      }
+                      return (
+                        <select
+                          value={categoryIds[i] ?? ''}
+                          onChange={e => setCategoryIds(prev => ({ ...prev, [i]: e.target.value ? Number(e.target.value) : null }))}
+                          style={{
+                            padding: '4px 8px',
+                            borderRadius: 6,
+                            border: '1px solid var(--border-default)',
+                            background: 'var(--surface-card)',
+                            color: categoryIds[i] ? 'var(--text-primary)' : 'var(--text-muted)',
+                            fontSize: 12,
+                            cursor: 'pointer',
+                            outline: 'none',
+                            maxWidth: 150,
+                          }}
+                        >
+                          <option value="">Sem categoria</option>
+                          {categories.map(cat => (
+                            <option key={cat.id} value={cat.id}>{cat.name}</option>
+                          ))}
+                        </select>
+                      );
+                    })()}
                   </td>
 
                   {/* Valor */}

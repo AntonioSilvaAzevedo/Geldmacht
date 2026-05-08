@@ -164,6 +164,36 @@ export interface CardInvoiceResponse {
   summary: InvoiceSummary;
 }
 
+/** Item resumido de fatura usado em respostas agregadas (dashboard). */
+export interface InvoiceMini {
+  id: number;
+  due_month: string;
+  due_date: string | null;
+  total_amount: number | null;
+  computed_total: number;
+}
+
+/** Categoria principal agregada do dashboard. */
+export interface TopCategoryItem {
+  category_id: number | null;
+  name: string;
+  icon: string | null;
+  total: number;
+}
+
+/** Resposta do GET /api/cards/{card_id}/dashboard. */
+export interface CardDashboard {
+  card_id: number;
+  invoice_count: number;
+  latest_invoice: InvoiceMini | null;
+  monthly_average: number;
+  highest_invoice: InvoiceMini | null;
+  future_installments_total: number;
+  invoice_evolution: InvoiceMini[];
+  top_categories: TopCategoryItem[];
+  recent_invoices: InvoiceMini[];
+}
+
 export interface CreditCardConfig {
   id: number;
   user_id: number;
@@ -335,6 +365,10 @@ export const api = {
    */
   getCardInvoices: (id: number): Promise<CardInvoice[]> =>
     request<CardInvoice[]>(`${BASE}/api/cards/${id}/invoices`),
+
+  /** Dashboard agregado do cartão (visão geral). */
+  getCardDashboard: (id: number): Promise<CardDashboard> =>
+    request<CardDashboard>(`${BASE}/api/cards/${id}/dashboard`),
 
   /**
    * Retorna detalhes de uma fatura específica por invoice_id.

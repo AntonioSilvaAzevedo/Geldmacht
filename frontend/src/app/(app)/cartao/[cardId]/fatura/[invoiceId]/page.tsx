@@ -2,14 +2,15 @@
 
 import { use, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ChevronDown, ChevronRight, TrendingUp, Layers } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { ChevronDown, ChevronLeft, ChevronRight, TrendingUp, Layers, Lock } from 'lucide-react';
 import EditableDescription from '@/components/EditableDescription';
 import CategoryIcon from '@/components/CategoryIcon';
 import Header from '@/components/Layout/Header';
 import ErrorState from '@/components/ErrorState';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import EmptyState from '@/components/EmptyState';
-import { api, type CardInvoiceDetail, type CreditCardConfig, type Category } from '@/lib/api';
+import { api, type CardInvoice, type CardInvoiceDetail, type CreditCardConfig, type Category } from '@/lib/api';
 import { formatCurrency, formatDate } from '@/lib/formatters';
 import type { Transaction } from '@/types/financial';
 
@@ -47,6 +48,7 @@ function buildTitle(invoice: CardInvoiceDetail): string {
 }
 
 export default function InvoiceDetailPage({ params }: PageProps) {
+  const router = useRouter();
   const { cardId, invoiceId } = use(params);
   const cid = Number(cardId);
   const iid = Number(invoiceId);
@@ -55,6 +57,7 @@ export default function InvoiceDetailPage({ params }: PageProps) {
   const [invoice, setInvoice] = useState<CardInvoiceDetail | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [allInvoices, setAllInvoices] = useState<CardInvoice[]>([]);
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
   const [installmentsOpen, setInstallmentsOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -68,15 +71,17 @@ export default function InvoiceDetailPage({ params }: PageProps) {
     setLoading(true);
     setError(null);
     try {
-      const [cardData, invoiceData, catData] = await Promise.all([
+      const [cardData, invoiceData, catData, invoicesList] = await Promise.all([
         api.getCard(cid),
         api.getCardInvoiceDetail(cid, iid),
         api.listCategories('credit_card'),
+        api.getCardInvoices(cid),
       ]);
       setCard(cardData);
       setInvoice(invoiceData);
       setTransactions(invoiceData.transactions);
       setCategories(catData);
+      setAllInvoices(invoicesList);
       setOpenGroups(new Set());
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao carregar fatura.');
@@ -135,6 +140,43 @@ export default function InvoiceDetailPage({ params }: PageProps) {
     () => installments.reduce((acc, i) => acc + i.futureAmount, 0),
     [installments]
   );
+
+  // ── Navegação entre faturas ──────────────────────────────────────────────────
+  // Ordena por due_month ASC para localizar prev/next.
+  const sortedInvoices = useMemo<CardInvoice[]>(
+    () => [...allInvoices].sort((a, b) => a.due_month.localeCompare(b.due_month)),
+    [allInvoices]
+  );
+  const currentIndex = useMemo(
+    () => sortedInvoices.findIndex(inv => inv.id === iid),
+    [sortedInvoices, iid]
+  );
+  const prevInvoice = currentIndex > 0 ? sortedInvoices[currentIndex - 1] : null;
+  const nextInvoice =
+    currentIndex >= 0 && currentIndex < sortedInvoices.length - 1
+      ? sortedInvoices[currentIndex + 1]
+      : null;
+
+  function shortLabel(inv: CardInvoice): string {
+    const [year, mon] = inv.due_month.split('-');
+    const labels: Record<string, string> = {
+      '01': 'Janeiro', '02': 'Fevereiro', '03': 'Março', '04': 'Abril',
+      '05': 'Maio', '06': 'Junho', '07': 'Julho', '08': 'Agosto',
+      '09': 'Setembro', '10': 'Outubro', '11': 'Novembro', '12': 'Dezembro',
+    };
+    return `${labels[mon] ?? mon}/${year}`;
+  }
+
+  // Helper: lançamento é sistêmico (parcela ou pagamento da fatura).
+  function isSystemicTx(tx: Transaction): boolean {
+    if (tx.is_payment) return true;
+    if (
+      tx.installment_current != null &&
+      tx.installment_total != null &&
+      tx.installment_total > 1
+    ) return true;
+    return false;
+  }
 
   // ── Handlers ─────────────────────────────────────────────────────────────────
 
@@ -218,7 +260,7 @@ export default function InvoiceDetailPage({ params }: PageProps) {
       <main style={{ padding: 24, flex: 1 }}>
 
         {/* Navegação */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
           <Link href={`/cartao/${card.id}`} style={{ color: 'var(--blue-400)', fontSize: 13, textDecoration: 'none' }}>
             ← Voltar ao cartão
           </Link>
@@ -226,6 +268,86 @@ export default function InvoiceDetailPage({ params }: PageProps) {
             Importar nova fatura
           </Link>
         </div>
+
+        {/* Navegação entre faturas (do mesmo cartão) */}
+        {sortedInvoices.length > 1 && (
+          <div style={{
+            background: 'var(--surface-card)',
+            border: '1px solid var(--border-subtle)',
+            borderRadius: 10,
+            padding: '10px 12px',
+            marginBottom: 18,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            flexWrap: 'wrap',
+          }}>
+            <button
+              type="button"
+              disabled={!prevInvoice}
+              onClick={() => prevInvoice && router.push(`/cartao/${cid}/fatura/${prevInvoice.id}`)}
+              title={prevInvoice ? `Fatura anterior: ${shortLabel(prevInvoice)}` : 'Sem fatura anterior'}
+              style={{
+                ...navButtonStyle,
+                opacity: prevInvoice ? 1 : 0.4,
+                cursor: prevInvoice ? 'pointer' : 'not-allowed',
+              }}
+            >
+              <ChevronLeft size={14} />
+              {prevInvoice ? shortLabel(prevInvoice) : 'Anterior'}
+            </button>
+
+            <label style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, minWidth: 220 }}>
+              <span style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>
+                Fatura
+              </span>
+              <select
+                value={iid}
+                onChange={e => {
+                  const target = Number(e.target.value);
+                  if (target !== iid) router.push(`/cartao/${cid}/fatura/${target}`);
+                }}
+                style={{
+                  flex: 1,
+                  padding: '6px 9px',
+                  borderRadius: 7,
+                  border: '1px solid var(--border-default)',
+                  background: 'var(--surface-panel)',
+                  color: 'var(--text-primary)',
+                  fontSize: 12,
+                  cursor: 'pointer',
+                }}
+              >
+                {sortedInvoices.slice().reverse().map(inv => {
+                  const valueParts: string[] = [shortLabel(inv)];
+                  if (inv.due_date) valueParts.push(`vence ${formatDate(inv.due_date)}`);
+                  const total = inv.total_amount != null ? inv.total_amount : inv.computed_total;
+                  if (total != null) valueParts.push(formatCurrency(total));
+                  return (
+                    <option key={inv.id} value={inv.id}>
+                      {valueParts.join(' — ')}
+                    </option>
+                  );
+                })}
+              </select>
+            </label>
+
+            <button
+              type="button"
+              disabled={!nextInvoice}
+              onClick={() => nextInvoice && router.push(`/cartao/${cid}/fatura/${nextInvoice.id}`)}
+              title={nextInvoice ? `Próxima fatura: ${shortLabel(nextInvoice)}` : 'Sem próxima fatura'}
+              style={{
+                ...navButtonStyle,
+                opacity: nextInvoice ? 1 : 0.4,
+                cursor: nextInvoice ? 'pointer' : 'not-allowed',
+              }}
+            >
+              {nextInvoice ? shortLabel(nextInvoice) : 'Próxima'}
+              <ChevronRight size={14} />
+            </button>
+          </div>
+        )}
 
         {/* Cabeçalho de datas */}
         {(invoice.due_date || (invoice.cycle_start_date && invoice.cycle_end_date)) && (
@@ -515,8 +637,28 @@ export default function InvoiceDetailPage({ params }: PageProps) {
                           </div>
                         </div>
 
-                        {/* Recategorizar */}
-                        {recatEdit === tx.id ? (
+                        {/* Recategorizar — bloqueado para sistêmicos */}
+                        {isSystemicTx(tx) ? (
+                          <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span
+                              title="Este lançamento é sistêmico e não pode ser categorizado manualmente."
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 5,
+                                fontSize: 11,
+                                color: 'var(--text-muted)',
+                                padding: '2px 7px',
+                                borderRadius: 5,
+                                border: '1px dashed var(--border-default)',
+                                background: 'rgba(255,255,255,0.02)',
+                              }}
+                            >
+                              <Lock size={10} />
+                              {tx.is_payment ? 'Pagamento da fatura' : 'Compra parcelada'}
+                            </span>
+                          </div>
+                        ) : recatEdit === tx.id ? (
                           <div style={{ marginTop: 8, display: 'flex', gap: 8, alignItems: 'center' }}>
                             <select
                               autoFocus
@@ -634,6 +776,19 @@ const primaryLinkStyle: React.CSSProperties = {
   textDecoration: 'none',
   fontSize: 13,
   fontWeight: 600,
+};
+
+const navButtonStyle: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 4,
+  padding: '6px 10px',
+  borderRadius: 7,
+  border: '1px solid var(--border-default)',
+  background: 'transparent',
+  color: 'var(--text-secondary)',
+  fontSize: 12,
+  fontWeight: 500,
 };
 
 const metaItem: React.CSSProperties = {
