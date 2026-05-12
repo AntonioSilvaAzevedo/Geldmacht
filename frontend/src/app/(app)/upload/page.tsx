@@ -3,14 +3,24 @@
 import { Suspense, useState, useCallback, useEffect, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Upload, FileText, FileSpreadsheet, X, AlertCircle, Loader2 } from 'lucide-react';
-import { api, uploadFile, type Category, type CreditCardConfig, type UploadResponse } from '@/lib/api';
+import {
+  api,
+  uploadFile,
+  type BankAccountConfig,
+  type Category,
+  type CreditCardConfig,
+  type ImportKind,
+  type UploadResponse,
+} from '@/lib/api';
 import UploadPreview from '@/components/Upload/UploadPreview';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import Link from 'next/link';
 
-type Stage = 'idle' | 'uploading' | 'preview' | 'error';
+type Stage = 'idle' | 'uploading' | 'preview' | 'error' | 'already_imported';
 
-const ACCEPTED_EXTENSIONS = ['.pdf', '.xlsx', '.xls'];
-const ACCEPTED_MIME = [
+const ACCEPT_CARD = ['.pdf', '.xlsx', '.xls'];
+const ACCEPT_BANK_STATEMENT = ['.ofx', '.qfx'];
+const ACCEPTED_MIME_CARD = [
   'application/pdf',
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   'application/vnd.ms-excel',
@@ -22,11 +32,11 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function isValidFile(file: File): boolean {
-  const nameLower = file.name.toLowerCase();
-  const extOk = ACCEPTED_EXTENSIONS.some(ext => nameLower.endsWith(ext));
-  const mimeOk = !file.type || ACCEPTED_MIME.includes(file.type) || file.type === 'application/octet-stream';
-  return extOk && mimeOk;
+function formatImportedAtPt(iso: string | null): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
 }
 
 function UploadPageInner() {
@@ -34,8 +44,13 @@ function UploadPageInner() {
   const searchParams = useSearchParams();
   const uploadType = searchParams.get('type');
   const cardIdParam = searchParams.get('cardId');
+  const bankIdParam = searchParams.get('bankAccountId');
   const cardId = cardIdParam ? Number(cardIdParam) : null;
+  const bankAccountIdPreset = bankIdParam ? Number(bankIdParam) : null;
+
   const isCreditCardType = uploadType === 'credit_card';
+  const isBankStatementType = uploadType === 'bank_statement';
+
   const [stage, setStage] = useState<Stage>('idle');
   const [dragOver, setDragOver] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -44,7 +59,11 @@ function UploadPageInner() {
   const [card, setCard] = useState<CreditCardConfig | null>(null);
   const [cards, setCards] = useState<CreditCardConfig[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [bankAccounts, setBankAccounts] = useState<BankAccountConfig[]>([]);
+  const [selectedBankId, setSelectedBankId] = useState<number | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const selectedBank = bankAccounts.find(b => b.id === selectedBankId) ?? null;
 
   useEffect(() => {
     if (!isCreditCardType) return;
@@ -66,18 +85,52 @@ function UploadPageInner() {
       });
   }, [isCreditCardType, cardId]);
 
-  // ── Seleção de arquivo ──────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!isBankStatementType) return;
+    void Promise.all([
+      api.listBankAccounts(false),
+      api.listCategories('bank'),
+    ])
+      .then(([banksData, categoryData]) => {
+        const active = banksData.filter(b => b.is_active);
+        setBankAccounts(active);
+        setCategories(categoryData);
+        if (bankAccountIdPreset != null && Number.isFinite(bankAccountIdPreset)) {
+          const pre = active.find(b => b.id === bankAccountIdPreset);
+          if (pre) setSelectedBankId(pre.id);
+        }
+      })
+      .catch(err => {
+        setErrorMessage(err instanceof Error ? err.message : 'Erro ao carregar contas.');
+        setStage('error');
+      });
+  }, [isBankStatementType, bankAccountIdPreset]);
+
+  const isValidFile = useCallback((file: File): boolean => {
+    const nameLower = file.name.toLowerCase();
+    if (isBankStatementType) {
+      const extOk = ACCEPT_BANK_STATEMENT.some(ext => nameLower.endsWith(ext));
+      return extOk;
+    }
+    const extOk = ACCEPT_CARD.some(ext => nameLower.endsWith(ext));
+    const mimeOk = !file.type || ACCEPTED_MIME_CARD.includes(file.type) || file.type === 'application/octet-stream';
+    return extOk && mimeOk;
+  }, [isBankStatementType]);
 
   const handleFile = useCallback((file: File) => {
     if (!isValidFile(file)) {
-      setErrorMessage(`Tipo de arquivo não suportado: "${file.name}". Use PDF ou Excel (.xlsx).`);
+      if (isBankStatementType) {
+        setErrorMessage(`Use um arquivo OFX (.ofx ou .qfx). Recebido: "${file.name}".`);
+      } else {
+        setErrorMessage(`Tipo de arquivo não suportado: "${file.name}". Use PDF ou Excel (.xlsx).`);
+      }
       setStage('error');
       return;
     }
     setSelectedFile(file);
     setErrorMessage('');
     setStage('idle');
-  }, []);
+  }, [isValidFile, isBankStatementType]);
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
@@ -102,17 +155,29 @@ function UploadPageInner() {
     setStage('idle');
   };
 
-  // ── Upload ──────────────────────────────────────────────────────────────────
-
   const handleUpload = async () => {
     if (!selectedFile) return;
+    if (isBankStatementType && !selectedBankId) return;
     setStage('uploading');
     setErrorMessage('');
 
     try {
-      const result = await uploadFile(selectedFile);
+      const importKind: ImportKind | undefined = isBankStatementType
+        ? 'bank_statement'
+        : isCreditCardType
+          ? 'credit_card_invoice'
+          : undefined;
+      const result = await uploadFile(selectedFile, {
+        importKind,
+        bankAccountId:
+          isBankStatementType && selectedBankId != null ? selectedBankId : undefined,
+      });
       setUploadResult(result);
-      setStage('preview');
+      if (isBankStatementType && result.already_imported) {
+        setStage('already_imported');
+      } else {
+        setStage('preview');
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Erro desconhecido ao processar o arquivo.';
       setErrorMessage(msg);
@@ -120,17 +185,81 @@ function UploadPageInner() {
     }
   };
 
-  // ── Preview concluído (após importação confirmada) ──────────────────────────
-
   const handleImportDone = () => {
     setSelectedFile(null);
     setUploadResult(null);
     setStage('idle');
   };
 
-  // ── Render ──────────────────────────────────────────────────────────────────
+  const fileAccept = isBankStatementType ? ACCEPT_BANK_STATEMENT.join(',') : ACCEPT_CARD.join(',');
 
-  if (stage === 'preview' && uploadResult) {
+  if (
+    stage === 'already_imported' &&
+    uploadResult?.already_imported &&
+    uploadResult.existing_import_batch &&
+    isBankStatementType
+  ) {
+    const ex = uploadResult.existing_import_batch;
+    return (
+      <div style={{
+        padding: isMobile ? '20px 16px 28px' : '32px 40px',
+        maxWidth: 560,
+        margin: '0 auto',
+        width: '100%',
+      }}>
+        <div style={{
+          borderRadius: 14,
+          border: '1px solid rgba(214,158,46,0.35)',
+          background: 'rgba(214,158,46,0.08)',
+          padding: isMobile ? 18 : 22,
+          display: 'flex',
+          gap: 14,
+          alignItems: 'flex-start',
+        }}>
+          <AlertCircle size={22} style={{ flexShrink: 0, marginTop: 2, color: 'var(--amber-400)' }} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h2 style={{ margin: '0 0 8px', fontSize: isMobile ? 17 : 18, fontWeight: 700, color: 'var(--text-primary)' }}>
+              Este arquivo já foi importado para esta conta
+            </h2>
+            <p style={{ margin: '0 0 12px', fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+              Não é possível importar novamente o mesmo arquivo OFX já processado nesta conta.
+              Use outro período/outro arquivo ou outra conta bancária.
+            </p>
+            <ul style={{
+              margin: '0 0 18px',
+              paddingLeft: 18,
+              fontSize: 13,
+              color: 'var(--text-secondary)',
+              lineHeight: 1.65,
+            }}>
+              <li><strong>Arquivo:</strong> {ex.file_name}</li>
+              <li><strong>Importado em:</strong> {formatImportedAtPt(ex.imported_at)}</li>
+              <li><strong>Importados:</strong> {ex.imported_count}</li>
+              <li><strong>Ignorados:</strong> {ex.skipped_count}</li>
+            </ul>
+            <button
+              type="button"
+              onClick={clearFile}
+              style={{
+                padding: '10px 18px',
+                borderRadius: 10,
+                border: '1px solid var(--border-default)',
+                background: 'var(--surface-card)',
+                color: 'var(--text-primary)',
+                fontSize: 14,
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              Voltar
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (stage === 'preview' && uploadResult && !uploadResult.already_imported) {
     return (
       <UploadPreview
         result={uploadResult}
@@ -138,6 +267,8 @@ function UploadPageInner() {
         cards={cards}
         categories={categories}
         uploadType={uploadType}
+        importKind={isBankStatementType ? 'bank_statement' : undefined}
+        bankAccount={selectedBank}
         onBack={clearFile}
         onImportDone={handleImportDone}
       />
@@ -151,7 +282,6 @@ function UploadPageInner() {
       margin: '0 auto',
       width: '100%',
     }}>
-      {/* Header */}
       <div style={{ marginBottom: isMobile ? 20 : 32 }}>
         <h1 style={{
           fontSize: isMobile ? 19 : 22,
@@ -159,19 +289,78 @@ function UploadPageInner() {
           color: 'var(--text-primary)',
           marginBottom: 6,
         }}>
-          Importar extrato
+          {isBankStatementType ? 'Importar extrato bancário' : 'Importar extrato'}
         </h1>
         <p style={{ color: 'var(--text-secondary)', fontSize: isMobile ? 13 : 14, lineHeight: 1.45 }}>
-          {isCreditCardType && card
-            ? `Envie a fatura do cartão ${card.name} para revisar e importar os lançamentos.`
-            : isCreditCardType
-            ? 'Envie a fatura do cartão de crédito. Você selecionará o cartão na próxima etapa.'
-            : 'Envie um extrato bancário (PDF) ou planilha (Excel) para extrair e revisar os lançamentos antes de salvar.'
-          }
+          {isBankStatementType
+            ? 'Selecione a conta bancária e envie o arquivo OFX exportado pelo seu banco. Os lançamentos serão revisados antes de salvar.'
+            : isCreditCardType && card
+              ? `Envie a fatura do cartão ${card.name} para revisar e importar os lançamentos.`
+              : isCreditCardType
+                ? 'Envie a fatura do cartão de crédito. Você selecionará o cartão na próxima etapa.'
+                : 'Envie um extrato bancário (PDF) ou planilha (Excel) para extrair e revisar os lançamentos antes de salvar.'}
         </p>
       </div>
 
-      {/* Drop zone */}
+      {isBankStatementType && (
+        <div style={{
+          marginBottom: 18,
+          padding: '14px 16px',
+          borderRadius: 12,
+          border: '1px solid var(--border-subtle)',
+          background: 'var(--surface-card)',
+        }}>
+          <label style={{ display: 'grid', gap: 6, fontSize: 13 }}>
+            <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Conta bancária</span>
+            {bankAccounts.length === 0 ? (
+              <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                Nenhuma conta ativa. Cadastre uma conta para importar o extrato.
+                <div style={{ marginTop: 10 }}>
+                  <Link
+                    href="/contas"
+                    style={{
+                      display: 'inline-flex',
+                      padding: '8px 14px',
+                      borderRadius: 8,
+                      background: 'linear-gradient(135deg, #3182ce 0%, #2c7a7b 100%)',
+                      color: '#fff',
+                      fontWeight: 600,
+                      fontSize: 13,
+                      textDecoration: 'none',
+                    }}
+                  >
+                    Cadastrar conta bancária
+                  </Link>
+                </div>
+              </div>
+            ) : (
+              <select
+                value={selectedBankId ?? ''}
+                onChange={e => setSelectedBankId(e.target.value ? Number(e.target.value) : null)}
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: 8,
+                  border: `1px solid ${!selectedBankId ? 'rgba(229,62,62,0.45)' : 'var(--border-default)'}`,
+                  background: 'var(--surface-panel)',
+                  color: 'var(--text-primary)',
+                  fontSize: 14,
+                }}
+              >
+                <option value="">Selecione a conta</option>
+                {bankAccounts.map(b => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}{b.institution ? ` — ${b.institution}` : ''}
+                  </option>
+                ))}
+              </select>
+            )}
+            {bankAccounts.length > 0 && !selectedBankId && (
+              <span style={{ fontSize: 12, color: 'var(--red-400)' }}>Obrigatório para continuar.</span>
+            )}
+          </label>
+        </div>
+      )}
+
       <div
         onDragOver={e => { e.preventDefault(); setDragOver(true); }}
         onDragLeave={() => setDragOver(false)}
@@ -183,25 +372,26 @@ function UploadPageInner() {
           background: dragOver
             ? 'rgba(49,130,206,0.06)'
             : selectedFile
-            ? 'rgba(56,161,105,0.05)'
-            : 'var(--surface-panel)',
+              ? 'rgba(56,161,105,0.05)'
+              : 'var(--surface-panel)',
           padding: isMobile ? '32px 20px' : '48px 32px',
           textAlign: 'center',
           cursor: selectedFile ? 'default' : 'pointer',
           transition: 'all 0.2s ease',
           position: 'relative',
+          opacity: isBankStatementType && bankAccounts.length === 0 ? 0.55 : 1,
+          pointerEvents: isBankStatementType && bankAccounts.length === 0 ? 'none' : undefined,
         }}
       >
         <input
           ref={inputRef}
           type="file"
-          accept=".pdf,.xlsx,.xls"
+          accept={fileAccept}
           style={{ display: 'none' }}
           onChange={handleInputChange}
         />
 
         {!selectedFile ? (
-          /* Estado inicial — nenhum arquivo */
           <>
             <div style={{
               width: 56,
@@ -223,30 +413,34 @@ function UploadPageInner() {
                   : 'Arraste o arquivo ou clique para selecionar'}
             </p>
             <p style={{ fontSize: isMobile ? 12 : 13, color: 'var(--text-muted)', lineHeight: 1.4 }}>
-              {isMobile
-                ? 'PDF ou Excel (.xlsx)'
-                : 'PDF ou Excel (.xlsx) — extratos Nubank, Itaú, Mercado Pago, Fatura Nubank'}
+              {isBankStatementType
+                ? 'Arquivo OFX (.ofx ou .qfx)'
+                : isMobile
+                  ? 'PDF ou Excel (.xlsx)'
+                  : 'PDF ou Excel (.xlsx) — extratos Nubank, Itaú, Mercado Pago, Fatura Nubank'}
             </p>
           </>
         ) : (
-          /* Arquivo selecionado */
           <>
             <div style={{
               width: 56,
               height: 56,
               borderRadius: 14,
-              background: selectedFile.name.endsWith('.pdf')
-                ? 'rgba(229,62,62,0.15)'
-                : 'rgba(56,161,105,0.15)',
+              background: /\.(ofx|qfx)$/i.test(selectedFile.name)
+                ? 'rgba(49,130,206,0.18)'
+                : selectedFile.name.toLowerCase().endsWith('.pdf')
+                  ? 'rgba(229,62,62,0.15)'
+                  : 'rgba(56,161,105,0.15)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               margin: '0 auto 16px',
             }}>
-              {selectedFile.name.endsWith('.pdf')
-                ? <FileText size={24} color="var(--red-400)" />
-                : <FileSpreadsheet size={24} color="var(--green-400)" />
-              }
+              {/\.(ofx|qfx)$/i.test(selectedFile.name)
+                ? <FileText size={24} color="var(--blue-400)" />
+                : selectedFile.name.toLowerCase().endsWith('.pdf')
+                  ? <FileText size={24} color="var(--red-400)" />
+                  : <FileSpreadsheet size={24} color="var(--green-400)" />}
             </div>
 
             <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>
@@ -255,10 +449,9 @@ function UploadPageInner() {
             <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 0 }}>
               {formatBytes(selectedFile.size)}
               {' · '}
-              {selectedFile.name.toLowerCase().endsWith('.pdf') ? 'PDF' : 'Excel'}
+              {isBankStatementType ? 'OFX' : selectedFile.name.toLowerCase().endsWith('.pdf') ? 'PDF' : 'Excel'}
             </p>
 
-            {/* Botão limpar */}
             <button
               onClick={e => { e.stopPropagation(); clearFile(); }}
               style={{
@@ -283,7 +476,6 @@ function UploadPageInner() {
         )}
       </div>
 
-      {/* Mensagem de erro */}
       {stage === 'error' && errorMessage && (
         <div style={{
           marginTop: 16,
@@ -302,36 +494,39 @@ function UploadPageInner() {
         </div>
       )}
 
-      {/* Botão de processar */}
       {selectedFile && stage !== 'uploading' && (
         <button
           onClick={handleUpload}
+          disabled={isBankStatementType && (!selectedBankId || bankAccounts.length === 0)}
           style={{
             marginTop: 20,
             width: '100%',
             padding: '13px 24px',
             borderRadius: 10,
             border: 'none',
-            background: 'linear-gradient(135deg, #3182ce 0%, #2c7a7b 100%)',
-            color: '#fff',
+            background: isBankStatementType && (!selectedBankId || bankAccounts.length === 0)
+              ? 'var(--surface-card)'
+              : 'linear-gradient(135deg, #3182ce 0%, #2c7a7b 100%)',
+            color: isBankStatementType && (!selectedBankId || bankAccounts.length === 0)
+              ? 'var(--text-muted)'
+              : '#fff',
             fontSize: 15,
             fontWeight: 600,
-            cursor: 'pointer',
+            cursor: isBankStatementType && (!selectedBankId || bankAccounts.length === 0)
+              ? 'not-allowed'
+              : 'pointer',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             gap: 8,
             transition: 'opacity 0.15s',
           }}
-          onMouseEnter={e => (e.currentTarget.style.opacity = '0.9')}
-          onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
         >
           <Upload size={16} />
-          Processar arquivo
+          Continuar
         </button>
       )}
 
-      {/* Loading */}
       {stage === 'uploading' && (
         <div style={{
           marginTop: 20,
@@ -353,19 +548,21 @@ function UploadPageInner() {
         </div>
       )}
 
-      {/* Formatos suportados */}
       <div style={{ marginTop: 32 }}>
         <p style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>
           Formatos suportados
         </p>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          {[
-            'Nubank PF (extrato)',
-            'Nubank PJ (extrato)',
-            'Fatura Cartão Nubank',
-            'Itaú Uniclass',
-            'Mercado Pago',
-          ].map(label => (
+          {(isBankStatementType
+            ? ['OFX genérico (extrato)']
+            : [
+                'Nubank PF (extrato)',
+                'Nubank PJ (extrato)',
+                'Fatura Cartão Nubank',
+                'Itaú Uniclass',
+                'Mercado Pago',
+              ]
+          ).map(label => (
             <span key={label} style={{
               padding: '4px 10px',
               borderRadius: 6,

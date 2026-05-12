@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Plus, Trash2, Pencil, X, ChevronRight, Search, Tags, AlertTriangle, RefreshCw } from 'lucide-react';
 import Header from '@/components/Layout/Header';
 import LoadingSpinner from '@/components/LoadingSpinner';
@@ -19,10 +19,10 @@ type ModalState =
 interface FormState {
   name: string;
   icon: string;
-  scope: 'credit_card';
-  cardId: number | 0;            // 0 = todos os cartões
-  parentId: number | 0;          // 0 = nenhuma (categoria principal)
-  budgetLimit: string;           // string para input controlado; vazio = sem limite
+  scope: 'credit_card' | 'bank';
+  cardId: number | 0;
+  parentId: number | 0;
+  budgetLimit: string;
 }
 
 const INITIAL_FORM: FormState = {
@@ -41,6 +41,7 @@ export default function CategoriesPage() {
   // Filtros
   const [filterCardId, setFilterCardId] = useState<number | 'all'>('all');
   const [search, setSearch] = useState('');
+  const [domain, setDomain] = useState<'credit_card' | 'bank'>('credit_card');
 
   // Modal
   const [modal, setModal] = useState<ModalState | null>(null);
@@ -48,13 +49,13 @@ export default function CategoriesPage() {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const [cats, cardsList] = await Promise.all([
-        api.listCategories('credit_card'),
-        api.listCards(),
+        api.listCategories(domain),
+        domain === 'credit_card' ? api.listCards() : Promise.resolve<CreditCardConfig[]>([]),
       ]);
       setCategories(cats);
       setCards(cardsList);
@@ -63,9 +64,9 @@ export default function CategoriesPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [domain]);
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => { void load(); }, [load]);
 
   // ── Derivados ─────────────────────────────────────────────────────────────
 
@@ -91,16 +92,17 @@ export default function CategoriesPage() {
   const filteredParents = useMemo(() => {
     const q = search.trim().toLowerCase();
     return parents.filter(cat => {
-      // Filtro por cartão: "all" mostra todas; cardId N mostra globais + do cartão N
-      if (filterCardId !== 'all') {
-        if (cat.card_id != null && cat.card_id !== filterCardId) return false;
+      if (domain === 'credit_card') {
+        if (filterCardId !== 'all') {
+          if (cat.card_id != null && cat.card_id !== filterCardId) return false;
+        }
       }
       if (!q) return true;
       const hit = cat.name.toLowerCase().includes(q);
       const subHit = (subsByParent.get(cat.id) ?? []).some(s => s.name.toLowerCase().includes(q));
       return hit || subHit;
     });
-  }, [parents, subsByParent, filterCardId, search]);
+  }, [parents, subsByParent, filterCardId, search, domain]);
 
   const summary = useMemo(() => {
     const withLimit = categories.filter(c => c.invoice_budget_limit != null).length;
@@ -122,14 +124,15 @@ export default function CategoriesPage() {
   // ── Modal handlers ────────────────────────────────────────────────────────
 
   function openCreateParent() {
-    setForm(INITIAL_FORM);
+    setForm({ ...INITIAL_FORM, scope: domain });
     setFormError(null);
     setModal({ mode: 'create-parent' });
   }
   function openCreateSub(parent: Category) {
     setForm({
       ...INITIAL_FORM,
-      cardId: parent.card_id ?? 0,  // herda card da pai
+      scope: parent.scope,
+      cardId: parent.scope === 'bank' ? 0 : (parent.card_id ?? 0),
       parentId: parent.id,
     });
     setFormError(null);
@@ -139,7 +142,7 @@ export default function CategoriesPage() {
     setForm({
       name: category.name,
       icon: category.icon ?? 'tag',
-      scope: 'credit_card',
+      scope: category.scope,
       cardId: category.card_id ?? 0,
       parentId: category.parent_id ?? 0,
       budgetLimit: category.invoice_budget_limit != null ? String(category.invoice_budget_limit) : '',
@@ -160,38 +163,42 @@ export default function CategoriesPage() {
       setFormError('Informe o nome da categoria.');
       return;
     }
-    let limit: number | null = null;
-    if (form.budgetLimit.trim() !== '') {
-      const parsed = parseFloat(form.budgetLimit.replace(',', '.'));
-      if (Number.isNaN(parsed) || parsed <= 0) {
-        setFormError('O limite deve ser maior que zero.');
-        return;
+    let limit: number | null | undefined = undefined;
+    if (form.scope === 'credit_card') {
+      limit = null;
+      if (form.budgetLimit.trim() !== '') {
+        const parsed = parseFloat(form.budgetLimit.replace(',', '.'));
+        if (Number.isNaN(parsed) || parsed <= 0) {
+          setFormError('O limite deve ser maior que zero.');
+          return;
+        }
+        limit = parsed;
       }
-      limit = parsed;
     }
 
     setSaving(true);
     setFormError(null);
     try {
       if (modal.mode === 'edit') {
-        const updated = await api.updateCategory(modal.category.id, {
+        const patch: Parameters<typeof api.updateCategory>[1] = {
           name: form.name.trim(),
           icon: form.icon || null,
-          // 0 sentinela: limpa; >0 define
-          card_id: form.cardId === 0 ? 0 : form.cardId,
-          parent_id: form.parentId === 0 ? 0 : form.parentId,
-          // 0 sentinela: remove; >0 define
-          invoice_budget_limit: limit ?? 0,
-        });
+        };
+        if (form.scope === 'credit_card') {
+          patch.card_id = form.cardId === 0 ? 0 : form.cardId;
+          patch.parent_id = form.parentId === 0 ? 0 : form.parentId;
+          patch.invoice_budget_limit = limit ?? 0;
+        }
+        const updated = await api.updateCategory(modal.category.id, patch);
         setCategories(prev => prev.map(c => c.id === updated.id ? updated : c));
       } else {
         const payload = {
           name: form.name.trim(),
-          scope: 'credit_card' as const,
+          scope: form.scope,
           icon: form.icon || null,
-          card_id: form.cardId === 0 ? null : form.cardId,
+          card_id: form.scope === 'bank' ? undefined : (form.cardId === 0 ? null : form.cardId),
           parent_id: form.parentId === 0 ? null : form.parentId,
-          invoice_budget_limit: limit,
+          invoice_budget_limit: form.scope === 'credit_card' ? limit ?? null : undefined,
         };
         const created = await api.createCategory(payload);
         setCategories(prev => [...prev, created]);
@@ -274,12 +281,36 @@ export default function CategoriesPage() {
     <>
       <Header
         title="Categorias"
-        subtitle="Gerencie categorias, subcategorias, ícones, cartões vinculados e limites de gasto por fatura."
+        subtitle={
+          domain === 'credit_card'
+            ? 'Gerencie categorias, subcategorias e limites por fatura de cartão.'
+            : 'Categorias para lançamentos manuais e futuros extratos em conta.'
+        }
       />
 
       <main style={{ padding: 24, flex: 1, display: 'grid', gap: 18, alignContent: 'start' }}>
 
-        {/* ── Resumo + ação primária ─────────────────────────────────────── */}
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {(['credit_card', 'bank'] as const).map(d => (
+            <button
+              key={d}
+              type="button"
+              onClick={() => { setDomain(d); setFilterCardId('all'); }}
+              style={{
+                padding: '8px 14px',
+                borderRadius: 8,
+                border: `1px solid ${domain === d ? 'var(--blue-500)' : 'var(--border-default)'}`,
+                background: domain === d ? 'rgba(49,130,206,0.15)' : 'var(--surface-card)',
+                color: domain === d ? 'var(--blue-400)' : 'var(--text-secondary)',
+                fontSize: 12.5,
+                fontWeight: domain === d ? 600 : 400,
+                cursor: 'pointer',
+              }}
+            >
+              {d === 'credit_card' ? 'Cartão de crédito' : 'Conta bancária'}
+            </button>
+          ))}
+        </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 16, alignItems: 'start' }}>
           <div style={{
             display: 'grid',
@@ -287,9 +318,15 @@ export default function CategoriesPage() {
             gap: 10,
           }}>
             <SummaryCard label="Total de categorias" value={String(summary.total)} />
-            <SummaryCard label="Com limite definido" value={String(summary.withLimit)} />
-            <SummaryCard label="Sem limite" value={String(summary.withoutLimit)} />
-            <SummaryCard label="Aplicadas a todos" value={String(summary.globals)} />
+            {domain === 'credit_card' ? (
+              <>
+                <SummaryCard label="Com limite definido" value={String(summary.withLimit)} />
+                <SummaryCard label="Sem limite" value={String(summary.withoutLimit)} />
+                <SummaryCard label="Aplicadas a todos" value={String(summary.globals)} />
+              </>
+            ) : (
+              <SummaryCard label="Uso" value="Manual / extrato futuro" />
+            )}
           </div>
           <button onClick={openCreateParent} style={primaryButtonStyle}>
             <Plus size={15} /> Nova categoria
@@ -307,6 +344,7 @@ export default function CategoriesPage() {
           padding: '10px 12px',
           borderRadius: 10,
         }}>
+          {domain === 'credit_card' && (
           <select
             value={String(filterCardId)}
             onChange={e => setFilterCardId(e.target.value === 'all' ? 'all' : Number(e.target.value))}
@@ -317,6 +355,7 @@ export default function CategoriesPage() {
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
+          )}
 
           <div style={{ position: 'relative', flex: 1, minWidth: 200, maxWidth: 320 }}>
             <Search size={14} style={{
@@ -379,6 +418,7 @@ export default function CategoriesPage() {
             {filteredParents.map(parent => (
               <CategoryCard
                 key={parent.id}
+                domain={domain}
                 category={parent}
                 subs={subsByParent.get(parent.id) ?? []}
                 cardName={cardName(parent.card_id)}
@@ -412,11 +452,12 @@ export default function CategoriesPage() {
 // ── Cards de categoria ────────────────────────────────────────────────────────
 
 function CategoryCard({
-  category, subs, cardName, onEdit, onDelete, onAddSub,
+  category, subs, cardName, domain, onEdit, onDelete, onAddSub,
 }: {
   category: Category;
   subs: Category[];
   cardName: string;
+  domain: 'credit_card' | 'bank';
   onEdit: (c: Category) => void;
   onDelete: (c: Category) => void;
   onAddSub: (c: Category) => void;
@@ -466,7 +507,9 @@ function CategoryCard({
             )}
           </div>
           <div style={{ color: 'var(--text-muted)', fontSize: 11.5, marginTop: 3 }}>
-            {cardName} · Fatura de cartão de crédito
+            {domain === 'credit_card'
+              ? <>{cardName} · Fatura de cartão de crédito</>
+              : <>Conta bancária · Lançamentos manuais / extrato (Fase 2)</>}
           </div>
         </div>
 
@@ -623,14 +666,16 @@ function CategoryModal({
           Usar esta categoria em
           <select
             value={form.scope}
-            onChange={e => setForm({ ...form, scope: e.target.value as 'credit_card' })}
+            onChange={e => setForm({ ...form, scope: e.target.value as 'credit_card' | 'bank', cardId: 0 })}
+            disabled={modal.mode === 'create-sub' || modal.mode === 'edit'}
             style={inputStyle}
           >
             <option value="credit_card">Fatura de cartão de crédito</option>
+            <option value="bank">Conta bancária</option>
           </select>
         </label>
 
-        {!fixedParent && (
+        {form.scope === 'credit_card' && !fixedParent && (
           <label style={labelStyle}>
             Aplicar em
             <select
@@ -647,6 +692,7 @@ function CategoryModal({
           </label>
         )}
 
+        {form.scope === 'credit_card' && (
         <label style={labelStyle}>
           Limite de gasto por fatura {isSub && <span style={{ color: 'var(--text-muted)' }}>(opcional)</span>}
           <input
@@ -659,6 +705,7 @@ function CategoryModal({
             style={inputStyle}
           />
         </label>
+        )}
 
         {modal.mode === 'create-parent' && (
           <label style={labelStyle}>

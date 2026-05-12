@@ -114,6 +114,22 @@ Ver especificação completa em [`FASE-2-BACKEND.md`](./FASE-2-BACKEND.md).
 
 ---
 
+## 📌 Importação OFX (extrato conta) — extensão da Fase 2
+
+**Marco:** upload de ficheiro `.ofx`/`.qfx` como `import_kind=bank_statement`, preview e importação para `Transaction` com conta bancária e `source_reference` (FITID).
+
+| # | Item | Status |
+|---|---|---|
+| 1 | Parser `parse_bank_statement_ofx` (`app/parsers/ofx_bank_statement.py`) | ✅ |
+| 2 | Formatos **SGML** (valor até fim de linha) e **XML por par** (`<TAG>valor</TAG>`, ex.: Nubank OFX) | ✅ (11/05/2026) |
+| 3 | Leitura robusta de `<BANKACCTFROM>…</BANKACCTFROM>` + `BANKTRANLIST` / `STMTTRN` | ✅ |
+| 4 | `/api/upload` e `/api/import` com `bank_account_id`; UI `/upload?type=bank_statement` e movimentações em `/contas/[id]` | ✅ |
+| 5 | Testes: `tests/test_ofx_bank_statement.py` (incl. `test_xml_style_closed_tags_same_line`) | ✅ |
+
+**11/05/2026 — Correção Nubank OFX (XML):** extratos da Nubank trazem cada campo em linhas do tipo `<TRNAMT>-10.50</TRNAMT>` e `<DTPOSTED>…</DTPOSTED>`. O parser inicial só reconhecia SGML com quebra de linha após o valor, o que gerava 422 “Nenhuma transação válida encontrada neste OFX”. Foi acrescentado o extract de pares `</TAG>` e o fallback SGML apenas para tags ainda não preenchidas; `BANKACCTFROM` fechado deixou de ser cortado pela primeira `<BANKID>`.
+
+---
+
 ## 📌 Notas de bastidores
 
 **29/04/2026 — Etapa 2.3:**

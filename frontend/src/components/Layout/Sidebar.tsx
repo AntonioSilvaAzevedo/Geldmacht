@@ -11,18 +11,22 @@ import {
   TrendingUp,
   Upload,
   Tags,
+  Landmark,
+  PlusCircle,
 } from 'lucide-react';
 
 const navItems = [
   { href: '/',          label: 'Dashboard',  icon: LayoutDashboard },
   { href: '/mes/2026-04', label: 'Mensal',   icon: CalendarDays },
   { href: '/cartao', label: 'Cartão', icon: CreditCard },
+  { href: '/contas', label: 'Contas', icon: Landmark },
   { href: '/carteira',  label: 'Carteira',   icon: Briefcase },
   { href: '/proventos', label: 'Proventos',  icon: TrendingUp },
   { href: '/categorias', label: 'Categorias', icon: Tags },
 ];
 
 const toolItems = [
+  { href: '/lancamentos/novo', label: 'Novo lançamento', icon: PlusCircle },
   { href: '/upload', label: 'Importar', icon: Upload },
 ];
 

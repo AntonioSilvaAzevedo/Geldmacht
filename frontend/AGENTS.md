@@ -41,13 +41,16 @@ frontend/
 │   │   └── (app)/                        # Route group — com sidebar
 │   │       ├── layout.tsx                # Sidebar + children
 │   │       ├── page.tsx                  # / → Dashboard Anual
-│   │       ├── upload/page.tsx           # /upload → Importar extratos
+│   │       ├── upload/page.tsx           # /upload → Importar extratos (PDF/Excel ou ?type=bank_statement OFX)
+│   │       ├── contas/[id]/page.tsx     # /contas/:id → Movimentações + histórico de importações OFX
 │   │       ├── mes/[mes]/page.tsx        # /mes/2026-04 → Detalhe mensal
 │   │       ├── cartao/page.tsx           # /cartao → Cartões cadastrados
 │   │       ├── cartao/[cardId]/page.tsx  # /cartao/1 → Dashboard / visão geral do cartão
 │   │       ├── cartao/[cardId]/faturas/page.tsx # /cartao/1/faturas → Listagem completa de faturas
 │   │       ├── cartao/[cardId]/[anoMes]/page.tsx # /cartao/1/2026-04 → Fatura (legado/compat.)
 │   │       ├── cartao/[cardId]/fatura/[invoiceId]/page.tsx # /cartao/1/fatura/10 → Fatura por ID (preferencial)
+│   │       ├── contas/page.tsx           # /contas → Contas bancárias (Fase 1)
+│   │       ├── lancamentos/novo/page.tsx # /lancamentos/novo → Hub + lançamento manual
 │   │       ├── categorias/page.tsx       # /categorias → Categorias manuais
 │   │       ├── carteira/page.tsx         # /carteira → Carteira de investimentos
 │   │       └── proventos/page.tsx        # /proventos → Dividendos e rendimentos
@@ -184,8 +187,8 @@ antes de redirecionar (evita loop de redirect).
 | Método | Path | Descrição |
 |---|---|---|
 | `GET` | `/health` | Health check |
-| `POST` | `/api/upload` | Upload PDF/Excel — preview + `invoice_metadata` para fatura Nubank |
-| `POST` | `/api/import` | Persiste transações; cria `Invoice` e vincula transactions via `invoice_id` |
+| `POST` | `/api/upload` | Upload PDF/Excel ou OFX; preview + metadata; OFX/envio `bank_statement` inclui **`file_hash`**, opcional **`already_imported`/`existing_import_batch`**, **`bank_account_id` obrigatório** no formulário multipart |
+| `POST` | `/api/import` | Persiste transações; fatura cria `Invoice`; extrato OFX cria **`ImportBatch`**, **`import_batch_id`**, **`file_hash`**, resposta **`import_batch_id`** |
 | `GET` | `/api/transactions` | Lista transações com filtros |
 | `GET` | `/api/transactions/invoice?invoice_id=ID` | **Preferencial** — fatura por `invoice_id` |
 | `GET` | `/api/transactions/invoice?card_id=ID&month=YYYY-MM` | Legado — busca por `reference_month` |
@@ -200,7 +203,15 @@ antes de redirecionar (evita loop de redirect).
 | `GET` | `/api/cards/{id}/invoices/{invoice_id}` | Detalhes da fatura + transactions + summary |
 | `GET` | `/api/cards/{id}/dashboard` | Visão geral agregada do cartão (Feature 3) |
 | `GET` | `/api/cards/{id}/invoices-by-month/{due_month}` | Busca invoice por `due_month` (compat. legada) |
-| `GET` | `/api/categories?scope=credit_card` | Lista categorias manuais de cartão |
+| `POST` | `/api/bank-accounts` | Cria conta bancária |
+| `GET` | `/api/bank-accounts` | Lista contas ativas (`?include_inactive=true` gestão) |
+| `GET` | `/api/bank-accounts/{id}` | Detalhe |
+| `PATCH` | `/api/bank-accounts/{id}` | Edita conta |
+| `DELETE` | `/api/bank-accounts/{id}` | Desativa conta (soft delete) |
+| `GET` | `/api/bank-accounts/{id}/import-batches` | Histórico de importações OFX (**`ImportBatch`**) por conta |
+| `POST` | `/api/transactions` | Cria lançamento manual em conta (`source=manual`) |
+| `GET` | `/api/categories?scope=credit_card[&card_id=N]` | Categorias de cartão (globais + do cartão) |
+| `GET` | `/api/categories?scope=bank` | Categorias para conta bancária |
 | `POST` | `/api/categories` | Cria categoria manual |
 | `PATCH` | `/api/categories/{id}` | Edita categoria manual |
 | `DELETE` | `/api/categories/{id}` | Remove categoria manual |
@@ -230,7 +241,7 @@ antes de redirecionar (evita loop de redirect).
 - Legado: `card_id + month` (YYYY-MM) buscando por `reference_month`.
 
 **Filtros disponíveis em `GET /api/transactions`:**
-`account`, `month` (YYYY-MM), `category`, `start_date`, `end_date`, `limit`, `offset`
+`account`, `month` (YYYY-MM), `category`, `bank_account_id`, `transaction_type` (`income`|`expense`), `start_date`, `end_date`, `limit`, `skip`
 
 **Body do `PATCH /api/transactions/{id}`:**
 ```json
@@ -238,20 +249,30 @@ antes de redirecionar (evita loop de redirect).
 ```
 Todos os campos são opcionais. Filtrado por `user_id` — usuário só edita as próprias transações.
 
+**Backlog:** extratos/conta (`ImportBatch`, OFX, hash, histórico) em `docs/backlog/bank-statement-phase-2.md`; conta/categorias manuais em `docs/backlog/bank-statement-phase-1.md`.
+
 ---
+
+### Contas bancárias e lançamento manual (Fase 1)
+
+- **`/contas`** — cadastro, edição e desativação de contas (`BankAccount`). Desativadas somem das listagens padrão mas aparecem com `?include_inactive=true` nesta própria tela de gestão.
+- **`/contas/[id]`** — movimentações da conta + **`Histórico de importações`** (`api.listBankAccountImportBatches(id)` → `ImportBatch`; empty state quando vazio).
+- **`/lancamentos/novo`** — escolha: lançamento manual, importar fatura (cartão) ou importar extrato OFX em **`/upload?type=bank_statement`**.
+- Categorias com escopo **`bank`** são criadas em **`/categorias`** na aba “Conta bancária”; necessárias para classificar lançamentos manuais opcionalmente.
+- **`UploadPreview`** (revisão): fatura (`?type=credit_card`) envia `import_kind: 'credit_card_invoice'` no import; extrato (`?type=bank_statement` ou resposta `bank_statement_ofx`) envia `import_kind: 'bank_statement'` + **`bank_account_id`**, **`file_hash`** (preview), período opcional, categorias **`scope=bank`**, bloco **`statement_metadata`**, sem fatura/resumo PDF. Após import OFX bem-sucedido há redirect para **`/contas/[id]`**.
+- **`uploadFile`** aceita segundo argumento `{ importKind?, bankAccountId? }` → multipart com `import_kind` (OFX exige **`bank_statement`**) e, no fluxo extrato, **`bank_account_id`** para o backend detetar **`already_imported`** pelo hash.
+- Se **`already_imported === true`**, **`/upload`** mostra apenas o alerta (sem preview “normal”); só **“Voltar”** até sair — não há importação sem decisão explícita (MVP bloqueado).
 
 ## Fluxo de importação de extratos
 
 ```
-1. /upload  → usuário arrasta PDF ou Excel
-2. POST /api/upload → backend parseia, retorna preview (sem salvar)
-   - Para fatura Nubank: inclui invoice_metadata com due_date, cycle_start_date, cycle_end_date, total_amount etc.
-3. UploadPreview.tsx exibe transações para revisão + bloco de dados da fatura
-   - Usuário pode editar metadados da fatura (vencimento, período, total)
-   - Usuário pode editar descrição de cada transação (EditableDescription local)
-   - Para fatura de cartão, usuário pode selecionar categoria manual com scope = credit_card
-4. Usuário confirma → POST /api/import com invoice + card_id → cria Invoice no banco
-5. Redireciona para /cartao/[cardId]/fatura/[invoice_id]
+1. /upload  → usuário escolhe arquivo: PDF/Excel (extratos legados) OU /upload?type=bank_statement → OFX (.ofx) + conta bancária
+2. POST /api/upload (+ bank_account_id no OFX) → preview (sem salvar)
+   - Fatura Nubank: invoice_metadata + summary (sem alteração nesta fase)
+   - Extrato OFX: file_hash, statement_metadata; se dup → already_imported + existing_import_batch
+3. UploadPreview — revisão (categorias conforme fluxo: credit_card vs bank); import envia file_hash (e período se houver)
+4. POST /api/import — persiste (invoice+cartão OU extrato+lote ImportBatch); 409 se file_hash já importado na conta
+5. Redirect: fatura → /cartao/... ; extrato → /contas/[id]
 ```
 
 ### Importação de fatura por cartão
@@ -972,6 +993,7 @@ O Header também:
 ### Upload page (`/upload`)
 
 - Padding reduzido em mobile (`20px 14px 28px` vs `32px 40px`).
+- No fluxo **extrato OFX** (`?type=bank_statement`), conta bancária é obrigatória antes do envio ao backend; pré-importação só avança com **`already_imported === false`** ou fora deste modo.
 - Header com fonte ligeiramente menor.
 - Dropzone com padding interno reduzido e texto adaptado: **"Toque para selecionar arquivo"** em mobile (drag-and-drop continua funcionando, mas a mensagem foca no toque).
 - Botão "Processar arquivo" continua `width: 100%` — naturalmente bom para toque.
@@ -1212,8 +1234,9 @@ const { data, loading, error } = useFinancialData('monthly');
 
 ```typescript
 api.health()                                    // GET /health
-api.uploadFile(file)                            // POST /api/upload → retorna invoice_metadata para Nubank
-api.importTransactions(payload)                 // POST /api/import → inclui invoice no payload
+api.uploadFile(file, { importKind?, bankAccountId? })  // POST /api/upload — OFX/extrato envia bankAccountId + importKind bank_statement; resposta UploadResponse pode ter file_hash, already_imported
+api.listBankAccountImportBatches(bankAccountId)       // GET /api/bank-accounts/{id}/import-batches
+api.importTransactions(payload)                 // POST /api/import — extrato inclui file_hash (etc.); ImportResponse pode trazer import_batch_id
 api.getTransactions(filters?)                   // GET /api/transactions
 api.getCardInvoice(month)                       // GET /api/transactions/invoice?month=YYYY-MM (legado)
 api.getCardInvoiceByCard(cardId, month)         // GET /api/transactions/invoice?card_id=ID&month=YYYY-MM (legado)
@@ -1266,6 +1289,7 @@ interface Transaction {
   billing_month: string | null;        // "YYYY-MM" — legado
   source_file: string | null;
   imported_at: string;
+  import_batch_id?: number | null;     // só importações de extrato (Fase 2.1)
 }
 ```
 

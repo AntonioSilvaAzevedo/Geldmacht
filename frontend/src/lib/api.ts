@@ -27,7 +27,7 @@ export const ENDPOINTS = {
 export interface PreviewTransaction {
   date: string;
   description: string;
-  raw_description: string;
+  raw_description: string | null;
   amount: number;
   account: string;
   is_internal_transfer: boolean;
@@ -37,6 +37,21 @@ export interface PreviewTransaction {
   installment_total: number | null;
   category: string | null;
   category_group: string | null;
+  /** income | expense — preview OFX / extrato */
+  transaction_type?: string | null;
+  source_reference?: string | null;
+  metadata?: Record<string, unknown> | null;
+}
+
+/** Metadados do extrato (OFX) no preview do upload. */
+export interface StatementMetadata {
+  institution?: string | null;
+  account_id?: string | null;
+  period_start?: string | null;
+  period_end?: string | null;
+  ledger_balance?: number | null;
+  total_inflows?: number | null;
+  total_outflows?: number | null;
 }
 
 /** Resumo agregado de fatura de cartão calculado no backend. */
@@ -135,8 +150,40 @@ export interface UploadResponse {
   transactions: PreviewTransaction[];
   detected_reference_month?: string | null;   // legado — igual a invoice_metadata.due_month
   invoice_metadata?: InvoiceMetadata | null;
-  summary?: InvoiceSummary;
+  summary?: InvoiceSummary | null;
+  import_kind?: ImportKind | null;
+  statement_metadata?: StatementMetadata | null;
+  file_hash?: string | null;
+  already_imported?: boolean;
+  existing_import_batch?: ExistingImportBatchInfo | null;
 }
+
+/** Lote já importado retornado no preview quando arquivo é duplicado. */
+export interface ExistingImportBatchInfo {
+  id: number;
+  file_name: string;
+  imported_at: string | null;
+  imported_count: number;
+  skipped_count: number;
+}
+
+/** Histórico GET /api/bank-accounts/:id/import-batches */
+export interface ImportBatchListItem {
+  id: number;
+  file_name: string;
+  file_hash: string;
+  parser_used: string;
+  status: string;
+  total_transactions: number;
+  imported_count: number;
+  skipped_count: number;
+  period_start: string | null;
+  period_end: string | null;
+  imported_at: string | null;
+}
+
+/** Tipo de importação confirmada (Fase 1 — extrato real na Fase 2). */
+export type ImportKind = 'credit_card_invoice' | 'bank_statement';
 
 /** Payload enviado ao POST /api/import. */
 export interface ImportPayload {
@@ -146,6 +193,14 @@ export interface ImportPayload {
   reference_month?: string | null;   // legado — usar invoice.due_month quando disponível
   invoice?: InvoiceCreate | null;
   transactions: PreviewTransaction[];
+  /** Omitido = backend infere pelo parser (compatível com clientes antigos). */
+  import_kind?: ImportKind | null;
+  bank_account_id?: number | null;
+  /** Obrigatório no extrato OFX — mesmo valor do preview (file_hash). */
+  file_hash?: string | null;
+  /** Metadados do extrato OFX (preview). */
+  period_start?: string | null;
+  period_end?: string | null;
 }
 
 /** Resposta do POST /api/import. */
@@ -157,6 +212,10 @@ export interface ImportResponse {
   due_month?: string | null;
   reference_month?: string | null;   // legado
   summary?: InvoiceSummary;
+  bank_account_id?: number | null;
+  /** Preenchido na importação de extrato bancário (OFX). */
+  transactions?: Transaction[] | null;
+  import_batch_id?: number | null;
 }
 
 export interface CardInvoiceResponse {
@@ -194,6 +253,44 @@ export interface CardDashboard {
   recent_invoices: InvoiceMini[];
 }
 
+export type BankAccountType =
+  | 'checking'
+  | 'savings'
+  | 'payment'
+  | 'business'
+  | 'investment'
+  | 'other';
+
+export interface BankAccountConfig {
+  id: number;
+  user_id: number;
+  name: string;
+  institution: string | null;
+  account_type: BankAccountType;
+  currency: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BankAccountPayload {
+  name: string;
+  institution?: string | null;
+  account_type: BankAccountType;
+  currency?: string;
+  is_active?: boolean;
+}
+
+export interface ManualTransactionPayload {
+  transaction_type: 'income' | 'expense';
+  amount: number;
+  transaction_date: string;
+  description: string;
+  bank_account_id: number;
+  category_id?: number | null;
+  notes?: string | null;
+}
+
 export interface CreditCardConfig {
   id: number;
   user_id: number;
@@ -219,7 +316,7 @@ export interface Category {
   id: number;
   user_id: number;
   name: string;
-  scope: 'credit_card';
+  scope: 'credit_card' | 'bank';
   color: string | null;
   icon: string | null;
   /** null = aplica em todos os cartões. */
@@ -234,7 +331,7 @@ export interface Category {
 
 export interface CategoryPayload {
   name: string;
-  scope: 'credit_card';
+  scope: 'credit_card' | 'bank';
   color?: string | null;
   icon?: string | null;
   card_id?: number | null;
@@ -256,6 +353,7 @@ export interface ReleaseNote {
 
 export interface CategoryUpdatePayload {
   name?: string;
+  scope?: 'credit_card' | 'bank';
   color?: string | null;
   icon?: string | null;
   /** 0 limpa (vira global); >0 define o cartão. */
@@ -273,6 +371,9 @@ export interface TransactionFilters {
   category?:   string;
   start_date?: string;   // "YYYY-MM-DD"
   end_date?:   string;   // "YYYY-MM-DD"
+  /** Lista apenas movimentações desta conta bancária (exclui cartão/fatura). */
+  bank_account_id?: number;
+  transaction_type?: 'income' | 'expense';
   limit?:      number;
   offset?:     number;
 }
@@ -321,13 +422,30 @@ export const api = {
       .then(r => r.ok)
       .catch(() => false),
 
-  /** Envia PDF/Excel para extração. NÃO persiste — apenas retorna preview. */
-  uploadFile: async (file: File): Promise<UploadResponse> => {
+  /** Envia PDF/Excel/OFX para extração. NÃO persiste — apenas retorna preview. */
+  uploadFile: async (
+    file: File,
+    opts?: { importKind?: ImportKind; bankAccountId?: number },
+  ): Promise<UploadResponse> => {
     const authHeader = await getAuthHeader();
     const form = new FormData();
     form.append('file', file);
+    if (opts?.importKind) {
+      form.append('import_kind', opts.importKind);
+    }
+    if (opts?.bankAccountId != null) {
+      form.append('bank_account_id', String(opts.bankAccountId));
+    }
     const r = await fetch(ENDPOINTS.upload, { method: 'POST', body: form, headers: authHeader });
-    if (!r.ok) throw new Error(`Upload falhou (${r.status}): ${await r.text()}`);
+    if (!r.ok) {
+      let msg = await r.text();
+      try {
+        const j = JSON.parse(msg) as { detail?: string | unknown };
+        if (typeof j.detail === 'string') msg = j.detail;
+        else if (Array.isArray(j.detail)) msg = JSON.stringify(j.detail);
+      } catch { /* keep text */ }
+      throw new Error(`Upload falhou (${r.status}): ${msg}`);
+    }
     return r.json() as Promise<UploadResponse>;
   },
 
@@ -346,15 +464,14 @@ export const api = {
     if (filters.category)         params.set('category',   filters.category);
     if (filters.start_date)       params.set('start_date', filters.start_date);
     if (filters.end_date)         params.set('end_date',   filters.end_date);
+    if (filters.bank_account_id != null) params.set('bank_account_id', String(filters.bank_account_id));
+    if (filters.transaction_type) params.set('transaction_type', filters.transaction_type);
     if (filters.limit  != null)   params.set('limit',      String(filters.limit));
-    if (filters.offset != null)   params.set('offset',     String(filters.offset));
+    if (filters.offset != null)   params.set('skip',       String(filters.offset));
     const url = params.size
       ? `${ENDPOINTS.transactions}?${params}`
       : ENDPOINTS.transactions;
-    return request<unknown[]>(url).then(data => {
-      console.log('[api.getTransactions]', { url, data });
-      return data;
-    });
+    return request<unknown[]>(url);
   },
 
   /** Lista fatura do cartão com summary calculado no backend. */
@@ -369,6 +486,38 @@ export const api = {
     const url = `${ENDPOINTS.transactions}/invoice?${params}`;
     return request<CardInvoiceResponse>(url);
   },
+
+  listBankAccounts: (includeInactive = false): Promise<BankAccountConfig[]> => {
+    const q = includeInactive ? '?include_inactive=true' : '';
+    return request<BankAccountConfig[]>(`${BASE}/api/bank-accounts${q}`);
+  },
+
+  getBankAccount: (id: number): Promise<BankAccountConfig> =>
+    request<BankAccountConfig>(`${BASE}/api/bank-accounts/${id}`),
+
+  listBankAccountImportBatches: (bankAccountId: number): Promise<ImportBatchListItem[]> =>
+    request<ImportBatchListItem[]>(`${BASE}/api/bank-accounts/${bankAccountId}/import-batches`),
+
+  createBankAccount: (payload: BankAccountPayload): Promise<BankAccountConfig> =>
+    request<BankAccountConfig>(`${BASE}/api/bank-accounts`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  updateBankAccount: (id: number, payload: Partial<BankAccountPayload>): Promise<BankAccountConfig> =>
+    request<BankAccountConfig>(`${BASE}/api/bank-accounts/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }),
+
+  deactivateBankAccount: (id: number): Promise<{ deleted: boolean }> =>
+    request<{ deleted: boolean }>(`${BASE}/api/bank-accounts/${id}`, { method: 'DELETE' }),
+
+  createManualTransaction: (payload: ManualTransactionPayload): Promise<Transaction> =>
+    request<Transaction>(ENDPOINTS.transactions, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
 
   listCards: (): Promise<CreditCardConfig[]> =>
     request<CreditCardConfig[]>(`${BASE}/api/cards`),
@@ -450,7 +599,7 @@ export const api = {
     return request<CardInvoiceResponse>(`${ENDPOINTS.transactions}/invoice?${p}`);
   },
 
-  listCategories: (scope?: 'credit_card', cardId?: number): Promise<Category[]> => {
+  listCategories: (scope?: 'credit_card' | 'bank', cardId?: number): Promise<Category[]> => {
     const p = new URLSearchParams();
     if (scope) p.set('scope', scope);
     if (cardId != null) p.set('card_id', String(cardId));
@@ -524,4 +673,5 @@ export const api = {
 export const uploadFile         = api.uploadFile;
 export const importTransactions = api.importTransactions;
 export const getTransactions    = api.getTransactions;
+export const listBankAccountImportBatches = api.listBankAccountImportBatches;
 export const checkHealth        = api.health;

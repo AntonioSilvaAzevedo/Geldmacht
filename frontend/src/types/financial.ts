@@ -44,6 +44,14 @@ export interface Transaction {
   account_type: string | null;   // 'nubank_pf' | 'nubank_pj' | 'nubank_cartao' | 'itau' | 'mercado_pago'
   card_id: number | null;
   invoice_id: number | null;     // âncora principal da fatura
+  bank_account_id: number | null;
+  /** Origem: pdf_invoice_import | bank_statement_import | manual */
+  source: string | null;
+  /** income | expense | transfer | payment | adjustment */
+  transaction_type: string | null;
+  /** Referência externa do extrato (ex.: FITID OFX). */
+  source_reference?: string | null;
+  notes: string | null;
   category: string | null;
   category_id: number | null;
   category_name: string | null;

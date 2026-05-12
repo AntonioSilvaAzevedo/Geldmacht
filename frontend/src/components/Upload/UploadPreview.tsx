@@ -27,7 +27,9 @@ import {
   type InvoiceCreate,
   type Category,
   type CreditCardConfig,
+  type BankAccountConfig,
   type ImportResponse,
+  type ImportKind,
   importTransactions,
 } from '@/lib/api';
 import { formatCurrency, formatDate } from '@/lib/formatters';
@@ -40,9 +42,16 @@ const PARSER_LABELS: Record<string, string> = {
   faturacartaonubank:  'Fatura Cartão Nubank',
   itau:                'Extrato Itaú Uniclass',
   mercadopago:         'Extrato Mercado Pago',
+  bank_statement_ofx:  'Extrato bancário (OFX)',
 };
 
 type Filter = 'todos' | 'entradas' | 'saidas' | 'transferencias';
+
+function previewMovementLabel(tx: PreviewTransaction): string {
+  if (tx.transaction_type === 'income') return 'Entrada';
+  if (tx.transaction_type === 'expense') return 'Saída';
+  return tx.amount >= 0 ? 'Entrada' : 'Saída';
+}
 
 interface Props {
   result: UploadResponse;
@@ -50,6 +59,10 @@ interface Props {
   cards?: CreditCardConfig[];
   categories?: Category[];
   uploadType?: string | null;
+  /** Explicita o tipo de importação (Fase 1). Omitir no fluxo antigo só se não for cartão. */
+  importKind?: ImportKind | null;
+  /** Conta bancária selecionada no fluxo `?type=bank_statement`. */
+  bankAccount?: BankAccountConfig | null;
   onBack: () => void;
   onImportDone: () => void;
 }
@@ -218,13 +231,17 @@ function InvoiceSummaryCards({ summary }: { summary: InvoiceSummary }) {
   );
 }
 
-export default function UploadPreview({ result, card, cards = [], categories = [], uploadType, onBack, onImportDone }: Props) {
+export default function UploadPreview({ result, card, cards = [], categories = [], uploadType, importKind, bankAccount, onBack, onImportDone }: Props) {
   const isMobile = useIsMobile();
   const router = useRouter();
-  const { transactions, parser_used, source_file, summary } = result;
+  const { transactions, parser_used, source_file, summary, statement_metadata } = result;
   const isCreditCardType = uploadType === 'credit_card';
+  const isBankStatement =
+    uploadType === 'bank_statement' ||
+    result.import_kind === 'bank_statement' ||
+    parser_used === 'bank_statement_ofx';
   const [selectedCard, setSelectedCard] = useState<CreditCardConfig | null>(card ?? null);
-  const isCreditCardImport = isCreditCardType && !!selectedCard;
+  const isCreditCardImport = isCreditCardType && !!selectedCard && !isBankStatement;
 
   // ── Metadados editáveis da fatura ────────────────────────────────────────────
   const [invoiceData, setInvoiceData] = useState<InvoiceCreate>(() => {
@@ -277,6 +294,17 @@ export default function UploadPreview({ result, card, cards = [], categories = [
   // Inclui categorias globais (card_id=null) + específicas do cartão atual.
   // Sub aparece com label hierárquico "Pai / Sub". Ordena por label.
   const categoryOptions = useMemo(() => {
+    if (isBankStatement) {
+      const valid = categories.filter(c => c.scope === 'bank');
+      const byId = new Map(valid.map(c => [c.id, c] as const));
+      return valid
+        .map(c => {
+          const parent = c.parent_id != null ? byId.get(c.parent_id) : null;
+          const label = parent ? `${parent.name} / ${c.name}` : c.name;
+          return { id: c.id, label, icon: c.icon ?? null, isSub: !!parent };
+        })
+        .sort((a, b) => a.label.localeCompare(b.label));
+    }
     const cardId = selectedCard?.id;
     const valid = categories.filter(c => {
       if (c.scope !== 'credit_card') return false;
@@ -291,9 +319,13 @@ export default function UploadPreview({ result, card, cards = [], categories = [
         return { id: c.id, label, icon: c.icon ?? null, isSub: !!parent };
       })
       .sort((a, b) => a.label.localeCompare(b.label));
-  }, [categories, selectedCard]);
+  }, [categories, selectedCard, isBankStatement]);
 
-  // Limpa categoryIds que ficaram inválidos quando o cartão muda
+  useEffect(() => {
+    if (isBankStatement && activeFilter === 'transferencias') setActiveFilter('todos');
+  }, [isBankStatement, activeFilter]);
+
+  // Limpa categoryIds que ficaram inválidos quando cartão / escopo de categorias muda
   useEffect(() => {
     const validIds = new Set(categoryOptions.map(o => o.id));
     setCategoryIds(prev => {
@@ -356,7 +388,8 @@ export default function UploadPreview({ result, card, cards = [], categories = [
   // ── Importar ─────────────────────────────────────────────────────────────────
   const handleImport = async () => {
     if (selected.size === 0) return;
-    if (isCreditCardType && !selectedCard) return;
+    if (!isBankStatement && isCreditCardType && !selectedCard) return;
+    if (isBankStatement && !bankAccount) return;
     setImporting(true);
 
     const toImport: PreviewTransaction[] = Array.from(selected).map(i => {
@@ -371,20 +404,43 @@ export default function UploadPreview({ result, card, cards = [], categories = [
       return {
         ...tx,
         description: descriptions[i] ?? tx.description,
+        raw_description: tx.raw_description ?? null,
         category_id: catId,
         category: isSystemic ? null : (categories.find(cat => cat.id === catId)?.name ?? null),
       };
     });
 
     try {
+      const resolvedImportKind: ImportKind | undefined =
+        importKind !== undefined && importKind !== null
+          ? importKind
+          : (isCreditCardImport ? 'credit_card_invoice' : undefined);
+
       const res = await importTransactions({
         source_file,
         parser_used,
-        card_id: selectedCard?.id ?? null,
-        reference_month: isCreditCardImport ? (invoiceData.due_month || null) : null,
-        invoice: isCreditCardImport && invoiceData.due_month ? invoiceData : undefined,
         transactions: toImport,
+        ...(isBankStatement && bankAccount
+          ? {
+              import_kind: 'bank_statement',
+              bank_account_id: bankAccount.id,
+              file_hash: result.file_hash ?? undefined,
+              period_start: result.statement_metadata?.period_start ?? undefined,
+              period_end: result.statement_metadata?.period_end ?? undefined,
+              card_id: null,
+              reference_month: null,
+            }
+          : {
+              card_id: selectedCard?.id ?? null,
+              reference_month: isCreditCardImport ? (invoiceData.due_month || null) : null,
+              invoice: isCreditCardImport && invoiceData.due_month ? invoiceData : undefined,
+              ...(resolvedImportKind ? { import_kind: resolvedImportKind } : {}),
+            }),
       });
+      if (isBankStatement && bankAccount) {
+        router.push(`/contas/${bankAccount.id}`);
+        return;
+      }
       setImportResult(res);
       if (isCreditCardImport && selectedCard) {
         if (res.invoice_id) {
@@ -447,11 +503,13 @@ export default function UploadPreview({ result, card, cards = [], categories = [
           </button>
           <Link
             href={
-              importResult.card_id && importResult.invoice_id
-                ? `/cartao/${importResult.card_id}/fatura/${importResult.invoice_id}`
-                : importResult.card_id && importResult.due_month
-                ? `/cartao/${importResult.card_id}/${importResult.due_month}`
-                : '/'
+              importResult.bank_account_id
+                ? `/contas/${importResult.bank_account_id}`
+                : importResult.card_id && importResult.invoice_id
+                  ? `/cartao/${importResult.card_id}/fatura/${importResult.invoice_id}`
+                  : importResult.card_id && importResult.due_month
+                    ? `/cartao/${importResult.card_id}/${importResult.due_month}`
+                    : '/'
             }
             style={{
               padding: '10px 20px',
@@ -467,7 +525,11 @@ export default function UploadPreview({ result, card, cards = [], categories = [
               gap: 6,
             }}
           >
-            {(importResult.card_id && (importResult.invoice_id || importResult.due_month)) ? 'Ver fatura' : 'Ver no Dashboard'}
+            {importResult.bank_account_id
+              ? 'Ver movimentações da conta'
+              : (importResult.card_id && (importResult.invoice_id || importResult.due_month))
+                ? 'Ver fatura'
+                : 'Ver no Dashboard'}
           </Link>
         </div>
       </div>
@@ -534,7 +596,7 @@ export default function UploadPreview({ result, card, cards = [], categories = [
         </div>
       </div>
 
-      {isCreditCardType && (
+      {isCreditCardType && !isBankStatement && (
         <div style={{
           background: 'var(--surface-card)',
           border: `1px solid ${!selectedCard ? 'rgba(229,62,62,0.4)' : 'var(--border-subtle)'}`,
@@ -661,16 +723,87 @@ export default function UploadPreview({ result, card, cards = [], categories = [
         </div>
       )}
 
-      {summary && <InvoiceSummaryCards summary={summary} />}
+      {isBankStatement && (
+        <div style={{
+          background: 'var(--surface-card)',
+          border: '1px solid var(--border-subtle)',
+          borderRadius: 10,
+          padding: '14px 16px',
+          marginBottom: 14,
+          flexShrink: 0,
+        }}>
+          <div style={{
+            fontSize: 12, fontWeight: 700, color: 'var(--text-muted)',
+            textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10,
+          }}>
+            Dados do extrato
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.55, display: 'grid', gap: 6 }}>
+            {bankAccount && (
+              <div><strong style={{ color: 'var(--text-primary)' }}>Conta:</strong>{' '}{bankAccount.name}{bankAccount.institution ? ` — ${bankAccount.institution}` : ''}</div>
+            )}
+            {statement_metadata?.institution != null && statement_metadata.institution !== '' && (
+              <div><strong style={{ color: 'var(--text-primary)' }}>Instituição (arquivo):</strong>{' '}{statement_metadata.institution}</div>
+            )}
+            {statement_metadata?.account_id != null && statement_metadata.account_id !== '' && (
+              <div><strong style={{ color: 'var(--text-primary)' }}>ID conta (OFX):</strong>{' '}{statement_metadata.account_id}</div>
+            )}
+            {(statement_metadata?.period_start || statement_metadata?.period_end) && (
+              <div>
+                <strong style={{ color: 'var(--text-primary)' }}>Período:</strong>{' '}
+                {statement_metadata.period_start ? formatDate(statement_metadata.period_start) : '—'}
+                {' — '}
+                {statement_metadata.period_end ? formatDate(statement_metadata.period_end) : '—'}
+              </div>
+            )}
+            {statement_metadata?.ledger_balance != null && (
+              <div><strong style={{ color: 'var(--text-primary)' }}>Saldo (extrato):</strong>{' '}{formatCurrency(statement_metadata.ledger_balance)}</div>
+            )}
+            {(statement_metadata?.total_inflows != null || statement_metadata?.total_outflows != null) && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 16px' }}>
+                {statement_metadata.total_inflows != null && (
+                  <span><strong style={{ color: 'var(--green-400)' }}>Entradas:</strong>{' '}{formatCurrency(statement_metadata.total_inflows)}</span>
+                )}
+                {statement_metadata.total_outflows != null && (
+                  <span><strong style={{ color: 'var(--red-400)' }}>Saídas:</strong>{' '}{formatCurrency(statement_metadata.total_outflows)}</span>
+                )}
+              </div>
+            )}
+            <div><strong style={{ color: 'var(--text-primary)' }}>Lançamentos:</strong>{' '}{transactions.length}</div>
+          </div>
+        </div>
+      )}
+
+      {summary && !isBankStatement && <InvoiceSummaryCards summary={summary} />}
+
+      {isBankStatement && categoryOptions.length === 0 && (
+        <div style={{
+          marginBottom: 12,
+          padding: '10px 12px',
+          borderRadius: 9,
+          background: 'rgba(49,130,206,0.07)',
+          border: '1px solid rgba(49,130,206,0.2)',
+          fontSize: 12.5,
+          color: 'var(--text-secondary)',
+          lineHeight: 1.5,
+        }}>
+          Você ainda não tem categorias para conta bancária. Você pode importar sem categoria ou{' '}
+          <Link href="/categorias" style={{ color: 'var(--blue-400)', fontWeight: 600 }}>criar categorias</Link>
+          {' '}depois.
+        </div>
+      )}
 
       {/* Filtros + busca */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 14, flexShrink: 0, flexWrap: 'wrap' }}>
         {/* Chips de filtro */}
         <div style={{ display: 'flex', gap: 6 }}>
-          {(['todos', 'entradas', 'saidas', 'transferencias'] as Filter[]).map(f => (
+          {(isBankStatement
+            ? ['todos', 'entradas', 'saidas']
+            : ['todos', 'entradas', 'saidas', 'transferencias']
+          ).map(f => (
             <button
               key={f}
-              onClick={() => setActiveFilter(f)}
+              onClick={() => setActiveFilter(f as Filter)}
               style={{
                 padding: '6px 12px',
                 borderRadius: 7,
@@ -683,7 +816,13 @@ export default function UploadPreview({ result, card, cards = [], categories = [
                 textTransform: 'capitalize',
               }}
             >
-              {f === 'todos' ? `Todos (${transactions.length})` : f}
+              {f === 'todos'
+                ? `Todos (${transactions.length})`
+                : f === 'entradas'
+                  ? 'Entradas'
+                  : f === 'saidas'
+                    ? 'Saídas'
+                    : 'Transferências'}
             </button>
           ))}
         </div>
@@ -865,7 +1004,7 @@ export default function UploadPreview({ result, card, cards = [], categories = [
               </th>
               <th style={{ padding: '10px 12px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 500 }}>Data</th>
               <th style={{ padding: '10px 12px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 500 }}>Descrição</th>
-              <th style={{ padding: '10px 12px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 500 }}>Parcela</th>
+              <th style={{ padding: '10px 12px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 500 }}>{isBankStatement ? 'Tipo' : 'Parcela'}</th>
               <th style={{ padding: '10px 12px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 500 }}>Categoria</th>
               <th style={{ padding: '10px 12px', textAlign: 'right', color: 'var(--text-muted)', fontWeight: 500 }}>Valor</th>
             </tr>
@@ -928,9 +1067,20 @@ export default function UploadPreview({ result, card, cards = [], categories = [
                     </div>
                   </td>
 
-                  {/* Parcela */}
-                  <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>
-                    {tx.installment_current != null && tx.installment_total != null ? (
+                  {/* Parcela ou tipo (extrato OFX) */}
+                  <td
+                    style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}
+                    title={isBankStatement && tx.source_reference ? `Ref.: ${tx.source_reference}` : undefined}
+                  >
+                    {isBankStatement ? (
+                      <span style={{
+                        fontSize: 11,
+                        fontWeight: 600,
+                        color: previewMovementLabel(tx) === 'Entrada' ? 'var(--green-400)' : 'var(--red-400)',
+                      }}>
+                        {previewMovementLabel(tx)}
+                      </span>
+                    ) : tx.installment_current != null && tx.installment_total != null ? (
                       <span style={{
                         display: 'inline-flex',
                         alignItems: 'center',
@@ -1085,7 +1235,29 @@ export default function UploadPreview({ result, card, cards = [], categories = [
           </button>
 
           {/* Importar */}
-          {isCreditCardType && !selectedCard ? (
+          {isBankStatement && !bankAccount ? (
+            <button
+              disabled
+              title="Volte e selecione uma conta bancária."
+              style={{
+                padding: '10px 24px',
+                borderRadius: 9,
+                border: '1px solid rgba(229,62,62,0.3)',
+                background: 'var(--surface-card)',
+                color: 'var(--red-400)',
+                fontSize: 14,
+                fontWeight: 600,
+                cursor: 'not-allowed',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                opacity: 0.75,
+              }}
+            >
+              <Download size={15} />
+              Conta obrigatória
+            </button>
+          ) : isCreditCardType && !isBankStatement && !selectedCard ? (
             <button
               disabled
               title="Selecione o cartão desta fatura antes de importar."
