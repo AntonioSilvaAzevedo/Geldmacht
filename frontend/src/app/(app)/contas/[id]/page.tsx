@@ -5,18 +5,12 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import Header from '@/components/Layout/Header';
 import LoadingSpinner from '@/components/LoadingSpinner';
-import CategoryIcon from '@/components/CategoryIcon';
+import { TransactionList } from '@/components/TransactionList';
 import { api, type BankAccountConfig, type ImportBatchListItem } from '@/lib/api';
 import type { Transaction } from '@/types/financial';
-import { formatCurrency, formatDate } from '@/lib/formatters';
-import { ArrowLeft, Landmark, ListFilter, Receipt, RefreshCw, TrendingDown, TrendingUp } from 'lucide-react';
+import { formatDate } from '@/lib/formatters';
+import { ArrowLeft, Landmark, ListFilter, Receipt, RefreshCw } from 'lucide-react';
 import { useIsMobile } from '@/hooks/useIsMobile';
-
-function txMovementLabel(tx: Transaction): string {
-  if (tx.transaction_type === 'income') return 'Entrada';
-  if (tx.transaction_type === 'expense') return 'Saída';
-  return tx.amount >= 0 ? 'Entrada' : 'Saída';
-}
 
 function formatImportedAtPt(iso: string | null): string {
   if (!iso) return '—';
@@ -315,65 +309,14 @@ export default function ContaDetalhePage() {
                 </div>
               </div>
             ) : (
-              <div style={{
-                borderRadius: 12,
-                border: '1px solid var(--border-subtle)',
-                overflow: 'hidden',
-                background: 'var(--surface-card)',
-              }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                  <thead>
-                    <tr style={{ background: 'var(--surface-panel)', borderBottom: '1px solid var(--border-subtle)' }}>
-                      <th style={{ padding: '10px 14px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 500 }}>Data</th>
-                      <th style={{ padding: '10px 14px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 500 }}>Descrição</th>
-                      <th style={{ padding: '10px 14px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 500 }}>Tipo</th>
-                      <th style={{ padding: '10px 14px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 500 }}>Categoria</th>
-                      <th style={{ padding: '10px 14px', textAlign: 'right', color: 'var(--text-muted)', fontWeight: 500 }}>Valor</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {movements.map(tx => (
-                      <tr key={tx.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                        <td style={{ padding: '10px 14px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontSize: 12 }}>
-                          {formatDate(tx.date)}
-                        </td>
-                        <td style={{ padding: '10px 14px', color: 'var(--text-primary)', maxWidth: 260 }}>
-                          {tx.description}
-                        </td>
-                        <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
-                          <span style={{
-                            fontSize: 11,
-                            fontWeight: 600,
-                            color: txMovementLabel(tx) === 'Entrada' ? 'var(--green-400)' : 'var(--red-400)',
-                          }}>
-                            {txMovementLabel(tx)}
-                          </span>
-                        </td>
-                        <td style={{ padding: '10px 14px' }}>
-                          {tx.category_display_label || tx.category_name || tx.category || (
-                            <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>Sem categoria</span>
-                          )}
-                          {tx.category_icon && (
-                            <span style={{ marginLeft: 6, verticalAlign: 'middle', display: 'inline-flex' }}>
-                              <CategoryIcon icon={tx.category_icon} size={14} />
-                            </span>
-                          )}
-                        </td>
-                        <td style={{ padding: '10px 14px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                            {tx.amount > 0
-                              ? <TrendingUp size={12} color="var(--green-400)" />
-                              : <TrendingDown size={12} color="var(--red-400)" />}
-                            <span className={tx.amount >= 0 ? 'value-positive' : 'value-negative'}>
-                              {formatCurrency(tx.amount)}
-                            </span>
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <TransactionList
+                transactions={movements}
+                isMobile={isMobile}
+                onRecategorize={(txId) => {
+                  // TODO: conectar ao modal de categorização quando implementarmos
+                  console.log('recategorizar', txId);
+                }}
+              />
             )}
           </>
         )}

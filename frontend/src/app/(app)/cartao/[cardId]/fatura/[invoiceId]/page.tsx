@@ -3,11 +3,8 @@
 import { use, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ChevronDown, ChevronLeft, ChevronRight, TrendingUp, Layers, Lock } from 'lucide-react';
-import EditableDescription from '@/components/EditableDescription';
-import CategoryIcon from '@/components/CategoryIcon';
-import { CategoryChoiceSelect } from '@/components/category-choice-select';
-import CategoryBudgetProgress from '@/components/CategoryBudgetProgress';
+import { ChevronDown, ChevronLeft, ChevronRight, TrendingUp, Layers } from 'lucide-react';
+import { CategoryGrid } from '@/components/CategoryGrid';
 import Header from '@/components/Layout/Header';
 import ErrorState from '@/components/ErrorState';
 import LoadingSpinner from '@/components/LoadingSpinner';
@@ -15,6 +12,7 @@ import EmptyState from '@/components/EmptyState';
 import { api, type CardInvoice, type CardInvoiceDetail, type CreditCardConfig, type Category } from '@/lib/api';
 import { formatCurrency, formatDate } from '@/lib/formatters';
 import type { Transaction } from '@/types/financial';
+import { useIsMobile } from '@/hooks/useIsMobile';
 
 interface PageProps {
   params: Promise<{ cardId: string; invoiceId: string }>;
@@ -52,6 +50,7 @@ function buildTitle(invoice: CardInvoiceDetail): string {
 
 export default function InvoiceDetailPage({ params }: PageProps) {
   const router = useRouter();
+  const isMobile = useIsMobile();
   const { cardId, invoiceId } = use(params);
   const cid = Number(cardId);
   const iid = Number(invoiceId);
@@ -61,14 +60,9 @@ export default function InvoiceDetailPage({ params }: PageProps) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [allInvoices, setAllInvoices] = useState<CardInvoice[]>([]);
-  const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
   const [installmentsOpen, setInstallmentsOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  // Recategorize state: txId → category_id being edited
-  const [recatEdit, setRecatEdit] = useState<number | null>(null); // txId currently open
-  const [recatSaving, setRecatSaving] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -85,7 +79,6 @@ export default function InvoiceDetailPage({ params }: PageProps) {
       setTransactions(invoiceData.transactions);
       setCategories(catData);
       setAllInvoices(invoicesList);
-      setOpenGroups(new Set());
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao carregar fatura.');
     } finally {
@@ -101,16 +94,6 @@ export default function InvoiceDetailPage({ params }: PageProps) {
     categories.forEach(c => m.set(c.id, c));
     return m;
   }, [categories]);
-
-  const recategorizeOptions = useMemo(() => {
-    return categories
-      .map(c => {
-        const parent = c.parent_id != null ? categoriesById.get(c.parent_id) : null;
-        const label = parent ? `${parent.name} / ${c.name}` : c.name;
-        return { id: c.id, label, icon: c.icon ?? null };
-      })
-      .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'));
-  }, [categories, categoriesById]);
 
   function categoryLabel(cat: Category | null | undefined, fallback: string): string {
     if (!cat) return fallback;
@@ -238,37 +221,6 @@ export default function InvoiceDetailPage({ params }: PageProps) {
       tx.installment_total > 1
     ) return true;
     return false;
-  }
-
-  // ── Handlers ─────────────────────────────────────────────────────────────────
-
-  async function handleDescSave(txId: number, description: string) {
-    await api.updateTransaction(txId, { description });
-    setTransactions(prev => prev.map(tx => tx.id === txId ? { ...tx, description } : tx));
-  }
-
-  async function handleCategorySave(txId: number, categoryId: number | null) {
-    setRecatSaving(true);
-    try {
-      const updated = await api.updateTransaction(txId, {
-        category_id: categoryId ?? 0,
-      });
-      setTransactions(prev => prev.map(tx =>
-        tx.id === txId ? { ...tx, ...updated } : tx,
-      ));
-      setRecatEdit(null);
-    } finally {
-      setRecatSaving(false);
-    }
-  }
-
-  function toggleGroup(key: string) {
-    setOpenGroups(prev => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
   }
 
   // ── Render ───────────────────────────────────────────────────────────────────
@@ -658,190 +610,35 @@ export default function InvoiceDetailPage({ params }: PageProps) {
 
         {/* ── Seção: Categorias ────────────────────────────────────────────── */}
         <section style={{ marginBottom: 18 }}>
-          <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 12 }}>
-            Categorias
-          </h2>
-          <div style={{ display: 'grid', gap: 8 }}>
-            {groups.map(group => (
-              <div key={group.key} style={{
-                background: 'var(--surface-card)',
-                border: '1px solid var(--border-subtle)',
-                borderRadius: 12,
-                overflow: 'hidden',
+          <div style={{
+            display: 'flex',
+            alignItems: 'baseline',
+            justifyContent: 'space-between',
+            marginBottom: 16,
+          }}>
+            <div>
+              <h2 style={{
+                fontSize: 15,
+                fontWeight: 600,
+                color: 'var(--text-primary)',
+                margin: '0 0 3px',
               }}>
-                <button onClick={() => toggleGroup(group.key)} style={{
-                  width: '100%',
-                  padding: '13px 16px',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  background: 'transparent',
-                  border: 'none',
-                  cursor: 'pointer',
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    {openGroups.has(group.key)
-                      ? <ChevronDown size={15} color="var(--text-muted)" />
-                      : <ChevronRight size={15} color="var(--text-muted)" />
-                    }
-                    <span style={{
-                      width: 28, height: 28, borderRadius: 7,
-                      background: 'rgba(49,130,206,0.1)',
-                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                      flexShrink: 0,
-                    }}>
-                      <CategoryIcon icon={group.icon} size={14} color="var(--blue-400)" />
-                    </span>
-                    <div style={{ textAlign: 'left' }}>
-                      <div style={{ color: 'var(--text-primary)', fontSize: 13, fontWeight: 600 }}>{group.label}</div>
-                      <div style={{ color: 'var(--text-muted)', fontSize: 11 }}>
-                        {group.transactions.length} lançamento{group.transactions.length !== 1 ? 's' : ''}
-                      </div>
-                    </div>
-                  </div>
-                  <div style={{ fontFamily: 'var(--font-mono)', color: 'var(--red-400)', fontWeight: 700 }}>
-                    {formatCurrency(group.total)}
-                  </div>
-                </button>
-
-                {/* Progresso do limite (quando definido) */}
-                {group.budgetLimit != null && group.budgetLimit > 0 && (
-                  <div style={{
-                    padding: '0 16px 12px',
-                    borderTop: '1px dashed var(--border-subtle)',
-                    paddingTop: 10,
-                  }}>
-                    <CategoryBudgetProgress
-                      spentAmount={group.total}
-                      limitAmount={group.budgetLimit}
-                    />
-                  </div>
-                )}
-
-                {openGroups.has(group.key) && (
-                  <div style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                    {group.transactions.map(tx => {
-                      const rowCat = tx.category_id != null ? categoriesById.get(tx.category_id) ?? null : null;
-                      return (
-                      <div key={tx.id} style={{
-                        padding: '10px 16px',
-                        borderBottom: '1px solid var(--border-subtle)',
-                      }}>
-                        {/* Linha principal: data + descrição + valor */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-                          <div style={{ display: 'flex', gap: 10, alignItems: 'center', minWidth: 0, flex: 1 }}>
-                            <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', fontSize: 11, whiteSpace: 'nowrap' }}>
-                              {formatDate(tx.date)}
-                            </span>
-                            <div style={{ minWidth: 0, flex: 1 }}>
-                              <EditableDescription
-                                value={tx.description}
-                                onSave={value => handleDescSave(tx.id, value)}
-                                textStyle={{ fontSize: 13, color: 'var(--text-primary)' }}
-                              />
-                              {tx.installment_current != null && tx.installment_total != null && (
-                                <span style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  marginTop: 2,
-                                  padding: '1px 6px',
-                                  borderRadius: 4,
-                                  background: 'rgba(49,130,206,0.1)',
-                                  color: 'var(--blue-400)',
-                                  fontSize: 10,
-                                  fontWeight: 600,
-                                  fontFamily: 'var(--font-mono)',
-                                }}>
-                                  {tx.installment_current}/{tx.installment_total}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <div style={{ fontFamily: 'var(--font-mono)', color: 'var(--red-400)', fontWeight: 600, fontSize: 13, whiteSpace: 'nowrap' }}>
-                            {formatCurrency(tx.amount)}
-                          </div>
-                        </div>
-
-                        {/* Recategorizar — bloqueado para sistêmicos */}
-                        {isSystemicTx(tx) ? (
-                          <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <span
-                              title="Este lançamento é sistêmico e não pode ser categorizado manualmente."
-                              style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: 5,
-                                fontSize: 11,
-                                color: 'var(--text-muted)',
-                                padding: '2px 7px',
-                                borderRadius: 5,
-                                border: '1px dashed var(--border-default)',
-                                background: 'rgba(255,255,255,0.02)',
-                              }}
-                            >
-                              <Lock size={10} />
-                              {tx.is_payment ? 'Pagamento da fatura' : 'Compra parcelada'}
-                            </span>
-                          </div>
-                        ) : recatEdit === tx.id ? (
-                          <div style={{ marginTop: 8, display: 'flex', gap: 8, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                            <CategoryChoiceSelect
-                              value={tx.category_id ?? null}
-                              options={recategorizeOptions}
-                              disabled={recatSaving}
-                              onChange={async id => {
-                                await handleCategorySave(tx.id, id);
-                              }}
-                              maxWidth={280}
-                            />
-                            <button
-                              onClick={() => setRecatEdit(null)}
-                              style={{
-                                background: 'none', border: 'none',
-                                color: 'var(--text-muted)', fontSize: 11, cursor: 'pointer',
-                              }}
-                            >
-                              cancelar
-                            </button>
-                          </div>
-                        ) : (
-                          <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
-                            {tx.category_name || tx.category ? (
-                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--text-muted)' }}>
-                                <CategoryIcon
-                                  icon={resolveTxCategoryIcon(tx, rowCat)}
-                                  size={11}
-                                  color="var(--text-muted)"
-                                />
-                                {resolveTxCategoryLabel(tx, rowCat)}
-                              </span>
-                            ) : (
-                              <span style={{ fontSize: 11, color: 'var(--text-muted)', opacity: 0.6 }}>
-                                Sem categoria
-                              </span>
-                            )}
-                            <button
-                              onClick={() => setRecatEdit(tx.id)}
-                              style={{
-                                background: 'none', border: 'none',
-                                color: 'var(--blue-400)', fontSize: 11, cursor: 'pointer',
-                                opacity: 0.7,
-                                padding: '0 2px',
-                              }}
-                              title="Alterar categoria"
-                            >
-                              alterar
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    );
-                    })}
-                  </div>
-                )}
-              </div>
-            ))}
+                Categorias
+              </h2>
+              <p style={{ margin: 0, fontSize: 11, color: 'var(--text-muted)' }}>
+                {groups.length} {groups.length === 1 ? 'categoria' : 'categorias'}
+              </p>
+            </div>
           </div>
+
+          <CategoryGrid
+            groups={groups}
+            isMobile={isMobile}
+            onRecategorize={(txId) => {
+              // TODO: conectar ao modal de categorização quando implementarmos
+              console.log('recategorizar', txId);
+            }}
+          />
         </section>
       </main>
     </>

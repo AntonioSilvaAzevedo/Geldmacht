@@ -40,3 +40,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Referência visual local (Apple Direction — não commitar)
+Apple_Direction.html
+
+# Resumos temporários gerados pela equipa (cópia local; não commitar)
+_TEMP_*.txt

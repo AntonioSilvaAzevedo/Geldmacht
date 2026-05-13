@@ -1,46 +1,130 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap');
 @import "tailwindcss";
 
+/* ─── Design tokens (Apple Direction) + aliases legados do projeto ─── */
 :root {
-  --navy-950: #070d18;
-  --navy-900: #0f1b2d;
-  --navy-800: #162338;
-  --navy-700: #1e3050;
-  --navy-600: #243d66;
+  --black:       #000000;
+  --gray-6:      #1C1C1E;
+  --gray-5:      #2C2C2E;
+  --gray-4:      #3A3A3C;
+  --gray-3:      #48484A;
+  --gray-2:      #636366;
+  --gray-1:      #8E8E93;
+  --gray-0:      #AEAEB2;
+  --white:       #FFFFFF;
 
-  --slate-700: #2d3748;
-  --slate-600: #4a5568;
-  --slate-500: #718096;
-  --slate-400: #a0aec0;
-  --slate-300: #cbd5e0;
+  --green:       #30D158;
+  --red:         #FF453A;
+  --blue:        #0A84FF;
+  --orange:      #FF9F0A;
+  --purple:      #BF5AF2;
+  --teal:        #5AC8FA;
+  --indigo:      #5E5CE6;
 
-  --green-500: #38a169;
-  --green-400: #48bb78;
-  --green-300: #68d391;
-  --red-500: #e53e3e;
-  --red-400: #fc8181;
-  --amber-500: #d69e2e;
-  --amber-400: #f6ad55;
-  --blue-500: #3182ce;
-  --blue-400: #63b3ed;
-  --teal-500: #319795;
-  --teal-400: #4fd1c5;
-  --purple-500: #805ad5;
-  --purple-400: #b794f4;
+  --font-sans: -apple-system, 'SF Pro Display', 'SF Pro Text',
+               'Helvetica Neue', system-ui, sans-serif;
+  --font-mono: 'SF Mono', 'DM Mono', 'Fira Code', monospace;
 
-  --surface-bg: var(--navy-900);
-  --surface-panel: var(--navy-800);
-  --surface-card: #1c2d45;
-  --surface-hover: #22374e;
-  --border-subtle: rgba(255,255,255,0.06);
-  --border-default: rgba(255,255,255,0.10);
+  --text-caption2:  11px;
+  --text-caption1:  12px;
+  --text-footnote:  13px;
+  --text-subhead:   15px;
+  --text-callout:   16px;
+  --text-body:      17px;
+  --text-title3:    20px;
+  --text-title2:    22px;
+  --text-title1:    28px;
+  --text-large:     34px;
+  --text-xlarge:    40px;
 
-  --text-primary: #e8edf4;
-  --text-secondary: #8fa4be;
-  --text-muted: #566a84;
+  --weight-regular:  400;
+  --weight-medium:   500;
+  --weight-semibold: 600;
+  --weight-bold:     700;
+  --weight-heavy:    800;
 
-  --font-sans: 'DM Sans', system-ui, sans-serif;
-  --font-mono: 'DM Mono', 'Fira Code', monospace;
+  --leading-tight:  1.05;
+  --leading-snug:   1.25;
+  --leading-normal: 1.5;
+
+  --surface-0:    var(--black);
+  --surface-1:    var(--gray-6);
+  --surface-2:    var(--gray-5);
+  --surface-3:    var(--gray-4);
+  --surface-hover: rgba(255,255,255,0.06);
+  --surface-press: rgba(255,255,255,0.10);
+
+  --text-primary:    #FFFFFF;
+  --text-secondary:  rgba(255,255,255,0.60);
+  --text-tertiary:   rgba(255,255,255,0.35);
+  --text-quaternary: rgba(255,255,255,0.18);
+  --text-link:       var(--blue);
+
+  --separator:        rgba(255,255,255,0.10);
+  --separator-opaque: #38383A;
+
+  --radius-xs:   6px;
+  --radius-sm:   10px;
+  --radius-md:   14px;
+  --radius-lg:   20px;
+  --radius-xl:   26px;
+  --radius-full: 9999px;
+
+  --space-1:   4px;
+  --space-2:   8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-7:  28px;
+  --space-8:  32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  --inset-card:   20px;
+  --inset-screen: 16px;
+
+  --shadow-card:
+    0 2px 8px  rgba(0,0,0,0.35),
+    0 0   1px  rgba(0,0,0,0.20);
+  --shadow-modal:
+    0 16px 48px rgba(0,0,0,0.60),
+    0 2px  12px rgba(0,0,0,0.30);
+
+  /* Aliases legados → tokens Apple */
+  --surface-bg:    var(--surface-0);
+  --surface-panel: var(--surface-2);
+  --surface-card:  var(--surface-1);
+  --border-subtle: var(--separator);
+  --border-default: rgba(255,255,255,0.12);
+  --text-muted:    var(--text-tertiary);
+
+  --green-400: var(--green);
+  --green-500: color-mix(in srgb, var(--green) 82%, black);
+  --green-300: color-mix(in srgb, var(--green) 72%, white);
+  --red-400:   var(--red);
+  --red-500:   color-mix(in srgb, var(--red) 85%, black);
+  --amber-400: var(--orange);
+  --amber-500: color-mix(in srgb, var(--orange) 80%, black);
+  --blue-400:  var(--blue);
+  --blue-500:  color-mix(in srgb, var(--blue) 78%, black);
+  --teal-400:  var(--teal);
+  --teal-500:  color-mix(in srgb, var(--teal) 72%, black);
+  --purple-400: var(--purple);
+  --purple-500: color-mix(in srgb, var(--purple) 78%, black);
+
+  --navy-950: var(--surface-0);
+  --navy-900: var(--surface-0);
+  --navy-800: var(--surface-2);
+  --navy-700: var(--surface-1);
+  --navy-600: var(--surface-3);
+
+  --slate-700: var(--separator-opaque);
+  --slate-600: var(--gray-3);
+  --slate-500: var(--gray-2);
+  --slate-400: var(--gray-1);
+  --slate-300: var(--gray-0);
 }
 
 * {
@@ -52,36 +136,37 @@
 html { scroll-behavior: smooth; }
 
 body {
-  background-color: var(--navy-900);
+  background-color: var(--surface-bg);
   color: var(--text-primary);
   font-family: var(--font-sans);
-  font-size: 14px;
-  line-height: 1.5;
+  font-size: var(--text-subhead);
+  line-height: var(--leading-normal);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 ::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: var(--navy-800); }
+::-webkit-scrollbar-track { background: var(--surface-2); }
 ::-webkit-scrollbar-thumb { background: var(--slate-600); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--slate-500); }
-::selection { background: rgba(49,130,206,0.3); color: var(--text-primary); }
+::selection { background: rgba(10,132,255,0.35); color: var(--text-primary); }
 
-.value-positive { color: var(--green-400); }
-.value-negative { color: var(--red-400); }
+.value-positive { color: var(--green); }
+.value-negative { color: var(--red); }
 .value-neutral  { color: var(--text-secondary); }
-.value-invest   { color: var(--blue-400); }
+.value-invest   { color: var(--purple); }
 
 .card-surface {
   background: var(--surface-card);
-  border: 1px solid var(--border-subtle);
-  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
 }
 
 .data-table { width: 100%; border-collapse: collapse; }
 .data-table th {
-  background: var(--navy-800);
-  color: var(--text-muted);
+  background: var(--surface-2);
+  color: var(--text-tertiary);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.08em;
@@ -107,16 +192,11 @@ body {
   font-variant-numeric: tabular-nums;
 }
 .data-table tr.total-row td {
-  background: var(--navy-800);
+  background: var(--surface-2);
   font-weight: 600;
   border-top: 1px solid var(--border-default);
 }
 
-@keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(12px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-.animate-in { animation: fadeInUp 0.35s ease both; }
 .delay-1 { animation-delay: 0.05s; }
 .delay-2 { animation-delay: 0.10s; }
 .delay-3 { animation-delay: 0.15s; }
@@ -129,28 +209,19 @@ body {
 .recharts-cartesian-grid-vertical line { stroke: var(--border-subtle) !important; }
 
 /* ─── Mobile responsiveness ─── */
-/* Breakpoints:
- *   mobile  : até 768px        (sidebar oculta por padrão)
- *   tablet  : 769–1024px
- *   desktop : > 1024px
- */
 .sidebar-desktop { display: block; }
 .is-mobile-only  { display: none !important; }
 
 @media (max-width: 768px) {
   .sidebar-desktop { display: none; }
-  /* Em mobile, alterna: oculta itens desktop, mostra itens mobile com inline-flex (combina com botões/ícones). */
   .is-mobile-only  { display: inline-flex !important; }
   .is-desktop-only { display: none !important; }
 
-  /* Stack KPI grids to 2 columns on mobile */
   .kpi-grid { grid-template-columns: repeat(2, 1fr) !important; }
   .chart-grid { grid-template-columns: 1fr !important; }
 
-  /* Tighten padding */
   main { padding: 12px !important; }
 
-  /* Inputs/selects ficam mais altos para toque confortável (>=44px alvo). */
   input[type="text"],
   input[type="number"],
   input[type="date"],
@@ -159,16 +230,132 @@ body {
   input[type="password"],
   select,
   textarea {
-    font-size: 16px !important;       /* evita zoom-on-focus do Safari iOS */
+    font-size: 16px !important;
     min-height: 40px;
   }
 
-  /* Botões com toque confortável. */
   button { min-height: 38px; }
 
-  /* Sem scroll horizontal global no mobile. */
   html, body { overflow-x: hidden; }
 
-  /* Padding-bottom para conteúdo não ficar escondido atrás da action bar sticky. */
   .has-mobile-actionbar { padding-bottom: 80px; }
 }
+
+/* ═══ apple-tokens.css (referência: frontend/apple-tokens.css) — utilitários sem blocos :root ═══ */
+
+.val-positive { color: var(--green); }
+.val-negative { color: var(--red);   }
+.val-neutral  { color: var(--text-secondary); }
+.val-invest   { color: var(--purple); }
+
+.t-hero {
+  font-family: var(--font-sans);
+  font-size: var(--text-xlarge);
+  font-weight: var(--weight-heavy);
+  letter-spacing: -0.03em;
+  line-height: var(--leading-tight);
+  color: var(--text-primary);
+}
+
+.t-large-title {
+  font-family: var(--font-sans);
+  font-size: var(--text-large);
+  font-weight: var(--weight-bold);
+  letter-spacing: -0.025em;
+  line-height: var(--leading-tight);
+  color: var(--text-primary);
+}
+
+.t-title1 {
+  font-family: var(--font-sans);
+  font-size: var(--text-title1);
+  font-weight: var(--weight-bold);
+  letter-spacing: -0.02em;
+  line-height: var(--leading-snug);
+  color: var(--text-primary);
+}
+
+.t-title2 {
+  font-family: var(--font-sans);
+  font-size: var(--text-title2);
+  font-weight: var(--weight-semibold);
+  letter-spacing: -0.015em;
+  line-height: var(--leading-snug);
+  color: var(--text-primary);
+}
+
+.t-title3 {
+  font-family: var(--font-sans);
+  font-size: var(--text-title3);
+  font-weight: var(--weight-semibold);
+  letter-spacing: -0.01em;
+  line-height: var(--leading-snug);
+  color: var(--text-primary);
+}
+
+.t-body {
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  font-weight: var(--weight-regular);
+  line-height: var(--leading-normal);
+  color: var(--text-primary);
+}
+
+.t-callout {
+  font-family: var(--font-sans);
+  font-size: var(--text-callout);
+  font-weight: var(--weight-regular);
+  line-height: var(--leading-normal);
+  color: var(--text-secondary);
+}
+
+.t-subhead {
+  font-family: var(--font-sans);
+  font-size: var(--text-subhead);
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-normal);
+  color: var(--text-secondary);
+}
+
+.t-footnote {
+  font-family: var(--font-sans);
+  font-size: var(--text-footnote);
+  line-height: var(--leading-normal);
+  color: var(--text-tertiary);
+}
+
+.t-caption {
+  font-family: var(--font-sans);
+  font-size: var(--text-caption1);
+  letter-spacing: 0.02em;
+  color: var(--text-tertiary);
+}
+
+.t-numeric {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.t-section-label {
+  font-family: var(--font-sans);
+  font-size: var(--text-footnote);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+@keyframes gm-fade-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0);     }
+}
+@keyframes gm-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.animate-in      { animation: gm-fade-up 0.30s cubic-bezier(0.25,0.46,0.45,0.94) both; }
+.animate-in-fast { animation: gm-fade-up 0.18s cubic-bezier(0.25,0.46,0.45,0.94) both; }
+
+/* Scrollbars: em `Apple_Direction.html` usamos scroll oculto; na app mantém-se barra fina acima. */

@@ -31,20 +31,22 @@ export default function ComingSoonState({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '40px 24px',
+        padding: 'var(--space-10) var(--space-6)',
       }}
     >
       <div
+        className="animate-in delay-1"
         style={{
           width: '100%',
           maxWidth: 480,
           textAlign: 'center',
           background: 'var(--surface-card)',
-          border: '1px solid var(--border-subtle)',
-          borderRadius: 14,
-          padding: '32px 28px',
+          border: '1px solid rgba(255,255,255,0.06)',
+          borderRadius: 'var(--radius-lg)',
+          padding: 'var(--inset-card)',
+          boxShadow: 'var(--shadow-card)',
           display: 'grid',
-          gap: 12,
+          gap: 'var(--space-3)',
           justifyItems: 'center',
         }}
       >
@@ -52,50 +54,35 @@ export default function ComingSoonState({
           style={{
             width: 48,
             height: 48,
-            borderRadius: 12,
+            borderRadius: 'var(--radius-md)',
             background:
-              'linear-gradient(135deg, rgba(49,130,206,0.15) 0%, rgba(44,122,123,0.15) 100%)',
+              'linear-gradient(135deg, rgba(191,90,242,0.22) 0%, rgba(90,200,250,0.18) 100%)',
             display: 'inline-flex',
             alignItems: 'center',
             justifyContent: 'center',
             border: '1px solid var(--border-subtle)',
           }}
         >
-          {icon ?? <Sparkles size={20} color="var(--blue-400)" />}
+          {icon ?? <Sparkles size={20} color="var(--purple)" />}
         </span>
 
-        <div style={{
-          fontSize: 10.5,
-          color: 'var(--text-muted)',
-          letterSpacing: '0.1em',
-          textTransform: 'uppercase',
-          fontFamily: 'var(--font-mono)',
-        }}>
+        <div className="t-section-label" style={{ letterSpacing: '0.08em', marginTop: 2 }}>
           Em desenvolvimento
         </div>
 
-        <h2 style={{
-          margin: 0,
-          fontSize: 17,
-          fontWeight: 700,
-          color: 'var(--text-primary)',
-          letterSpacing: '-0.01em',
-        }}>
+        <h2 className="t-title3" style={{ margin: 0 }}>
           {title}
         </h2>
 
         {description && (
-          <p style={{
-            margin: 0,
-            fontSize: 13,
-            color: 'var(--text-secondary)',
-            lineHeight: 1.55,
-          }}>
+          <p className="t-footnote" style={{ margin: 0, maxWidth: 360 }}>
             {description}
           </p>
         )}
 
-        {action && <div style={{ marginTop: 6 }}>{action}</div>}
+        {action && (
+          <div style={{ marginTop: 'var(--space-2)' }}>{action}</div>
+        )}
       </div>
     </div>
   );

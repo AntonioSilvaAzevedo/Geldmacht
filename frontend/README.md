@@ -112,7 +112,7 @@ npm start
    ```
 
 4. **Seguir os padrões visuais** (ver seção abaixo):
-   - Cards: `background: 'var(--surface-card)', borderRadius: 12, border: '1px solid var(--border-subtle)'`
+   - Cards: `background: var(--surface-card)`, `borderRadius: var(--radius-lg)`, borda opcional (sutil) ou `box-shadow: var(--shadow-card)` — ver [`CLAUDE.md`](./CLAUDE.md)
    - Tabelas: classe `data-table`
    - Valores numéricos: `fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums'`
    - Animação de entrada: classe `animate-in delay-1` (até `delay-4`)
@@ -150,36 +150,55 @@ Nenhuma tela precisa mudar — a interface do hook permanece idêntica.
 
 ---
 
-## Padrões Visuais
+## Padrões visuais (Apple Direction)
 
-### Identidade Dark Navy Fintech
+A identidade atual segue o **design system “Apple Direction”** (preto verdadeiro, SF Pro / system UI, verde e vermelho semânticos para fluxo de caixa). **Não usar** navy/cinza‑azulado como fundo de página nem **DM Sans**.
 
-- **Tema:** Dark navy, inspirado em terminais Bloomberg e painéis de trading
-- **Fontes:** DM Sans (corpo) + DM Mono (valores numéricos) — carregadas do Google Fonts
-- **Animação de entrada:** `fadeInUp` com `animation-delay` escalonado (delay-1 a delay-4)
+### Onde está documentado
 
-### Paleta (CSS Variables em `globals.css`)
+| O quê | Onde |
+|---|---|
+| Princípios e checklist de UI | [`CLAUDE.md`](./CLAUDE.md) (secção no topo) |
+| Tokens e classes (fonte de verdade na app) | [`src/app/globals.css`](./src/app/globals.css) |
+| Espelho / referência do token file | [`apple-tokens.css`](./apple-tokens.css) (raiz do `frontend`) |
+| Museu HTML (opcional, local) | `Apple_Direction.html` — **não commitar** (está no `.gitignore`) |
 
-```css
-/* Superfícies */
---surface-bg: #0f1b2d       /* fundo da página */
---surface-card: #1c2d45     /* cards e tabelas */
---surface-hover: #22374e    /* hover de linha */
+### Tipografia
 
-/* Semântica de valores */
-.value-positive → var(--green-400)  /* entradas */
-.value-negative → var(--red-400)    /* gastos */
-.value-invest   → var(--blue-400)   /* investimentos */
-.value-neutral  → var(--text-secondary)
+- **Corpo e títulos:** `var(--font-sans)` (−apple‑system, SF Pro, Helvetica Neue, `system-ui`).
+- **Valores e datas em colunas:** `var(--font-mono)` com **DM Mono** (única família carregada via Google Fonts).
 
-/* Acentos */
---green-400: #48bb78   /* entradas, dividendos */
---red-400: #fc8181     /* gastos, fatura cartão */
---amber-400: #f6ad55   /* fixos, moradia, alertas */
---blue-400: #63b3ed    /* investimentos, ETFs, links */
---teal-400: #4fd1c5    /* PJ, renda fixa */
---purple-400: #b794f4  /* ETFs, Bitcoin (reservado) */
-```
+### Superfícies (ordem de profundidade)
+
+| Token | Papel |
+|---|---|
+| `--surface-0` (`--surface-bg`) | Fundo da página (`#000000`) |
+| `--surface-1` (`--surface-card`) | Card principal |
+| `--surface-2` (`--surface-panel`) | Painéis aninhados / cabeçalhos densos |
+| `--surface-3` | Inputs / controles |
+
+### Semântica de valores
+
+- **Positivo / entrada:** `var(--green)` — classes `.value-positive` / `.val-positive`
+- **Negativo / saída:** `var(--red)` — `.value-negative` / `.val-negative`
+- **Investimentos / destaque secundário:** `var(--purple)` — `.value-invest` / `.val-invest` (evitar azul como “cor de dinheiro positivo”)
+
+### Tipografia semântica (classes)
+
+Ex.: `.t-hero`, `.t-large-title`, `.t-title1`, `.t-title2`, `.t-title3`, `.t-body`, `.t-footnote`, `.t-section-label`, `.t-numeric` (definidas em `globals.css`).
+
+### Raios e espaço
+
+- Cards padrão: `var(--radius-lg)` (20px); hero/modal: `var(--radius-xl)` (26px).
+- Grid 8pt: `var(--space-4)` … `var(--space-8)`; inset mínimo de card: `var(--inset-card)`.
+
+### Animação de entrada
+
+- Classe **`animate-in`** (+ `delay-1` … `delay-4`): keyframes **`gm-fade-up`** em `globals.css`.
+
+### Paleta de referência rápida (`globals.css`)
+
+Variáveis como `--green`, `--red`, `--blue`, `--orange`, `--purple`, `--separator`, `--shadow-card` e aliases legados (`--navy-*`, `--green-400`, …) estão alinhados aos tokens Apple; detalhes no ficheiro ou em `apple-tokens.css`.
 
 ### Convenções de Números
 
@@ -193,7 +212,7 @@ Nenhuma tela precisa mudar — a interface do hook permanece idêntica.
 
 | Documento | Descrição |
 |---|---|
-| [`../CLAUDE.md`](../CLAUDE.md) | Contexto completo do usuário, regras de negócio, estrutura de dados |
+| [`./CLAUDE.md`](./CLAUDE.md) | Contexto do projeto + **diretrizes visuais (Apple Direction)** |
 | [`../BACKLOG.md`](../BACKLOG.md) | Estado atual do projeto, o que foi feito, próximos passos |
 | [`../docs/ROADMAP.md`](../docs/ROADMAP.md) | Visão macro das 3 fases |
 | [`../docs/FASE-1-FRONTEND.md`](../docs/FASE-1-FRONTEND.md) | Especificação detalhada de cada tela da Fase 1 |

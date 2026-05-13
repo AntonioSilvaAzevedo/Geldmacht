@@ -1,3 +1,59 @@
+# Frontend — Diretrizes Visuais (Apple Direction)
+
+> **Prioridade:** em qualquer prompt de UI, seguir **este documento primeiro**. Tokens vivem em `src/app/globals.css`; referência espelho em `apple-tokens.css` (raiz do frontend). Museu visual local: `Apple_Direction.html` (gitignored).
+
+## Princípios fundamentais
+
+Todo novo componente ou tela deve seguir estes princípios antes de qualquer coisa:
+
+1. **Fundo preto verdadeiro** — usar `var(--surface-0)` (`#000000`) para backgrounds de página. Nunca navy, nunca cinza-azulado.
+2. **Tipografia do sistema** — usar `var(--font-sans)` (-apple-system, SF Pro, Helvetica Neue). Sem importações externas de fontes sans-serif. **DM Mono** (`var(--font-mono)`, Google Fonts) apenas para valores numéricos e datas.
+3. **Hierarquia por peso e tamanho** — não por cor. Usar as classes `.t-hero`, `.t-title1`, `.t-large-title`, `.t-title2`, `.t-title3`, `.t-body`, `.t-callout`, `.t-subhead`, `.t-footnote`, `.t-caption`, `.t-section-label` quando fizer sentido.
+4. **Verde e vermelho semânticos:** `var(--green)` #30D158 → entradas / positivo; `var(--red)` #FF453A → saídas / negativo. Evitar azul como “cor primária” em valores monetários; investimentos / destaque secundário: `var(--purple)`.
+5. **Cards elevados por superfície** — diferença entre `--surface-0`, `--surface-1`, `--surface-2`. Borda só sutil se necessário; sombra opcional `var(--shadow-card)`.
+6. **Border radius generoso** — `var(--radius-lg)` (20px) para cards padrão, `var(--radius-xl)` (26px) para hero/modal. Evitar raio pequeno em cards “principais” (mínimo coerente: `var(--radius-sm)` 10px para chips).
+7. **Espaçamento generoso** — grid de 8pt: `var(--space-4)` … `var(--space-8)`; inset mínimo de card `var(--inset-card)` (20px).
+
+## Tokens disponíveis
+
+### Superfícies (ordem de profundidade)
+
+| Token | Uso |
+|------|-----|
+| `--surface-0` | Página / canvas (`--surface-bg` aponta aqui) |
+| `--surface-1` | Card principal (`--surface-card`) |
+| `--surface-2` | Painel aninhado, cabeçalhos densos (`--surface-panel`) |
+| `--surface-3` | Inputs / controles |
+| `--surface-hover` / `--surface-press` | Estados de linha / interação |
+
+### Texto
+
+`--text-primary`, `--text-secondary`, `--text-tertiary`, `--text-quaternary`, `--text-link` (link = azul sistema).
+
+### Separadores e bordas
+
+`--separator`, `--separator-opaque`; aliases legados: `--border-subtle`, `--border-default`.
+
+### Cores sistema
+
+`--green`, `--red`, `--blue`, `--orange`, `--purple`, `--teal`, `--indigo`. Aliases legados (`--green-400`, `--navy-800`, etc.) foram remapeados em `globals.css` — prefira tokens Apple em código novo.
+
+### Espaços e raios
+
+`--space-1` … `--space-16`, `--radius-xs` … `--radius-full`, `--inset-screen`.
+
+### Tipografia numérica
+
+Classe `.t-numeric` + variantes `.val-positive` / `.val-negative` (espelho das antigas `.value-*`).
+
+## Boas práticas de implementação
+
+- Preferir **CSS variables** em `style={{}}` ou classes utilitárias Tailwind quando já mapeadas.
+- **`AGENTS.md`** do frontend detalha rotas e API; **`CLAUDE.md`** (esta pasta) define **pilha visual**.
+- Skill `frontend-design`: usar para polimento e acessibilidade **sem contradizer** superfície preta e tokens acima.
+
+---
+
 # Projeto Financeiro Pessoal — Antonio Carlos
 
 ## 🎯 Visão Geral
@@ -116,17 +172,11 @@ Hoje toda essa lógica está em uma **planilha Excel** (`Financas_Antonio_2026_v
 
 A planilha funciona, mas demanda muito trabalho manual. O objetivo do sistema web é **automatizar** isso.
 
-## 🎨 Diretrizes de Frontend (Skill Frontend Design)
+## 🎨 Diretrizes de Frontend
 
-**SEMPRE** use a skill `frontend-design` ao criar ou editar componentes de interface. Antes de escrever qualquer JSX/HTML/CSS, leia o arquivo `SKILL.md` da skill `frontend-design` para garantir:
+1. **UI:** obedecer a secção **«Frontend — Diretrizes Visuais (Apple Direction)»** no topo deste ficheiro (tokens em `src/app/globals.css`).
+2. **Polimento / acessibilidade:** onde fizer sentido, usar a skill `frontend-design` (`SKILL.md`) — sem reintroduzir navy, DM Sans nem fundos cinza-azulados.
 
-- Uso correto dos design tokens (cores, espaçamentos, tipografia)
-- Componentes seguindo os padrões da skill
-- Estados de loading, error e empty bem tratados
-- Acessibilidade (semantic HTML, ARIA, keyboard navigation)
-- Visual polido e profissional, evitando estética "AI genérica"
-
-Esta diretriz vale para **toda a Fase 1** e qualquer alteração futura no frontend.
 
 ## 📚 Documentação Técnica
 
