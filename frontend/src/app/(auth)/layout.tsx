@@ -1,9 +1,14 @@
-export default function AuthLayout({ children }: { children: React.ReactNode }) {
+import type { ReactNode } from 'react';
+
+/**
+ * Auth layout — Apple Direction (fundo preto verdadeiro).
+ */
+export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
     <div
       style={{
         minHeight: '100vh',
-        background: 'var(--navy-950)',
+        background: '#000',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',

@@ -4,7 +4,8 @@ import { use, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ChevronDown, ChevronLeft, ChevronRight, TrendingUp, Layers } from 'lucide-react';
-import { CategoryGrid } from '@/components/CategoryGrid';
+import { CategoryChoiceSelect } from '@/components/category-choice-select';
+import { CategoryGrid, type CategoryGroup } from '@/components/CategoryGrid';
 import Header from '@/components/Layout/Header';
 import ErrorState from '@/components/ErrorState';
 import LoadingSpinner from '@/components/LoadingSpinner';
@@ -16,15 +17,6 @@ import { useIsMobile } from '@/hooks/useIsMobile';
 
 interface PageProps {
   params: Promise<{ cardId: string; invoiceId: string }>;
-}
-
-interface CategoryGroup {
-  key: string;
-  label: string;
-  icon: string | null;
-  total: number;
-  budgetLimit: number | null;
-  transactions: Transaction[];
 }
 
 interface InstallmentInfo {
@@ -63,6 +55,8 @@ export default function InvoiceDetailPage({ params }: PageProps) {
   const [installmentsOpen, setInstallmentsOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [recatModal, setRecatModal] = useState<{ txId: number; categoryId: number | null } | null>(null);
+  const [recatSaving, setRecatSaving] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -117,6 +111,19 @@ export default function InvoiceDetailPage({ params }: PageProps) {
   function resolveTxCategoryIcon(tx: Transaction, catObj: Category | null): string | null {
     return catObj?.icon ?? tx.category_icon ?? null;
   }
+
+  const categoryChoiceOptions = useMemo(
+    () =>
+      categories.map(c => {
+        let label = c.name;
+        if (c.parent_id != null) {
+          const parent = categoriesById.get(c.parent_id);
+          if (parent) label = `${parent.name} / ${c.name}`;
+        }
+        return { id: c.id, label, icon: c.icon };
+      }),
+    [categories, categoriesById]
+  );
 
   // ── Category groups ──────────────────────────────────────────────────────────
   // IMPORTANTE: lançamentos **sistêmicos** (compras parceladas e pagamentos da
@@ -222,6 +229,22 @@ export default function InvoiceDetailPage({ params }: PageProps) {
     ) return true;
     return false;
   }
+
+  const saveRecategorization = useCallback(async () => {
+    if (!recatModal) return;
+    setRecatSaving(true);
+    try {
+      await api.updateTransaction(recatModal.txId, {
+        category_id: recatModal.categoryId ?? undefined,
+      });
+      await load();
+      setRecatModal(null);
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : 'Não foi possível alterar a categoria.');
+    } finally {
+      setRecatSaving(false);
+    }
+  }, [recatModal, load]);
 
   // ── Render ───────────────────────────────────────────────────────────────────
 
@@ -635,11 +658,93 @@ export default function InvoiceDetailPage({ params }: PageProps) {
             groups={groups}
             isMobile={isMobile}
             onRecategorize={(txId) => {
-              // TODO: conectar ao modal de categorização quando implementarmos
-              console.log('recategorizar', txId);
+              const tx = transactions.find(t => t.id === txId);
+              setRecatModal({ txId, categoryId: tx?.category_id ?? null });
             }}
           />
         </section>
+
+        {recatModal && (
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="recat-title"
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 100,
+              background: 'rgba(0,0,0,0.65)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 'var(--inset-screen)',
+            }}
+            onClick={e => {
+              if (e.target === e.currentTarget && !recatSaving) setRecatModal(null);
+            }}
+          >
+            <div
+              style={{
+                width: '100%',
+                maxWidth: 400,
+                background: 'var(--surface-card)',
+                borderRadius: 'var(--radius-lg)',
+                border: '1px solid var(--border-subtle)',
+                padding: 'var(--space-5)',
+                boxShadow: 'var(--shadow-modal)',
+              }}
+              onClick={e => e.stopPropagation()}
+            >
+              <h2
+                id="recat-title"
+                style={{ margin: '0 0 var(--space-4)', fontSize: 17, fontWeight: 700, color: 'var(--text-primary)' }}
+              >
+                Alterar categoria
+              </h2>
+              <CategoryChoiceSelect
+                value={recatModal.categoryId}
+                options={categoryChoiceOptions}
+                onChange={id => setRecatModal(r => (r ? { ...r, categoryId: id } : null))}
+                emptyLabel="Sem categoria"
+              />
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 22 }}>
+                <button
+                  type="button"
+                  disabled={recatSaving}
+                  onClick={() => setRecatModal(null)}
+                  style={{
+                    padding: '9px 14px',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--border-default)',
+                    background: 'transparent',
+                    color: 'var(--text-secondary)',
+                    fontSize: 13,
+                    cursor: recatSaving ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  disabled={recatSaving}
+                  onClick={() => void saveRecategorization()}
+                  style={{
+                    padding: '9px 14px',
+                    borderRadius: 'var(--radius-md)',
+                    border: 'none',
+                    background: 'var(--blue-500)',
+                    color: '#fff',
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: recatSaving ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  {recatSaving ? 'Salvando…' : 'Salvar'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </>
   );

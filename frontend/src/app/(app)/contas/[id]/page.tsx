@@ -3,10 +3,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import { CategoryChoiceSelect } from '@/components/category-choice-select';
 import Header from '@/components/Layout/Header';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { TransactionList } from '@/components/TransactionList';
-import { api, type BankAccountConfig, type ImportBatchListItem } from '@/lib/api';
+import { api, type BankAccountConfig, type Category, type ImportBatchListItem } from '@/lib/api';
 import type { Transaction } from '@/types/financial';
 import { formatDate } from '@/lib/formatters';
 import { ArrowLeft, Landmark, ListFilter, Receipt, RefreshCw } from 'lucide-react';
@@ -36,13 +37,16 @@ export default function ContaDetalhePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [movementFilter, setMovementFilter] = useState<'all' | 'income' | 'expense'>('all');
+  const [bankCategories, setBankCategories] = useState<Category[]>([]);
+  const [recatModal, setRecatModal] = useState<{ txId: number; categoryId: number | null } | null>(null);
+  const [recatSaving, setRecatSaving] = useState(false);
 
   const load = useCallback(async () => {
     if (!Number.isFinite(accountId)) return;
     setLoading(true);
     setError(null);
     try {
-      const [acc, txs, batches] = await Promise.all([
+      const [acc, txs, batches, cats] = await Promise.all([
         api.getBankAccount(accountId),
         api.getTransactions({
           bank_account_id: accountId,
@@ -50,15 +54,18 @@ export default function ContaDetalhePage() {
           limit: 500,
         }) as Promise<Transaction[]>,
         api.listBankAccountImportBatches(accountId),
+        api.listCategories('bank'),
       ]);
       setAccount(acc);
       setMovements(txs.sort((a, b) => (b.date > a.date ? 1 : b.date < a.date ? -1 : 0)));
       setImportBatches(batches);
+      setBankCategories(cats);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao carregar a conta.');
       setAccount(null);
       setMovements([]);
       setImportBatches([]);
+      setBankCategories([]);
     } finally {
       setLoading(false);
     }
@@ -72,6 +79,38 @@ export default function ContaDetalhePage() {
       .filter(Boolean)
       .join(' · ');
   }, [account]);
+
+  const bankCategoryOptions = useMemo(() => {
+    const byId = new Map(bankCategories.map(c => [c.id, c] as const));
+    function labelFor(cat: Category): string {
+      if (cat.parent_id != null) {
+        const parent = byId.get(cat.parent_id);
+        return parent ? `${parent.name} / ${cat.name}` : cat.name;
+      }
+      return cat.name;
+    }
+    return bankCategories.map(c => ({
+      id: c.id,
+      label: labelFor(c),
+      icon: c.icon,
+    }));
+  }, [bankCategories]);
+
+  const saveBankRecategorization = useCallback(async () => {
+    if (!recatModal) return;
+    setRecatSaving(true);
+    try {
+      await api.updateTransaction(recatModal.txId, {
+        category_id: recatModal.categoryId ?? undefined,
+      });
+      await load();
+      setRecatModal(null);
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : 'Não foi possível alterar a categoria.');
+    } finally {
+      setRecatSaving(false);
+    }
+  }, [recatModal, load]);
 
   if (!Number.isFinite(accountId)) {
     return (
@@ -313,12 +352,94 @@ export default function ContaDetalhePage() {
                 transactions={movements}
                 isMobile={isMobile}
                 onRecategorize={(txId) => {
-                  // TODO: conectar ao modal de categorização quando implementarmos
-                  console.log('recategorizar', txId);
+                  const tx = movements.find(t => t.id === txId);
+                  setRecatModal({ txId, categoryId: tx?.category_id ?? null });
                 }}
               />
             )}
           </>
+        )}
+
+        {recatModal && (
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="recat-bank-title"
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 100,
+              background: 'rgba(0,0,0,0.65)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 'var(--inset-screen)',
+            }}
+            onClick={e => {
+              if (e.target === e.currentTarget && !recatSaving) setRecatModal(null);
+            }}
+          >
+            <div
+              style={{
+                width: '100%',
+                maxWidth: 400,
+                background: 'var(--surface-card)',
+                borderRadius: 'var(--radius-lg)',
+                border: '1px solid var(--border-subtle)',
+                padding: 'var(--space-5)',
+                boxShadow: 'var(--shadow-modal)',
+              }}
+              onClick={e => e.stopPropagation()}
+            >
+              <h2
+                id="recat-bank-title"
+                style={{ margin: '0 0 var(--space-4)', fontSize: 17, fontWeight: 700, color: 'var(--text-primary)' }}
+              >
+                Alterar categoria
+              </h2>
+              <CategoryChoiceSelect
+                value={recatModal.categoryId}
+                options={bankCategoryOptions}
+                onChange={id => setRecatModal(r => (r ? { ...r, categoryId: id } : null))}
+                emptyLabel="Sem categoria"
+              />
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 22 }}>
+                <button
+                  type="button"
+                  disabled={recatSaving}
+                  onClick={() => setRecatModal(null)}
+                  style={{
+                    padding: '9px 14px',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--border-default)',
+                    background: 'transparent',
+                    color: 'var(--text-secondary)',
+                    fontSize: 13,
+                    cursor: recatSaving ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  disabled={recatSaving}
+                  onClick={() => void saveBankRecategorization()}
+                  style={{
+                    padding: '9px 14px',
+                    borderRadius: 'var(--radius-md)',
+                    border: 'none',
+                    background: 'var(--blue-500)',
+                    color: '#fff',
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: recatSaving ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  {recatSaving ? 'Salvando…' : 'Salvar'}
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </main>
     </>
