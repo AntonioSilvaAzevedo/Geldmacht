@@ -8,9 +8,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <AuthVersionGate />
       <Sidebar />
       <BottomTabBar />
-      <main className="app-main-content">
+      <div
+        className="app-main-content"
+        style={{
+          display:        'flex',
+          flexDirection:  'column',
+          minHeight:      '100vh',
+          minWidth:       0,
+          overflowX:      'hidden',
+        }}
+      >
         {children}
-      </main>
+      </div>
     </div>
   );
 }

@@ -10,11 +10,11 @@ import { config } from '@/config/env';
 
 // ── Nav config ────────────────────────────────────────────────────────────────
 const NAV_PRINCIPAL = [
-  { href: '/',             label: 'Início'      },
-  { href: '/contas',       label: 'Contas'      },
-  { href: '/lancamentos',  label: 'Lançamentos' },
-  { href: '/faturas',      label: 'Faturas'     },
-  { href: '/proventos',    label: 'Proventos'   },
+  { href: '/',                  label: 'Início'       },
+  { href: '/contas',            label: 'Contas'       },
+  { href: '/lancamentos/novo',  label: 'Lançamentos'  },
+  { href: '/cartao',            label: 'Faturas'      },
+  { href: '/proventos',         label: 'Proventos'    },
 ];
 
 const NAV_ANALISE = [
@@ -45,14 +45,14 @@ function NavIcon({ href, active }: { href: string; active: boolean }) {
         <line x1="2" y1="10" x2="22" y2="10"/>
       </svg>
     ),
-    '/lancamentos': (
+    '/lancamentos/novo': (
       <svg {...props}>
         <line x1="3" y1="6" x2="21" y2="6"/>
         <line x1="3" y1="12" x2="21" y2="12"/>
         <line x1="3" y1="18" x2="21" y2="18"/>
       </svg>
     ),
-    '/faturas': (
+    '/cartao': (
       <svg {...props}>
         <rect x="3" y="3" width="18" height="18" rx="2"/>
         <path d="M3 9h18"/><path d="M9 21V9"/>
@@ -122,6 +122,10 @@ export default function Sidebar() {
 
   function isActive(href: string) {
     if (href === '/') return pathname === '/';
+    // /lancamentos/novo deve acender para qualquer sub-rota de /lancamentos
+    if (href === '/lancamentos/novo') return pathname.startsWith('/lancamentos');
+    // /cartao cobre todas as rotas de fatura
+    if (href === '/cartao') return pathname.startsWith('/cartao');
     return pathname.startsWith(href);
   }
 
