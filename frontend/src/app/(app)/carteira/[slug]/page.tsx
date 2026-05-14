@@ -7,7 +7,7 @@
 
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronLeft, Landmark, RefreshCw } from 'lucide-react';
@@ -112,6 +112,7 @@ function TxRow({ tx, last }: { tx: Transaction; last: boolean }) {
   const [hov, setHov] = useState(false);
   return (
     <div
+      data-txrow=""
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       style={{
@@ -171,6 +172,30 @@ function ExtratoPanel({
   txLoading: boolean;
 }) {
   const activeAccount = accounts.find(a => a.id === activeAccountId);
+  const listRef = useRef<HTMLDivElement>(null);
+  const [visibleCount, setVisibleCount] = useState(8);
+
+  useEffect(() => {
+    const list = listRef.current;
+    if (!list) return;
+
+    const measure = () => {
+      const listH = list.clientHeight;
+      if (listH <= 0) return;
+      const firstRow = list.querySelector<HTMLElement>('[data-txrow]');
+      if (!firstRow) return;
+      const rowH = firstRow.getBoundingClientRect().height;
+      if (rowH <= 0) return;
+      setVisibleCount(Math.max(1, Math.floor(listH / rowH)));
+    };
+
+    const frame = requestAnimationFrame(measure);
+    const ro = new ResizeObserver(measure);
+    ro.observe(list);
+    return () => { cancelAnimationFrame(frame); ro.disconnect(); };
+  }, [activeAccountId, transactions.length]);
+
+  const visibleTxs = transactions.slice(0, visibleCount);
 
   if (accounts.length === 0) {
     return (
@@ -190,12 +215,14 @@ function ExtratoPanel({
     <div style={{
       background: 'var(--surface-card)', borderRadius: 20,
       border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden',
+      display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0,
     }}>
       {/* Header */}
       <div style={{
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         padding: '16px 20px',
         borderBottom: '1px solid rgba(255,255,255,0.07)',
+        flexShrink: 0,
       }}>
         <div>
           <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: '-0.01em' }}>Extrato</div>
@@ -230,18 +257,20 @@ function ExtratoPanel({
         )}
       </div>
 
-      {/* Transactions */}
-      {txLoading ? (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}>
-          <LoadingSpinner />
-        </div>
-      ) : transactions.length === 0 ? (
-        <EmptyExtrato accountId={activeAccountId} />
-      ) : (
-        transactions.map((tx, i) => (
-          <TxRow key={tx.id} tx={tx} last={i === transactions.length - 1} />
-        ))
-      )}
+      {/* Transactions — flex: 1 fills remaining height, overflow hidden clips excess */}
+      <div ref={listRef} style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
+        {txLoading ? (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}>
+            <LoadingSpinner />
+          </div>
+        ) : transactions.length === 0 ? (
+          <EmptyExtrato accountId={activeAccountId} />
+        ) : (
+          visibleTxs.map((tx, i) => (
+            <TxRow key={tx.id} tx={tx} last={i === visibleTxs.length - 1} />
+          ))
+        )}
+      </div>
 
       {/* Footer */}
       {transactions.length > 0 && (
@@ -249,9 +278,10 @@ function ExtratoPanel({
           borderTop: '1px solid rgba(255,255,255,0.07)',
           padding: '12px 20px',
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          flexShrink: 0,
         }}>
           <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-            {transactions.length} lançamentos recentes
+            {visibleTxs.length} de {transactions.length} lançamentos
           </span>
           {activeAccountId && (
             <Link href={`/contas/${activeAccountId}`} style={{
@@ -866,7 +896,7 @@ export default function InstitutionDetailPage() {
   return (
     <>
 
-<main style={{ padding, flex: 1, maxWidth: 860, margin: '0 auto', width: '100%' }}>
+<main style={{ padding, flex: 1, maxWidth: 860, margin: '0 auto', width: '100%', display: 'flex', flexDirection: 'column' }}>
 
         {/* Back + institution header */}
         <div style={{ padding: '16px 0 0', marginBottom: 20, borderBottom: '1px solid rgba(255,255,255,0.07)', paddingBottom: 18 }}>
