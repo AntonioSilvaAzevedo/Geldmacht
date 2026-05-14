@@ -12,7 +12,6 @@ import {
   Tooltip,
   CartesianGrid,
 } from 'recharts';
-import Header from '@/components/Layout/Header';
 import EmptyState from '@/components/EmptyState';
 import ErrorState from '@/components/ErrorState';
 import LoadingSpinner from '@/components/LoadingSpinner';
@@ -84,8 +83,7 @@ export default function CardDetailPage({ params }: PageProps) {
   if (loading) {
     return (
       <>
-        <Header title="Cartão de Crédito" subtitle="Carregando..." />
-        <main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><LoadingSpinner /></main>
+<main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><LoadingSpinner /></main>
       </>
     );
   }
@@ -96,8 +94,7 @@ export default function CardDetailPage({ params }: PageProps) {
 
   return (
     <>
-      <Header title={card.name} subtitle="Visão geral do cartão" />
-      <main style={{ padding: 24, flex: 1, display: 'grid', gap: 18, alignContent: 'start' }}>
+<main style={{ padding: 24, flex: 1, display: 'grid', gap: 18, alignContent: 'start' }}>
 
         {/* ── Cabeçalho do cartão ─────────────────────────────────────────── */}
         <div style={{

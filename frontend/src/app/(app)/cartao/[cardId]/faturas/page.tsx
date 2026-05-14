@@ -3,7 +3,6 @@
 import { use, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Upload } from 'lucide-react';
-import Header from '@/components/Layout/Header';
 import EmptyState from '@/components/EmptyState';
 import ErrorState from '@/components/ErrorState';
 import LoadingSpinner from '@/components/LoadingSpinner';
@@ -49,8 +48,7 @@ export default function CardInvoicesListPage({ params }: PageProps) {
   if (loading) {
     return (
       <>
-        <Header title="Faturas do cartão" subtitle="Carregando..." />
-        <main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+<main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <LoadingSpinner />
         </main>
       </>
@@ -61,8 +59,7 @@ export default function CardInvoicesListPage({ params }: PageProps) {
 
   return (
     <>
-      <Header title={`Faturas — ${card.name}`} subtitle="Todas as faturas importadas para este cartão" />
-      <main style={{ padding: 24, flex: 1 }}>
+<main style={{ padding: 24, flex: 1 }}>
 
         {/* Navegação */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18, flexWrap: 'wrap', gap: 10 }}>

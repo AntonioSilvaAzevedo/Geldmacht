@@ -13,7 +13,6 @@ import {
   Landmark,
   Plus,
 } from 'lucide-react';
-import Header from '@/components/Layout/Header';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import {
   api,
@@ -166,8 +165,7 @@ export default function CarteiraPage() {
   if (loading) {
     return (
       <>
-        <Header title="Carteira" subtitle="Carregando..." />
-        <main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+<main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <LoadingSpinner />
         </main>
       </>
@@ -177,8 +175,7 @@ export default function CarteiraPage() {
   if (error) {
     return (
       <>
-        <Header title="Carteira" />
-        <main style={{ padding: 24 }}>
+<main style={{ padding: 24 }}>
           <p style={{ color: 'var(--red-400)', fontSize: 14, marginBottom: 12 }}>{error}</p>
           <button onClick={() => void load()} style={{
             display: 'inline-flex', alignItems: 'center', gap: 8,
@@ -199,12 +196,8 @@ export default function CarteiraPage() {
 
   return (
     <>
-      <Header
-        title="Carteira"
-        subtitle="Contas, cartões e investimentos — por instituição"
-      />
 
-      <main style={{ padding, flex: 1, maxWidth: 860, margin: '0 auto', width: '100%' }}>
+<main style={{ padding, flex: 1, maxWidth: 860, margin: '0 auto', width: '100%' }}>
 
         {/* Summary strip */}
         <div style={{

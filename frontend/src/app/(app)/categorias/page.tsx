@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Plus, Trash2, Pencil, X, ChevronRight, Search, Tags, AlertTriangle, RefreshCw } from 'lucide-react';
-import Header from '@/components/Layout/Header';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import CategoryIcon from '@/components/CategoryIcon';
 import { CategoryIconSelect } from '@/components/category-icon-select';
@@ -230,8 +229,7 @@ export default function CategoriesPage() {
   if (loading) {
     return (
       <>
-        <Header title="Categorias" subtitle="Carregando suas categorias..." />
-        <main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12 }}>
+<main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12 }}>
           <LoadingSpinner />
           <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Carregando categorias...</div>
         </main>
@@ -241,8 +239,7 @@ export default function CategoriesPage() {
   if (error) {
     return (
       <>
-        <Header title="Categorias" subtitle="Erro ao carregar" />
-        <main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+<main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
           <div style={{
             width: '100%', maxWidth: 480, textAlign: 'center',
             background: 'var(--surface-card)', border: '1px solid var(--border-subtle)',
@@ -279,16 +276,8 @@ export default function CategoriesPage() {
 
   return (
     <>
-      <Header
-        title="Categorias"
-        subtitle={
-          domain === 'credit_card'
-            ? 'Gerencie categorias, subcategorias e limites por fatura de cartão.'
-            : 'Categorias para lançamentos manuais e futuros extratos em conta.'
-        }
-      />
 
-      <main style={{ padding: 24, flex: 1, display: 'grid', gap: 18, alignContent: 'start' }}>
+<main style={{ padding: 24, flex: 1, display: 'grid', gap: 18, alignContent: 'start' }}>
 
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {(['credit_card', 'bank'] as const).map(d => (

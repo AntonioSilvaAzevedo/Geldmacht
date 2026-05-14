@@ -11,7 +11,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronLeft, Landmark, RefreshCw } from 'lucide-react';
-import Header from '@/components/Layout/Header';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import {
   api,
@@ -844,8 +843,7 @@ export default function InstitutionDetailPage() {
   if (loading) {
     return (
       <>
-        <Header title={institutionName} subtitle="Carregando..." />
-        <main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+<main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <LoadingSpinner />
         </main>
       </>
@@ -855,8 +853,7 @@ export default function InstitutionDetailPage() {
   if (error) {
     return (
       <>
-        <Header title={institutionName} />
-        <main style={{ padding: 24 }}>
+<main style={{ padding: 24 }}>
           <p style={{ color: 'var(--red-400)', fontSize: 14, marginBottom: 12 }}>{error}</p>
           <button onClick={() => window.location.reload()} style={ghostButtonStyle}>
             <RefreshCw size={14} /> Tentar novamente
@@ -868,9 +865,8 @@ export default function InstitutionDetailPage() {
 
   return (
     <>
-      <Header title={displayName || institutionName} subtitle={subtitle} />
 
-      <main style={{ padding, flex: 1, maxWidth: 860, margin: '0 auto', width: '100%' }}>
+<main style={{ padding, flex: 1, maxWidth: 860, margin: '0 auto', width: '100%' }}>
 
         {/* Back + institution header */}
         <div style={{ padding: '16px 0 0', marginBottom: 20, borderBottom: '1px solid rgba(255,255,255,0.07)', paddingBottom: 18 }}>

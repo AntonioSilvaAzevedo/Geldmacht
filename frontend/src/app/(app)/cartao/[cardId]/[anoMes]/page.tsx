@@ -15,7 +15,6 @@ import { use, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ChevronDown, ChevronRight, TrendingUp } from 'lucide-react';
 import EditableDescription from '@/components/EditableDescription';
-import Header from '@/components/Layout/Header';
 import ErrorState from '@/components/ErrorState';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import EmptyState from '@/components/EmptyState';
@@ -120,8 +119,7 @@ export default function CardInvoicePage({ params }: PageProps) {
   if (loading) {
     return (
       <>
-        <Header title="Fatura do cartão" subtitle="Carregando..." />
-        <main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+<main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <LoadingSpinner />
         </main>
       </>
@@ -133,8 +131,7 @@ export default function CardInvoicePage({ params }: PageProps) {
   if (transactions.length === 0) {
     return (
       <>
-        <Header title={buildTitle()} subtitle={card.name} />
-        <main style={{ flex: 1 }}>
+<main style={{ flex: 1 }}>
           <EmptyState
             title="Fatura não encontrada."
             message="Não há lançamentos reais para este cartão e mês."
@@ -155,8 +152,7 @@ export default function CardInvoicePage({ params }: PageProps) {
 
   return (
     <>
-      <Header title={title} subtitle={card.name} />
-      <main style={{ padding: 24, flex: 1 }}>
+<main style={{ padding: 24, flex: 1 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
           <Link href={`/cartao/${card.id}`} style={{ color: 'var(--blue-400)', fontSize: 13, textDecoration: 'none' }}>
             ← Voltar ao cartão

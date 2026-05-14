@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation';
 import { ChevronDown, ChevronLeft, ChevronRight, TrendingUp, Layers } from 'lucide-react';
 import { CategoryChoiceSelect } from '@/components/category-choice-select';
 import { CategoryGrid, type CategoryGroup } from '@/components/CategoryGrid';
-import Header from '@/components/Layout/Header';
 import ErrorState from '@/components/ErrorState';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import EmptyState from '@/components/EmptyState';
@@ -251,8 +250,7 @@ export default function InvoiceDetailPage({ params }: PageProps) {
   if (loading) {
     return (
       <>
-        <Header title="Fatura do cartão" subtitle="Carregando..." />
-        <main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+<main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <LoadingSpinner />
         </main>
       </>
@@ -264,8 +262,7 @@ export default function InvoiceDetailPage({ params }: PageProps) {
   if (transactions.length === 0) {
     return (
       <>
-        <Header title={buildTitle(invoice)} subtitle={card.name} />
-        <main style={{ flex: 1 }}>
+<main style={{ flex: 1 }}>
           <EmptyState
             title="Nenhum lançamento nesta fatura."
             message="Não há lançamentos importados para esta fatura."
@@ -286,8 +283,7 @@ export default function InvoiceDetailPage({ params }: PageProps) {
 
   return (
     <>
-      <Header title={title} subtitle={card.name} />
-      <main style={{ padding: 24, flex: 1 }}>
+<main style={{ padding: 24, flex: 1 }}>
 
         {/* Navegação */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>

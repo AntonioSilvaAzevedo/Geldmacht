@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import Header from '@/components/Layout/Header';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import {
   api,
@@ -170,8 +169,7 @@ export default function ContasBancariasPage() {
   if (loading) {
     return (
       <>
-        <Header title="Contas bancárias" subtitle="Carregando..." />
-        <main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+<main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <LoadingSpinner />
         </main>
       </>
@@ -181,8 +179,7 @@ export default function ContasBancariasPage() {
   if (error && accounts.length === 0) {
     return (
       <>
-        <Header title="Contas bancárias" subtitle="Erro" />
-        <main style={{ padding: 24, flex: 1 }}>
+<main style={{ padding: 24, flex: 1 }}>
           <div style={{
             maxWidth: 440, margin: '0 auto', textAlign: 'center',
             background: 'var(--surface-card)', border: '1px solid var(--border-subtle)',
@@ -201,12 +198,8 @@ export default function ContasBancariasPage() {
 
   return (
     <>
-      <Header
-        title="Contas bancárias"
-        subtitle="Cadastro de contas, importação OFX de extrato e lançamentos manuais."
-      />
 
-      <main style={{ padding: isMobile ? '16px 14px 24px' : '24px 32px 40px', flex: 1, maxWidth: 720, margin: '0 auto', width: '100%' }}>
+<main style={{ padding: isMobile ? '16px 14px 24px' : '24px 32px 40px', flex: 1, maxWidth: 720, margin: '0 auto', width: '100%' }}>
 
         <div style={{
           marginBottom: 20,

@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { CategoryChoiceSelect } from '@/components/category-choice-select';
-import Header from '@/components/Layout/Header';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { TransactionList } from '@/components/TransactionList';
 import { api, type BankAccountConfig, type Category, type ImportBatchListItem } from '@/lib/api';
@@ -115,8 +114,7 @@ export default function ContaDetalhePage() {
   if (!Number.isFinite(accountId)) {
     return (
       <>
-        <Header title="Conta" subtitle="ID inválido" />
-        <main style={{ padding: 24, flex: 1 }}>
+<main style={{ padding: 24, flex: 1 }}>
           <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>
             Volte para <Link href="/contas" style={{ color: 'var(--blue-400)' }}>contas</Link>.
           </p>
@@ -127,11 +125,7 @@ export default function ContaDetalhePage() {
 
   return (
     <>
-      <Header
-        title={account?.name ?? 'Conta bancária'}
-        subtitle={loading && !account ? 'Carregando…' : headerSubtitle}
-      />
-      <main style={{
+<main style={{
         flex: 1,
         padding: isMobile ? '16px 14px 32px' : '24px 32px 40px',
         maxWidth: 800,
