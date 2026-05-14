@@ -11,9 +11,8 @@ import { config } from '@/config/env';
 // ── Nav config ────────────────────────────────────────────────────────────────
 const NAV_PRINCIPAL = [
   { href: '/',                  label: 'Início'       },
-  { href: '/contas',            label: 'Contas'       },
+  { href: '/carteira',          label: 'Carteira'     },
   { href: '/lancamentos/novo',  label: 'Lançamentos'  },
-  { href: '/cartao',            label: 'Faturas'      },
   { href: '/proventos',         label: 'Proventos'    },
 ];
 
@@ -39,10 +38,10 @@ function NavIcon({ href, active }: { href: string; active: boolean }) {
         <path d="M9 21V12h6v9"/>
       </svg>
     ),
-    '/contas': (
+    '/carteira': (
       <svg {...props}>
-        <rect x="2" y="5" width="20" height="14" rx="2"/>
-        <line x1="2" y1="10" x2="22" y2="10"/>
+        <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
+        <line x1="1" y1="10" x2="23" y2="10"/>
       </svg>
     ),
     '/lancamentos/novo': (
@@ -50,12 +49,6 @@ function NavIcon({ href, active }: { href: string; active: boolean }) {
         <line x1="3" y1="6" x2="21" y2="6"/>
         <line x1="3" y1="12" x2="21" y2="12"/>
         <line x1="3" y1="18" x2="21" y2="18"/>
-      </svg>
-    ),
-    '/cartao': (
-      <svg {...props}>
-        <rect x="3" y="3" width="18" height="18" rx="2"/>
-        <path d="M3 9h18"/><path d="M9 21V9"/>
       </svg>
     ),
     '/proventos': (
@@ -124,8 +117,12 @@ export default function Sidebar() {
     if (href === '/') return pathname === '/';
     // /lancamentos/novo deve acender para qualquer sub-rota de /lancamentos
     if (href === '/lancamentos/novo') return pathname.startsWith('/lancamentos');
-    // /cartao cobre todas as rotas de fatura
-    if (href === '/cartao') return pathname.startsWith('/cartao');
+    // /carteira cobre contas e cartão (rotas legadas continuam funcionando)
+    if (href === '/carteira') return (
+      pathname.startsWith('/carteira') ||
+      pathname.startsWith('/contas') ||
+      pathname.startsWith('/cartao')
+    );
     return pathname.startsWith(href);
   }
 

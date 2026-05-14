@@ -10,7 +10,7 @@ import { usePathname } from 'next/navigation';
 // ── Tabs config ───────────────────────────────────────────────────────────────
 const TABS = [
   { href: '/',            label: 'Início'      },
-  { href: '/contas',      label: 'Contas'      },
+  { href: '/carteira',    label: 'Carteira'    },
   { href: '/lancamentos', label: 'Lançamentos' },
   { href: '/categorias',  label: 'Categorias'  },
   { href: '/mais',        label: 'Mais'        },
@@ -33,10 +33,10 @@ function TabIcon({ href, active }: { href: string; active: boolean }) {
         <path d="M9 21V12h6v9"/>
       </svg>
     ),
-    '/contas': (
+    '/carteira': (
       <svg {...props}>
-        <rect x="2" y="5" width="20" height="14" rx="2"/>
-        <line x1="2" y1="10" x2="22" y2="10"/>
+        <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
+        <line x1="1" y1="10" x2="23" y2="10"/>
       </svg>
     ),
     '/lancamentos': (
@@ -71,6 +71,11 @@ export default function BottomTabBar() {
 
   function isActive(href: string) {
     if (href === '/') return pathname === '/';
+    if (href === '/carteira') return (
+      pathname.startsWith('/carteira') ||
+      pathname.startsWith('/contas') ||
+      pathname.startsWith('/cartao')
+    );
     return pathname.startsWith(href);
   }
 

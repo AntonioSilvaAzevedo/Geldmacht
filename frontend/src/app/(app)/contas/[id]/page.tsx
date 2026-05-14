@@ -140,7 +140,7 @@ export default function ContaDetalhePage() {
       }}>
         <div style={{ marginBottom: 20 }}>
           <Link
-            href="/contas"
+            href="/carteira"
             style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -151,7 +151,7 @@ export default function ContaDetalhePage() {
               marginBottom: 12,
             }}
           >
-            <ArrowLeft size={14} /> Voltar para contas
+            <ArrowLeft size={14} /> Carteira
           </Link>
         </div>
 
