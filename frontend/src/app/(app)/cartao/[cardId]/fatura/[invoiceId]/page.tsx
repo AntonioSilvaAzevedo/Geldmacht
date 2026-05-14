@@ -21,6 +21,7 @@ import ErrorState    from '@/components/ErrorState';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import EmptyState    from '@/components/EmptyState';
 import CategoryIcon  from '@/components/CategoryIcon';
+import PageHeader from '@/components/Layout/PageHeader';
 import {
   api, type CardInvoice, type CardInvoiceDetail,
   type CreditCardConfig, type Category,
@@ -524,7 +525,7 @@ export default function InvoiceDetailPage({ params }: PageProps) {
 
   const navigate = (inv: CardInvoice) => router.push(`/cartao/${cid}/fatura/${inv.id}`);
 
-  const padding = isMobile ? '0 14px 32px' : '0 32px 40px';
+  const padding = isMobile ? '16px 14px 32px' : '16px 32px 40px';
 
   if (loading) return <main style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center' }}><LoadingSpinner /></main>;
   if (error)   return <ErrorState message={error} />;
@@ -538,27 +539,22 @@ export default function InvoiceDetailPage({ params }: PageProps) {
   const summary = invoice.summary;
 
   return (
+    <>
+      <PageHeader
+        title={fullLabel(invoice.due_month)}
+        subtitle={invoice.due_date ? `Vence ${formatDate(invoice.due_date)}` : undefined}
+        crumbs={[{ href: `/cartao/${cid}`, label: card.name }]}
+        nav={sorted.length > 1 && current ? (
+          <InvoiceNavBar
+            prev={prev} current={current} next={next}
+            onPrev={() => prev && navigate(prev)}
+            onNext={() => next && navigate(next)}
+            isMobile={isMobile}
+          />
+        ) : undefined}
+        px={isMobile ? 14 : 32}
+      />
     <main style={{ flex:1, padding, maxWidth:860, margin:'0 auto', width:'100%' }}>
-
-      {/* Back */}
-      <div style={{ padding:'14px 0 0', marginBottom:2 }}>
-        <Link href={`/cartao/${card.id}`} style={{
-          display:'inline-flex', alignItems:'center', gap:4,
-          color:'var(--blue-400)', fontSize:13, textDecoration:'none',
-        }}>
-          <ChevronLeft size={15} /> {card.name}
-        </Link>
-      </div>
-
-      {/* Navigation ← → */}
-      {sorted.length > 1 && current && (
-        <InvoiceNavBar
-          prev={prev} current={current} next={next}
-          onPrev={() => prev && navigate(prev)}
-          onNext={() => next && navigate(next)}
-          isMobile={isMobile}
-        />
-      )}
 
       {/* Hero */}
       <InvoiceHero invoice={invoice} summary={summary} />
@@ -615,6 +611,7 @@ export default function InvoiceDetailPage({ params }: PageProps) {
         </div>
       )}
     </main>
+    </>
   );
 }
 

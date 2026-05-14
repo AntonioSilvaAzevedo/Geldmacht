@@ -14,6 +14,7 @@ import {
   Plus,
 } from 'lucide-react';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import PageHeader from '@/components/Layout/PageHeader';
 import {
   api,
   type BankAccountConfig,
@@ -196,7 +197,11 @@ export default function CarteiraPage() {
 
   return (
     <>
-
+      <PageHeader
+        title="Carteira"
+        subtitle="Contas, cartões e investimentos — por instituição"
+        px={isMobile ? 14 : 32}
+      />
 <main style={{ padding, flex: 1, maxWidth: 860, margin: '0 auto', width: '100%' }}>
 
         {/* Summary strip */}

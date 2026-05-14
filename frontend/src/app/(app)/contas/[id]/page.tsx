@@ -9,8 +9,9 @@ import { TransactionList } from '@/components/TransactionList';
 import { api, type BankAccountConfig, type Category, type ImportBatchListItem } from '@/lib/api';
 import type { Transaction } from '@/types/financial';
 import { formatDate } from '@/lib/formatters';
-import { ArrowLeft, Landmark, ListFilter, Receipt, RefreshCw } from 'lucide-react';
+import { Landmark, ListFilter, Receipt, RefreshCw } from 'lucide-react';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import PageHeader from '@/components/Layout/PageHeader';
 
 function formatImportedAtPt(iso: string | null): string {
   if (!iso) return '—';
@@ -125,6 +126,25 @@ export default function ContaDetalhePage() {
 
   return (
     <>
+      <PageHeader
+        title={account?.name ?? 'Conta bancária'}
+        subtitle={headerSubtitle || undefined}
+        crumbs={[{ href: '/carteira', label: 'Carteira' }]}
+        right={
+          <Link
+            href={`/upload?type=bank_statement&bankAccountId=${accountId}`}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 7,
+              padding: '7px 13px', borderRadius: 9,
+              background: 'linear-gradient(135deg, #3182ce 0%, #2c7a7b 100%)',
+              color: '#fff', fontSize: 12, fontWeight: 600, textDecoration: 'none',
+            }}
+          >
+            <Receipt size={13} /> Importar OFX
+          </Link>
+        }
+        px={isMobile ? 14 : 32}
+      />
 <main style={{
         flex: 1,
         padding: isMobile ? '16px 14px 32px' : '24px 32px 40px',
@@ -132,23 +152,6 @@ export default function ContaDetalhePage() {
         margin: '0 auto',
         width: '100%',
       }}>
-        <div style={{ marginBottom: 20 }}>
-          <Link
-            href="/carteira"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-              fontSize: 13,
-              color: 'var(--text-muted)',
-              textDecoration: 'none',
-              marginBottom: 12,
-            }}
-          >
-            <ArrowLeft size={14} /> Carteira
-          </Link>
-        </div>
-
         {loading && !account ? (
           <div style={{ display: 'flex', justifyContent: 'center', padding: 48 }}>
             <LoadingSpinner />

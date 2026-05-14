@@ -19,6 +19,7 @@ import EmptyState    from '@/components/EmptyState';
 import ErrorState    from '@/components/ErrorState';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import CreditCardForm from '@/components/Cards/CreditCardForm';
+import PageHeader from '@/components/Layout/PageHeader';
 import { api, type CardDashboard, type CreditCardConfig, type InvoiceMini } from '@/lib/api';
 import { formatCurrency, formatDate } from '@/lib/formatters';
 import { getOpeningDay }  from '@/lib/cardDates';
@@ -43,12 +44,10 @@ function invTotal(inv: InvoiceMini) { return inv.total_amount ?? inv.computed_to
 
 // ─── CardHero ─────────────────────────────────────────────────────────────────
 function CardHero({
-  card, dashboard, onImport, onEdit, isMobile,
+  card, dashboard, isMobile,
 }: {
   card: CreditCardConfig;
   dashboard: CardDashboard;
-  onImport: () => void;
-  onEdit: () => void;
   isMobile: boolean;
 }) {
   const color    = getInstitutionColor(card.institution ?? card.name);
@@ -67,23 +66,9 @@ function CardHero({
       <div style={{ position:'absolute', bottom:-40, right:60, width:120, height:120, borderRadius:'50%', background:'rgba(255,255,255,0.06)', pointerEvents:'none' }} />
 
       {/* Top row */}
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:18 }}>
-        <div>
-          <div style={{ fontSize:10, fontWeight:600, letterSpacing:'0.09em', textTransform:'uppercase', color:'rgba(255,255,255,0.65)', marginBottom:5 }}>
-            Cartão de crédito
-          </div>
-          <div style={{ fontSize:20, fontWeight:700, letterSpacing:'-0.02em', lineHeight:1.1 }}>{card.name}</div>
-          <div style={{ fontSize:13, color:'rgba(255,255,255,0.60)', marginTop:3 }}>
-            {card.institution || 'Instituição não informada'}
-          </div>
-        </div>
-        <div style={{ display:'flex', gap:8, flexWrap:'wrap', justifyContent:'flex-end' }}>
-          <button onClick={onImport} style={heroButtonStyle}>
-            <Upload size={13} /> Importar fatura
-          </button>
-          <button onClick={onEdit} style={{ ...heroButtonStyle, background:'rgba(255,255,255,0.1)' }}>
-            <Edit3 size={13} /> Editar
-          </button>
+      <div style={{ marginBottom:18 }}>
+        <div style={{ fontSize:10, fontWeight:600, letterSpacing:'0.09em', textTransform:'uppercase', color:'rgba(255,255,255,0.65)', marginBottom:5 }}>
+          Cartão de crédito
         </div>
       </div>
 
@@ -306,14 +291,33 @@ export default function CardDetailPage({ params }: PageProps) {
 
   const hasInvoices = dashboard.invoice_count > 0;
   const padding = isMobile ? '16px 14px 32px' : '24px 28px 40px';
+  const institutionSlug = card.institution ? encodeURIComponent(card.institution.toLowerCase()) : null;
 
   return (
+    <>
+      <PageHeader
+        title={card.name}
+        subtitle={card.institution ?? undefined}
+        crumbs={[
+          { href: '/carteira', label: 'Carteira' },
+          ...(card.institution && institutionSlug ? [{ href: `/carteira/${institutionSlug}`, label: card.institution }] : []),
+        ]}
+        right={
+          <>
+            <button onClick={() => router.push(`/upload?type=credit_card&cardId=${card.id}`)} style={heroButtonStyle}>
+              <Upload size={13} /> Importar fatura
+            </button>
+            <button onClick={() => setEditing(v => !v)} style={{ ...heroButtonStyle, background: 'rgba(255,255,255,0.08)', border: '1px solid var(--border-default)', color: 'var(--text-secondary)' }}>
+              <Edit3 size={13} /> Editar
+            </button>
+          </>
+        }
+        px={isMobile ? 14 : 28}
+      />
     <main style={{ flex:1, padding, maxWidth:860, margin:'0 auto', width:'100%' }}>
 
       <CardHero
         card={card} dashboard={dashboard} isMobile={isMobile}
-        onImport={() => router.push(`/upload?type=credit_card&cardId=${card.id}`)}
-        onEdit={() => setEditing(v => !v)}
       />
 
       {editing && (
@@ -345,6 +349,7 @@ export default function CardDetailPage({ params }: PageProps) {
         </>
       )}
     </main>
+    </>
   );
 }
 
@@ -356,8 +361,8 @@ const heroLabelStyle: React.CSSProperties = {
 const heroButtonStyle: React.CSSProperties = {
   display:'inline-flex', alignItems:'center', gap:6,
   padding:'7px 13px', borderRadius:9,
-  background:'rgba(255,255,255,0.15)', backdropFilter:'blur(8px)',
-  border:'1px solid rgba(255,255,255,0.25)',
+  background:'linear-gradient(135deg, #3182ce 0%, #2c7a7b 100%)',
+  border:'none',
   color:'#fff', fontSize:12, fontWeight:600, cursor:'pointer',
   fontFamily:'var(--font-sans)', letterSpacing:'-0.01em',
 };

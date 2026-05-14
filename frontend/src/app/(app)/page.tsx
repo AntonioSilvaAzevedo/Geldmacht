@@ -13,6 +13,7 @@ import Link from 'next/link';
 import ErrorState from '@/components/ErrorState';
 import EmptyState from '@/components/EmptyState';
 import WelcomeFlowGate from '@/components/WelcomeFlowGate';
+import PageHeader from '@/components/Layout/PageHeader';
 import { useFinancialData } from '@/hooks/useFinancialData';
 import { formatCurrency, classifyValue } from '@/lib/formatters';
 import type { MonthlyData } from '@/types/financial';
@@ -195,7 +196,7 @@ export default function DashboardPage() {
   return (
     <>
       <WelcomeFlowGate />
-
+      <PageHeader title="Dashboard Anual" subtitle={rangeLabel} />
 <main style={{ padding: '24px', flex: 1 }}>
 
         {/* KPI Cards */}

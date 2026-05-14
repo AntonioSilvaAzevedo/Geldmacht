@@ -220,6 +220,11 @@ body {
   height: 100%;
 }
 
+/* PageHeader fica fixo — nunca rola */
+.app-main-content > [data-page-header] {
+  flex-shrink: 0;
+}
+
 /* ─── Scroll fixo: SOMENTE o <main> rola dentro do app ─── */
 
 /* Desktop: main ocupa todo o espaço disponível e rola internamente */

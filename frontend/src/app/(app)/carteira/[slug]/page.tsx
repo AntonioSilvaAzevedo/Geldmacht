@@ -10,8 +10,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronLeft, Landmark, RefreshCw } from 'lucide-react';
+import { Landmark, RefreshCw } from 'lucide-react';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import PageHeader from '@/components/Layout/PageHeader';
 import {
   api,
   type BankAccountConfig,
@@ -863,49 +864,23 @@ export default function InstitutionDetailPage() {
 
   return (
     <>
-
-<main style={{ padding, flex: 1, maxWidth: 860, margin: '0 auto', width: '100%', display: 'flex', flexDirection: 'column' }}>
-
-        {/* Back + institution header */}
-        <div style={{ padding: '16px 0 0', marginBottom: 20, borderBottom: '1px solid rgba(255,255,255,0.07)', paddingBottom: 18 }}>
-          <Link href="/carteira" style={{
-            display: 'inline-flex', alignItems: 'center', gap: 4,
-            color: 'var(--blue-400)', fontSize: 13, textDecoration: 'none', marginBottom: 14,
-          }}>
-            <ChevronLeft size={15} /> Carteira
-          </Link>
-
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-              {/* Avatar */}
-              <div style={{
-                width: 44, height: 44, borderRadius: 12, flexShrink: 0,
-                background: institutionColor,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 18, fontWeight: 800, color: '#fff', letterSpacing: '-0.02em',
-              }}>
-                {(displayName || institutionName).charAt(0).toUpperCase()}
-              </div>
-              <div>
-                <h1 style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 3 }}>
-                  {displayName || institutionName}
-                </h1>
-                <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: 0 }}>{subtitle}</p>
-              </div>
+      <PageHeader
+        title={displayName || institutionName}
+        subtitle={subtitle}
+        crumbs={[{ href: '/carteira', label: 'Carteira' }]}
+        right={cards.length > 0 && currentInvoiceTotal > 0 ? (
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 2 }}>
+              Fatura atual
             </div>
-
-            {cards.length > 0 && currentInvoiceTotal > 0 && (
-              <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                <div style={{ fontSize: 10, color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 3 }}>
-                  Fatura atual
-                </div>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 700, color: 'var(--red-400)', letterSpacing: '-0.025em' }}>
-                  {formatCurrency(currentInvoiceTotal)}
-                </div>
-              </div>
-            )}
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 17, fontWeight: 700, color: 'var(--red-400)', letterSpacing: '-0.025em' }}>
+              {formatCurrency(currentInvoiceTotal)}
+            </div>
           </div>
-        </div>
+        ) : undefined}
+        px={isMobile ? 14 : 32}
+      />
+<main style={{ padding, flex: 1, maxWidth: 860, margin: '0 auto', width: '100%', display: 'flex', flexDirection: 'column' }}>
 
         {/* Tabs */}
         <div style={{ display: 'flex', gap: 2, background: 'var(--surface-2)', borderRadius: 12, padding: 4, marginBottom: 20, width: 'fit-content' }}>
