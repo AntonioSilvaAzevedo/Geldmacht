@@ -72,9 +72,10 @@ export default function InstitutionDetailPage() {
   const [transactions, setTransactions]       = useState<Transaction[]>([]);
   const [txLoading, setTxLoading]             = useState(false);
 
-  const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState<string | null>(null);
-  const [tab, setTab]         = useState<Tab>('extrato');
+  const [loading, setLoading]     = useState(true);
+  const [error, setError]         = useState<string | null>(null);
+  const [tab, setTab]             = useState<Tab>('extrato');
+  const [displayName, setDisplayName] = useState<string>('');
 
   useEffect(() => {
     if (!institutionName) return;
@@ -97,6 +98,13 @@ export default function InstitutionDetailPage() {
 
         setAccounts(filteredAccounts);
         setCards(filteredCards);
+
+        // Recupera capitalização original dos dados reais (não do slug)
+        setDisplayName(
+          filteredAccounts[0]?.institution?.trim() ||
+          filteredCards[0]?.institution?.trim()    ||
+          institutionName,
+        );
 
         if (filteredAccounts.length > 0) setActiveAccountId(filteredAccounts[0].id);
 
@@ -183,7 +191,7 @@ export default function InstitutionDetailPage() {
 
   return (
     <>
-      <Header title={institutionName} subtitle={subtitle} />
+      <Header title={displayName || institutionName} subtitle={subtitle} />
 
       <main style={{ padding, flex: 1, maxWidth: 860, margin: '0 auto', width: '100%' }}>
 
@@ -199,7 +207,7 @@ export default function InstitutionDetailPage() {
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
             <div>
               <h1 style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 3 }}>
-                {institutionName}
+                {displayName || institutionName}
               </h1>
               <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: 0 }}>{subtitle}</p>
             </div>
