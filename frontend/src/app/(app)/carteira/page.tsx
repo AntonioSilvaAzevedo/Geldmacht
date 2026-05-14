@@ -15,7 +15,6 @@ import {
 } from 'lucide-react';
 import Header from '@/components/Layout/Header';
 import LoadingSpinner from '@/components/LoadingSpinner';
-import ErrorState from '@/components/ErrorState';
 import {
   api,
   type BankAccountConfig,
@@ -175,7 +174,25 @@ export default function CarteiraPage() {
     );
   }
 
-  if (error) return <ErrorState message={error} onRetry={() => void load()} />;
+  if (error) {
+    return (
+      <>
+        <Header title="Carteira" />
+        <main style={{ padding: 24 }}>
+          <p style={{ color: 'var(--red-400)', fontSize: 14, marginBottom: 12 }}>{error}</p>
+          <button onClick={() => void load()} style={{
+            display: 'inline-flex', alignItems: 'center', gap: 8,
+            padding: '8px 14px', borderRadius: 8,
+            border: '1px solid var(--border-default)',
+            background: 'var(--surface-card)', color: 'var(--text-primary)',
+            fontSize: 13, cursor: 'pointer',
+          }}>
+            Tentar novamente
+          </button>
+        </main>
+      </>
+    );
+  }
 
   const activeAccountCount = accounts.filter(a => a.is_active).length;
   const padding = isMobile ? '16px 14px 32px' : '24px 32px 40px';
