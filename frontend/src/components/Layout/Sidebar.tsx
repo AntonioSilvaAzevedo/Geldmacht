@@ -1,213 +1,202 @@
-'use client';
+/**
+ * Geldmacht — Sidebar (Web Navigation) — Apple Direction
+ * Desktop: sempre visível, fixed, 220px
+ */
 
+'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { config } from '@/config/env';
-import {
-  LayoutDashboard,
-  CalendarDays,
-  CreditCard,
-  Briefcase,
-  TrendingUp,
-  Upload,
-  Tags,
-  Landmark,
-  PlusCircle,
-} from 'lucide-react';
 
-const navItems = [
-  { href: '/',          label: 'Dashboard',  icon: LayoutDashboard },
-  { href: '/mes/2026-04', label: 'Mensal',   icon: CalendarDays },
-  { href: '/cartao', label: 'Cartão', icon: CreditCard },
-  { href: '/contas', label: 'Contas', icon: Landmark },
-  { href: '/carteira',  label: 'Carteira',   icon: Briefcase },
-  { href: '/proventos', label: 'Proventos',  icon: TrendingUp },
-  { href: '/categorias', label: 'Categorias', icon: Tags },
+// ── Nav config ────────────────────────────────────────────────────────────────
+const NAV_PRINCIPAL = [
+  { href: '/',             label: 'Início'      },
+  { href: '/contas',       label: 'Contas'      },
+  { href: '/lancamentos',  label: 'Lançamentos' },
+  { href: '/faturas',      label: 'Faturas'     },
+  { href: '/proventos',    label: 'Proventos'   },
 ];
 
-const toolItems = [
-  { href: '/lancamentos/novo', label: 'Novo lançamento', icon: PlusCircle },
-  { href: '/upload', label: 'Importar', icon: Upload },
+const NAV_ANALISE = [
+  { href: '/categorias',    label: 'Categorias'    },
+  { href: '/configuracoes', label: 'Configurações' },
 ];
 
+// ── Icons (SVG inline — sem dependência externa) ──────────────────────────────
+function NavIcon({ href, active }: { href: string; active: boolean }) {
+  const c = active ? '#fff' : 'rgba(255,255,255,0.45)';
+  const props = {
+    width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none',
+    stroke: c, strokeWidth: 1.8,
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+  };
+
+  const icons: Record<string, React.ReactNode> = {
+    '/': (
+      <svg {...props}>
+        <path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z"/>
+        <path d="M9 21V12h6v9"/>
+      </svg>
+    ),
+    '/contas': (
+      <svg {...props}>
+        <rect x="2" y="5" width="20" height="14" rx="2"/>
+        <line x1="2" y1="10" x2="22" y2="10"/>
+      </svg>
+    ),
+    '/lancamentos': (
+      <svg {...props}>
+        <line x1="3" y1="6" x2="21" y2="6"/>
+        <line x1="3" y1="12" x2="21" y2="12"/>
+        <line x1="3" y1="18" x2="21" y2="18"/>
+      </svg>
+    ),
+    '/faturas': (
+      <svg {...props}>
+        <rect x="3" y="3" width="18" height="18" rx="2"/>
+        <path d="M3 9h18"/><path d="M9 21V9"/>
+      </svg>
+    ),
+    '/proventos': (
+      <svg {...props}>
+        <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
+        <polyline points="17 6 23 6 23 12"/>
+      </svg>
+    ),
+    '/categorias': (
+      <svg {...props}>
+        <rect x="3" y="3" width="7" height="7" rx="1"/>
+        <rect x="14" y="3" width="7" height="7" rx="1"/>
+        <rect x="3" y="14" width="7" height="7" rx="1"/>
+        <rect x="14" y="14" width="7" height="7" rx="1"/>
+      </svg>
+    ),
+    '/configuracoes': (
+      <svg {...props}>
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+      </svg>
+    ),
+  };
+  return <>{icons[href] ?? null}</>;
+}
+
+// ── Nav item ──────────────────────────────────────────────────────────────────
+function NavItem({ href, label, active }: { href: string; label: string; active: boolean }) {
+  return (
+    <Link href={href} style={{
+      display:        'flex',
+      alignItems:     'center',
+      gap:            10,
+      padding:        '9px 12px',
+      borderRadius:   10,
+      fontSize:       14,
+      fontWeight:     active ? 500 : 400,
+      color:          active ? '#fff' : 'rgba(255,255,255,0.4)',
+      background:     active ? '#1C1C1E' : 'transparent',
+      textDecoration: 'none',
+      transition:     'all 0.12s',
+      marginBottom:   2,
+    }}>
+      <div style={{
+        width:          28,
+        height:         28,
+        borderRadius:   7,
+        display:        'flex',
+        alignItems:     'center',
+        justifyContent: 'center',
+        flexShrink:     0,
+        background:     active ? 'rgba(255,255,255,0.08)' : 'transparent',
+      }}>
+        <NavIcon href={href} active={active}/>
+      </div>
+      {label}
+    </Link>
+  );
+}
+
+// ── Sidebar ───────────────────────────────────────────────────────────────────
 export default function Sidebar() {
   const pathname = usePathname();
 
   function isActive(href: string) {
     if (href === '/') return pathname === '/';
-    return pathname.startsWith(href.split('/').slice(0, 2).join('/'));
+    return pathname.startsWith(href);
   }
 
   return (
-    <aside
-      style={{
-        width: 220,
-        minWidth: 220,
-        background: 'var(--navy-950)',
-        borderRight: '1px solid var(--border-subtle)',
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100vh',
-        position: 'sticky',
-        top: 0,
-        flexShrink: 0,
-      }}
-    >
+    <nav className="sidebar-desktop" style={{
+      width:          220,
+      flexShrink:     0,
+      background:     '#000',
+      borderRight:    '1px solid rgba(255,255,255,0.05)',
+      display:        'flex',
+      flexDirection:  'column',
+      padding:        '24px 10px 20px',
+      position:       'fixed',
+      top:            0,
+      left:           0,
+      bottom:         0,
+      zIndex:         50,
+    }}>
       {/* Logo */}
-      <div
-        style={{
-          padding: '24px 20px 20px',
-          borderBottom: '1px solid var(--border-subtle)',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: 8,
-              background: 'linear-gradient(135deg, #3182ce 0%, #2c7a7b 100%)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 16,
-              fontWeight: 700,
-              color: '#fff',
-              flexShrink: 0,
-            }}
-          >
-            G
+      <div style={{ display:'flex', alignItems:'center', gap:10, padding:'4px 10px', marginBottom:24 }}>
+        <div style={{
+          width:32, height:32, borderRadius:9,
+          background:'#1C1C1E',
+          display:'flex', alignItems:'center', justifyContent:'center',
+          fontSize:15, fontWeight:800, color:'#fff',
+        }}>G</div>
+        <div>
+          <div style={{ fontSize:15, fontWeight:700, color:'#fff' }}>Geldmacht</div>
+          <div style={{ fontSize:10, color:'rgba(255,255,255,0.3)', letterSpacing:'0.06em', textTransform:'uppercase' }}>
+            v{config.appVersion}
           </div>
+        </div>
+      </div>
+
+      {/* Principal */}
+      {NAV_PRINCIPAL.map(item => (
+        <NavItem key={item.href} {...item} active={isActive(item.href)}/>
+      ))}
+
+      {/* Análise */}
+      <div style={{
+        fontSize:10, fontWeight:600, letterSpacing:'0.08em',
+        textTransform:'uppercase', color:'rgba(255,255,255,0.2)',
+        padding:'16px 12px 6px',
+      }}>
+        Análise
+      </div>
+      {NAV_ANALISE.map(item => (
+        <NavItem key={item.href} {...item} active={isActive(item.href)}/>
+      ))}
+
+      {/* Usuário — rodapé */}
+      <div style={{
+        marginTop:  'auto',
+        paddingTop: 16,
+        borderTop:  '1px solid rgba(255,255,255,0.05)',
+      }}>
+        <Link href="/perfil" style={{
+          display:'flex', alignItems:'center', gap:10,
+          padding:'8px 10px', borderRadius:10,
+          textDecoration:'none', transition:'background 0.12s',
+        }}>
+          <div style={{
+            width:30, height:30, borderRadius:'50%',
+            background:'#2C2C2E',
+            display:'flex', alignItems:'center', justifyContent:'center',
+            fontSize:12, fontWeight:600, color:'rgba(255,255,255,0.7)',
+            flexShrink:0,
+          }}>U</div>
           <div>
-            <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>
-              Geldmacht
-            </div>
-            <div style={{ fontSize: 10, color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-              Finanças 2026
-            </div>
+            <div style={{fontSize:13,fontWeight:500,color:'#fff',lineHeight:1.2}}>Meu perfil</div>
+            <div style={{fontSize:11,color:'rgba(255,255,255,0.3)'}}>Configurações</div>
           </div>
-        </div>
+        </Link>
       </div>
-
-      {/* Nav */}
-      <nav style={{ padding: '12px 10px', flex: 1 }}>
-        <div style={{ fontSize: 10, color: 'var(--text-muted)', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '4px 10px 8px' }}>
-          Menu
-        </div>
-        {navItems.map(({ href, label, icon: Icon }) => {
-          const active = isActive(href);
-          return (
-            <Link
-              key={href}
-              href={href}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-                padding: '9px 12px',
-                borderRadius: 8,
-                marginBottom: 2,
-                textDecoration: 'none',
-                color: active ? '#fff' : 'var(--text-secondary)',
-                background: active
-                  ? 'linear-gradient(90deg, rgba(49,130,206,0.25) 0%, rgba(49,130,206,0.08) 100%)'
-                  : 'transparent',
-                borderLeft: active ? '2px solid var(--blue-500)' : '2px solid transparent',
-                fontSize: 13.5,
-                fontWeight: active ? 600 : 400,
-                transition: 'all 0.15s ease',
-              }}
-              onMouseEnter={e => {
-                if (!active) {
-                  (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(255,255,255,0.04)';
-                  (e.currentTarget as HTMLAnchorElement).style.color = 'var(--text-primary)';
-                }
-              }}
-              onMouseLeave={e => {
-                if (!active) {
-                  (e.currentTarget as HTMLAnchorElement).style.background = 'transparent';
-                  (e.currentTarget as HTMLAnchorElement).style.color = 'var(--text-secondary)';
-                }
-              }}
-            >
-              <Icon size={16} strokeWidth={active ? 2.5 : 2} />
-              {label}
-            </Link>
-          );
-        })}
-
-        {/* Ferramentas */}
-        <div style={{ fontSize: 10, color: 'var(--text-muted)', letterSpacing: '0.1em', textTransform: 'uppercase', padding: '16px 10px 8px', marginTop: 4 }}>
-          Ferramentas
-        </div>
-        {toolItems.map(({ href, label, icon: Icon }) => {
-          const active = isActive(href);
-          return (
-            <Link
-              key={href}
-              href={href}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-                padding: '9px 12px',
-                borderRadius: 8,
-                marginBottom: 2,
-                textDecoration: 'none',
-                color: active ? '#fff' : 'var(--text-secondary)',
-                background: active
-                  ? 'linear-gradient(90deg, rgba(49,130,206,0.25) 0%, rgba(49,130,206,0.08) 100%)'
-                  : 'transparent',
-                borderLeft: active ? '2px solid var(--blue-500)' : '2px solid transparent',
-                fontSize: 13.5,
-                fontWeight: active ? 600 : 400,
-                transition: 'all 0.15s ease',
-              }}
-              onMouseEnter={e => {
-                if (!active) {
-                  (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(255,255,255,0.04)';
-                  (e.currentTarget as HTMLAnchorElement).style.color = 'var(--text-primary)';
-                }
-              }}
-              onMouseLeave={e => {
-                if (!active) {
-                  (e.currentTarget as HTMLAnchorElement).style.background = 'transparent';
-                  (e.currentTarget as HTMLAnchorElement).style.color = 'var(--text-secondary)';
-                }
-              }}
-            >
-              <Icon size={16} strokeWidth={active ? 2.5 : 2} />
-              {label}
-            </Link>
-          );
-        })}
-      </nav>
-
-      {/* Footer — apenas versão do sistema (sem dados pessoais) */}
-      <div
-        style={{
-          padding: '14px 20px',
-          borderTop: '1px solid var(--border-subtle)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'flex-end',
-        }}
-      >
-        <span
-          title={`Geldmacht v${config.appVersion}`}
-          style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: 10,
-            padding: '3px 8px',
-            borderRadius: 5,
-            background: 'rgba(255,255,255,0.05)',
-            color: 'var(--text-muted)',
-            border: '1px solid var(--border-subtle)',
-          }}
-        >
-          v{config.appVersion}
-        </span>
-      </div>
-    </aside>
+    </nav>
   );
 }

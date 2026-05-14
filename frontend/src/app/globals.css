@@ -212,10 +212,21 @@ body {
 .sidebar-desktop { display: block; }
 .is-mobile-only  { display: none !important; }
 
+/* Content area: recua 220px para não ficar atrás do sidebar fixo */
+.app-main-content {
+  margin-left: 220px;
+}
+
 @media (max-width: 768px) {
-  .sidebar-desktop { display: none; }
+  .sidebar-desktop { display: none !important; }
   .is-mobile-only  { display: inline-flex !important; }
   .is-desktop-only { display: none !important; }
+
+  /* Remove margem do sidebar e adiciona espaço para a bottom tab bar */
+  .app-main-content {
+    margin-left: 0;
+    padding-bottom: calc(49px + env(safe-area-inset-bottom));
+  }
 
   .kpi-grid { grid-template-columns: repeat(2, 1fr) !important; }
   .chart-grid { grid-template-columns: 1fr !important; }
