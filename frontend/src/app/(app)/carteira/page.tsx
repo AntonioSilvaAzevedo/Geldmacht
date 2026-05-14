@@ -11,9 +11,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   Landmark,
-  CreditCard as CreditCardIcon,
   Plus,
-  ChevronRight,
 } from 'lucide-react';
 import Header from '@/components/Layout/Header';
 import LoadingSpinner from '@/components/LoadingSpinner';
@@ -51,6 +49,51 @@ const ACCOUNT_TYPE_LABELS: Record<string, string> = {
   investment: 'Conta investimento',
   other:      'Outra',
 };
+
+// Paleta de cores por instituição
+const INSTITUTION_COLORS: Record<string, string> = {
+  nubank:              '#820AD1',
+  'nu invest':         '#820AD1',
+  nuinvest:            '#820AD1',
+  itaú:                '#FF6B00',
+  itau:                '#FF6B00',
+  bradesco:            '#CC092F',
+  santander:           '#EC0000',
+  caixa:               '#006AAC',
+  'banco do brasil':   '#F9B900',
+  'bb ':               '#F9B900',
+  inter:               '#FF7A00',
+  'mercado pago':      '#00B1EA',
+  'mercado livre':     '#FFE600',
+  xp:                  '#1A1A1A',
+  c6:                  '#2D2D2D',
+  next:                '#00E06C',
+  picpay:              '#21C25E',
+  pagbank:             '#03A64A',
+  avenue:              '#2563EB',
+  sicoob:              '#006E35',
+  sicredi:             '#009A44',
+  sofisa:              '#E8612C',
+  original:            '#00A859',
+  'will bank':         '#FFDD00',
+};
+
+const FALLBACK_COLORS = ['#3B82F6', '#8B5CF6', '#EC4899', '#F59E0B', '#10B981', '#6366F1', '#14B8A6'];
+
+function getInstitutionColor(name: string): string {
+  const key = name.toLowerCase();
+  for (const [k, v] of Object.entries(INSTITUTION_COLORS)) {
+    if (key.includes(k)) return v;
+  }
+  const sum = name.split('').reduce((s, c) => s + c.charCodeAt(0), 0);
+  return FALLBACK_COLORS[sum % FALLBACK_COLORS.length];
+}
+
+function getAbbr(name: string): string {
+  const words = name.trim().split(/\s+/);
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return (words[0][0] + words[1][0]).toUpperCase();
+}
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
@@ -233,85 +276,153 @@ export default function CarteiraPage() {
 
 function InstitutionCard({ institution }: { institution: InstitutionGroup }) {
   const { name, slug, accounts, cards, dashboards } = institution;
+  const [hovered, setHovered] = useState(false);
+
+  const color = getInstitutionColor(name);
+  const abbr  = getAbbr(name);
 
   const tagParts = [
     accounts.length > 0 && `${accounts.length} conta${accounts.length > 1 ? 's' : ''}`,
     cards.length > 0    && `${cards.length} cartão`,
   ].filter(Boolean).join(' · ');
 
+  const totalFatura = cards.reduce(
+    (sum, card) => sum + (dashboards.get(card.id)?.latest_invoice?.computed_total ?? 0), 0,
+  );
+
   return (
     <Link
       href={`/carteira/${slug}`}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       style={{
-        background: 'var(--surface-card)',
-        border: '1px solid var(--border-subtle)',
-        borderRadius: 16, padding: '18px',
-        textDecoration: 'none', color: 'inherit',
-        display: 'block',
-        transition: 'border-color 0.15s, background 0.15s',
-        boxShadow: 'var(--shadow-card)',
+        background:     hovered ? '#242424' : 'var(--surface-1)',
+        border:         `1px solid ${hovered ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.06)'}`,
+        borderRadius:   20,
+        padding:        20,
+        textDecoration: 'none',
+        color:          'inherit',
+        display:        'block',
+        cursor:         'pointer',
+        transition:     'background 0.15s, border-color 0.15s',
+        userSelect:     'none',
       }}
     >
-      {/* Institution header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+      {/* ── Header ── */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 16 }}>
+
+        {/* Avatar colorido */}
         <div style={{
-          width: 36, height: 36, borderRadius: 10, flexShrink: 0,
-          background: 'var(--surface-2)',
+          width: 42, height: 42, borderRadius: 12, flexShrink: 0,
+          background: color,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 11, fontWeight: 800, color: 'var(--text-secondary)',
-          letterSpacing: '-0.01em',
+          fontSize: 16, fontWeight: 800, color: '#fff',
+          letterSpacing: '-0.02em',
         }}>
-          {name.replace(/[^A-Za-zÀ-ÖØ-öø-ÿ0-9]/g, '').slice(0, 2).toUpperCase()}
+          {abbr.charAt(0)}
         </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: '-0.01em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+
+        {/* Nome + subtitle */}
+        <div style={{ flex: 1, minWidth: 0, paddingTop: 1 }}>
+          <div style={{
+            fontSize: 17, fontWeight: 700, letterSpacing: '-0.015em',
+            lineHeight: 1.15, marginBottom: 4,
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          }}>
             {name}
           </div>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{tagParts}</div>
+          <div style={{ fontSize: 12, color: 'var(--text-secondary)', letterSpacing: '-0.005em' }}>
+            {tagParts}
+          </div>
         </div>
-        <ChevronRight size={14} color="var(--text-muted)" style={{ flexShrink: 0 }} />
+
+        {/* Total fatura (se houver) */}
+        {totalFatura > 0 && (
+          <div style={{ textAlign: 'right', flexShrink: 0, paddingTop: 1 }}>
+            <div style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: 17, fontWeight: 700,
+              letterSpacing: '-0.025em', lineHeight: 1.1,
+              color: 'var(--red-400)',
+            }}>
+              {formatCurrency(totalFatura)}
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--text-tertiary, rgba(255,255,255,0.35))', marginTop: 3 }}>
+              fatura
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Products */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      {/* ── Products ── */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
 
-        {/* Bank accounts */}
+        {/* Contas bancárias */}
         {accounts.map(acc => (
           <div key={acc.id} style={productRowStyle}>
-            <Landmark size={11} color="var(--green-400)" style={{ flexShrink: 0 }} />
+            {/* Dot */}
+            <div style={{
+              width: 7, height: 7, borderRadius: '50%', flexShrink: 0,
+              background: acc.is_active ? 'var(--green-400)' : 'rgba(255,255,255,0.2)',
+            }} />
+
             <div style={{ flex: 1, minWidth: 0 }}>
-              <span style={{ fontSize: 12, fontWeight: 500 }}>{acc.name}</span>
-              <span style={{ marginLeft: 6, fontSize: 10, color: 'var(--text-muted)' }}>
-                {ACCOUNT_TYPE_LABELS[acc.account_type] ?? acc.account_type}
-              </span>
-              {!acc.is_active && (
-                <span style={{ marginLeft: 6, fontSize: 9, color: 'var(--amber-400)', fontWeight: 700 }}>
-                  INATIVA
+              <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 14, fontWeight: 600, letterSpacing: '-0.01em' }}>
+                  {acc.name}
                 </span>
-              )}
+                <span style={{
+                  fontSize: 10, fontWeight: 600, letterSpacing: '0.04em',
+                  background: 'rgba(255,255,255,0.08)',
+                  border: '1px solid rgba(255,255,255,0.10)',
+                  borderRadius: 5, padding: '2px 6px',
+                  color: 'rgba(255,255,255,0.55)',
+                }}>
+                  {ACCOUNT_TYPE_LABELS[acc.account_type] ?? acc.account_type}
+                </span>
+                {!acc.is_active && (
+                  <span style={{ fontSize: 9, color: 'var(--amber-400)', fontWeight: 700, letterSpacing: '0.04em' }}>
+                    INATIVA
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         ))}
 
-        {/* Credit cards */}
+        {/* Cartões de crédito */}
         {cards.map(card => {
-          const dash = dashboards.get(card.id);
+          const dash    = dashboards.get(card.id);
           const invoice = dash?.latest_invoice?.computed_total ?? null;
           return (
             <div key={card.id} style={productRowStyle}>
-              <CreditCardIcon size={11} color="var(--red-400)" style={{ flexShrink: 0 }} />
+              {/* Dot vermelho */}
+              <div style={{
+                width: 7, height: 7, borderRadius: '50%', flexShrink: 0,
+                background: 'var(--red-400)', marginTop: 1,
+              }} />
+
               <div style={{ flex: 1, minWidth: 0 }}>
-                <span style={{ fontSize: 12, fontWeight: 500 }}>{card.name}</span>
-                <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 1 }}>
+                <div style={{ fontSize: 14, fontWeight: 600, letterSpacing: '-0.01em' }}>
+                  {card.name}
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 3 }}>
                   Fecha {card.closing_day} · Vence {card.due_day}
                 </div>
               </div>
+
               {invoice != null && (
                 <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--red-400)' }}>
+                  <div style={{
+                    fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 600,
+                    letterSpacing: '-0.01em', lineHeight: 1,
+                    color: 'var(--red-400)',
+                  }}>
                     {formatCurrency(invoice)}
                   </div>
-                  <div style={{ fontSize: 9, color: 'var(--text-muted)', marginTop: 1 }}>fatura</div>
+                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 3 }}>
+                    fatura
+                  </div>
                 </div>
               )}
             </div>
@@ -319,8 +430,9 @@ function InstitutionCard({ institution }: { institution: InstitutionGroup }) {
         })}
       </div>
 
-      <div style={{ marginTop: 10, textAlign: 'right' }}>
-        <span style={{ fontSize: 11, color: 'var(--blue-400)', fontWeight: 500 }}>
+      {/* ── Footer ── */}
+      <div style={{ marginTop: 14, textAlign: 'right' }}>
+        <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--blue-400)', letterSpacing: '-0.005em' }}>
           Ver detalhes →
         </span>
       </div>
@@ -331,10 +443,10 @@ function InstitutionCard({ institution }: { institution: InstitutionGroup }) {
 // ── Styles ────────────────────────────────────────────────────────────────────
 
 const productRowStyle: React.CSSProperties = {
-  display: 'flex', alignItems: 'center', gap: 8,
-  padding: '8px 10px',
+  display: 'flex', alignItems: 'center', gap: 12,
+  padding: '11px 14px',
   background: 'var(--surface-2)',
-  borderRadius: 8,
+  borderRadius: 12,
 };
 
 const primaryLinkStyle: React.CSSProperties = {
