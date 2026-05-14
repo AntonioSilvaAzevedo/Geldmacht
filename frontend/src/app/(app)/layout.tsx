@@ -4,7 +4,7 @@ import AuthVersionGate from '@/components/AuthVersionGate';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ minHeight: '100vh', background: '#000' }}>
+    <div style={{ height: '100vh', overflow: 'hidden', display: 'flex', background: '#000' }}>
       <AuthVersionGate />
       <Sidebar />
       <BottomTabBar />
@@ -13,7 +13,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         style={{
           display:        'flex',
           flexDirection:  'column',
-          minHeight:      '100vh',
+          flex:           1,
+          overflow:       'hidden',
           minWidth:       0,
           overflowX:      'hidden',
         }}
