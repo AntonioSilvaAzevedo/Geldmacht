@@ -127,9 +127,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         } catch { /* mantém token existente */ }
       }
 
-      // ── Token ainda válido? (margem de 5 minutos) ────────────────────────────
-      const FIVE_MIN = 5 * 60 * 1000;
-      if (Date.now() < ((token.tokenExpiry as number) ?? 0) - FIVE_MIN) {
+      // ── Token ainda válido? (renova quando falta ≤1 dia para 7 dias) ─────────
+      const ONE_DAY = 24 * 60 * 60 * 1000;
+      if (Date.now() < ((token.tokenExpiry as number) ?? 0) - ONE_DAY) {
         return token;
       }
 
