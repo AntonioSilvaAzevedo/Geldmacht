@@ -11,7 +11,7 @@ import { config } from '@/config/env';
 // ── Nav config ────────────────────────────────────────────────────────────────
 const NAV_PRINCIPAL = [
   { href: '/',             label: 'Início'      },
-  { href: '/contas',       label: 'Contas'      },
+  { href: '/carteira',      label: 'Carteira'    },
   { href: '/lancamentos',  label: 'Lançamentos' },
   { href: '/faturas',      label: 'Faturas'     },
   { href: '/proventos',    label: 'Proventos'   },
@@ -39,7 +39,7 @@ function NavIcon({ href, active }: { href: string; active: boolean }) {
         <path d="M9 21V12h6v9"/>
       </svg>
     ),
-    '/contas': (
+    '/carteira': (
       <svg {...props}>
         <rect x="2" y="5" width="20" height="14" rx="2"/>
         <line x1="2" y1="10" x2="22" y2="10"/>
