@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight, ChevronDown, Layers, TrendingUp } from 'lucide-react';
 import { CategoryChoiceSelect } from '@/components/category-choice-select';
 import { CategoryGrid, type CategoryGroup } from '@/components/CategoryGrid';
-import Header from '@/components/Layout/Header';
+import PageHeader from '@/components/Layout/PageHeader';
 import ErrorState from '@/components/ErrorState';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import EmptyState from '@/components/EmptyState';
@@ -238,7 +238,12 @@ export default function InvoiceDetailPage({ params }: PageProps) {
   if (loading) {
     return (
       <>
-        <Header title="Fatura do cartão" subtitle="Carregando..." />
+        <PageHeader
+          title="Fatura do cartão"
+          subtitle="Carregando..."
+          crumbs={[{ href: `/cartao/${cid}`, label: 'Cartão' }]}
+          px={isMobile ? 14 : 32}
+        />
         <main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><LoadingSpinner /></main>
       </>
     );
@@ -249,7 +254,12 @@ export default function InvoiceDetailPage({ params }: PageProps) {
   if (transactions.length === 0) {
     return (
       <>
-        <Header title={buildTitle(invoice)} subtitle={card.name} />
+        <PageHeader
+          title={buildTitle(invoice)}
+          subtitle={card.name}
+          crumbs={[{ href: `/cartao/${card.id}`, label: card.name }]}
+          px={isMobile ? 14 : 32}
+        />
         <main style={{ flex: 1 }}>
           <EmptyState title="Nenhum lançamento nesta fatura." message="Não há lançamentos importados para esta fatura." actionHref={`/cartao/${card.id}`} actionLabel="Voltar ao cartão" />
         </main>
@@ -263,58 +273,51 @@ export default function InvoiceDetailPage({ params }: PageProps) {
   const topGroup        = groups[0];
   const largestExpense  = summary.largest_expense;
 
+  const invoiceNavBar = sortedInvoices.length > 1 ? (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, userSelect: 'none' }}>
+      <button onClick={() => prevInvoice && router.push(`/cartao/${cid}/fatura/${prevInvoice.id}`)} disabled={!prevInvoice} style={{
+        display: 'flex', alignItems: 'center', gap: 5,
+        padding: '8px 12px', borderRadius: 10, border: '1px solid',
+        borderColor: prevInvoice ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.04)',
+        background: 'transparent',
+        color: prevInvoice ? '#fff' : 'rgba(255,255,255,0.18)',
+        fontSize: 12, fontWeight: 500, cursor: prevInvoice ? 'pointer' : 'not-allowed',
+        transition: 'all 0.12s',
+      }}>
+        <ChevronLeft size={14} />
+        {prevInvoice ? shortLabelInv(prevInvoice) : '—'}
+      </button>
+
+      <div style={{ flex: 1, textAlign: 'center' }}>
+        <div style={{ fontSize: 14, fontWeight: 600, letterSpacing: '-0.01em' }}>{fullLabel(sortedInvoices[currentIndex] ?? sortedInvoices[0])}</div>
+      </div>
+
+      <button onClick={() => nextInvoice && router.push(`/cartao/${cid}/fatura/${nextInvoice.id}`)} disabled={!nextInvoice} style={{
+        display: 'flex', alignItems: 'center', gap: 5,
+        padding: '8px 12px', borderRadius: 10, border: '1px solid',
+        borderColor: nextInvoice ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.04)',
+        background: 'transparent',
+        color: nextInvoice ? '#fff' : 'rgba(255,255,255,0.18)',
+        fontSize: 12, fontWeight: 500, cursor: nextInvoice ? 'pointer' : 'not-allowed',
+        transition: 'all 0.12s',
+      }}>
+        {nextInvoice ? shortLabelInv(nextInvoice) : '—'}
+        <ChevronRight size={14} />
+      </button>
+    </div>
+  ) : undefined;
+
   return (
     <>
-      <Header title={buildTitle(invoice)} subtitle={card.name} />
+      <PageHeader
+        title={buildTitle(invoice)}
+        subtitle={invoice.due_date ? `Vence ${formatDate(invoice.due_date)}` : undefined}
+        crumbs={[{ href: `/cartao/${card.id}`, label: card.name }]}
+        nav={invoiceNavBar}
+        px={isMobile ? 14 : 32}
+      />
 
       <main style={{ padding: '0 20px 40px', flex: 1, maxWidth: 680, margin: '0 auto', width: '100%' }}>
-
-        {/* Back link */}
-        <div style={{ padding: '12px 0 0', marginBottom: 4 }}>
-          <Link href={`/cartao/${card.id}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: BLUE, fontSize: 13, textDecoration: 'none', padding: '4px 0' }}>
-            <ChevronLeft size={15} /> {card.name}
-          </Link>
-        </div>
-
-        {/* Invoice nav bar */}
-        {sortedInvoices.length > 1 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 0 16px', userSelect: 'none' }}>
-            <button onClick={() => prevInvoice && router.push(`/cartao/${cid}/fatura/${prevInvoice.id}`)} disabled={!prevInvoice} style={{
-              display: 'flex', alignItems: 'center', gap: 5,
-              padding: '8px 12px', borderRadius: 10, border: '1px solid',
-              borderColor: prevInvoice ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.04)',
-              background: 'transparent',
-              color: prevInvoice ? '#fff' : 'rgba(255,255,255,0.18)',
-              fontSize: 12, fontWeight: 500, cursor: prevInvoice ? 'pointer' : 'not-allowed',
-              transition: 'all 0.12s',
-            }}>
-              <ChevronLeft size={14} />
-              {prevInvoice ? shortLabelInv(prevInvoice) : '—'}
-            </button>
-
-            <div style={{ flex: 1, textAlign: 'center' }}>
-              <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: '-0.01em' }}>{fullLabel(sortedInvoices[currentIndex] ?? sortedInvoices[0])}</div>
-              {invoice.due_date && (
-                <div style={{ fontSize: 11, color: T3, marginTop: 2 }}>
-                  Vence {formatDate(invoice.due_date)}
-                </div>
-              )}
-            </div>
-
-            <button onClick={() => nextInvoice && router.push(`/cartao/${cid}/fatura/${nextInvoice.id}`)} disabled={!nextInvoice} style={{
-              display: 'flex', alignItems: 'center', gap: 5,
-              padding: '8px 12px', borderRadius: 10, border: '1px solid',
-              borderColor: nextInvoice ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.04)',
-              background: 'transparent',
-              color: nextInvoice ? '#fff' : 'rgba(255,255,255,0.18)',
-              fontSize: 12, fontWeight: 500, cursor: nextInvoice ? 'pointer' : 'not-allowed',
-              transition: 'all 0.12s',
-            }}>
-              {nextInvoice ? shortLabelInv(nextInvoice) : '—'}
-              <ChevronRight size={14} />
-            </button>
-          </div>
-        )}
 
         {/* Invoice Hero */}
         <div style={{ background: S1, border: '1px solid rgba(255,255,255,0.06)', borderRadius: 20, padding: '22px 22px 18px', marginBottom: 14 }}>

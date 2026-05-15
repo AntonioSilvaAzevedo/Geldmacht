@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Header from '@/components/Layout/Header';
+import PageHeader from '@/components/Layout/PageHeader';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { CategoryChoiceSelect } from '@/components/category-choice-select';
 import { api, type BankAccountConfig, type Category } from '@/lib/api';
@@ -143,7 +143,7 @@ export default function LancamentoNovoPage() {
   if (step === 'choose') {
     return (
       <>
-        <Header title="Adicionar lançamento" subtitle="Escolha como deseja registrar." />
+        <PageHeader title="Adicionar lançamento" subtitle="Escolha como deseja registrar." />
         <main style={{ padding: isMobile ? 16 : '28px 32px', flex: 1, maxWidth: 560, margin: '0 auto', width: '100%' }}>
           <div style={{ display: 'grid', gap: 12 }}>
             <button
@@ -219,7 +219,7 @@ export default function LancamentoNovoPage() {
 
   return (
     <>
-      <Header title="Lançamento manual" subtitle="Conta bancária — entradas e saídas." />
+      <PageHeader title="Lançamento manual" subtitle="Conta bancária — entradas e saídas." />
       <main style={{ padding: isMobile ? 16 : '24px 32px', flex: 1, maxWidth: 520, margin: '0 auto', width: '100%' }}>
         <button
           type="button"

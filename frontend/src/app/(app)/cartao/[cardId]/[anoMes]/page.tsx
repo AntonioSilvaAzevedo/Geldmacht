@@ -15,7 +15,7 @@ import { use, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ChevronDown, ChevronRight, TrendingUp } from 'lucide-react';
 import EditableDescription from '@/components/EditableDescription';
-import Header from '@/components/Layout/Header';
+import PageHeader from '@/components/Layout/PageHeader';
 import ErrorState from '@/components/ErrorState';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import EmptyState from '@/components/EmptyState';
@@ -120,7 +120,11 @@ export default function CardInvoicePage({ params }: PageProps) {
   if (loading) {
     return (
       <>
-        <Header title="Fatura do cartão" subtitle="Carregando..." />
+        <PageHeader
+          title="Fatura do cartão"
+          subtitle="Carregando..."
+          crumbs={[{ href: `/cartao/${id}`, label: 'Cartão' }]}
+        />
         <main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <LoadingSpinner />
         </main>
@@ -133,7 +137,11 @@ export default function CardInvoicePage({ params }: PageProps) {
   if (transactions.length === 0) {
     return (
       <>
-        <Header title={buildTitle()} subtitle={card.name} />
+        <PageHeader
+          title={buildTitle()}
+          subtitle={card.name}
+          crumbs={[{ href: `/cartao/${card.id}`, label: card.name }]}
+        />
         <main style={{ flex: 1 }}>
           <EmptyState
             title="Fatura não encontrada."
@@ -155,7 +163,11 @@ export default function CardInvoicePage({ params }: PageProps) {
 
   return (
     <>
-      <Header title={title} subtitle={card.name} />
+      <PageHeader
+        title={title}
+        subtitle={card.name}
+        crumbs={[{ href: `/cartao/${card.id}`, label: card.name }]}
+      />
       <main style={{ padding: 24, flex: 1 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
           <Link href={`/cartao/${card.id}`} style={{ color: 'var(--blue-400)', fontSize: 13, textDecoration: 'none' }}>

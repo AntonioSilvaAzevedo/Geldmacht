@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Plus, Pencil, Trash2, Search, Tags, AlertTriangle, RefreshCw } from 'lucide-react';
-import Header from '@/components/Layout/Header';
+import PageHeader from '@/components/Layout/PageHeader';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { api, type Category, type CreditCardConfig, type CategoryPayload, type CategoryUpdatePayload } from '@/lib/api';
 import { formatCurrency } from '@/lib/formatters';
@@ -504,7 +504,7 @@ export default function CategoriesPage() {
 
   return (
     <>
-      <Header title="Categorias" subtitle="Organize e defina limites de orçamento" />
+      <PageHeader title="Categorias" subtitle="Organize e defina limites de orçamento" />
 
       <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
         {/* Page header row */}

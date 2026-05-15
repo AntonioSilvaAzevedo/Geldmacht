@@ -4,7 +4,8 @@ import { use, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Upload, Edit3 } from 'lucide-react';
-import Header from '@/components/Layout/Header';
+import PageHeader from '@/components/Layout/PageHeader';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import ErrorState from '@/components/ErrorState';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import EmptyState from '@/components/EmptyState';
@@ -53,6 +54,7 @@ export default function CardDetailPage({ params }: { params: Promise<{ cardId: s
   const router = useRouter();
   const { cardId } = use(params);
   const id = Number(cardId);
+  const isMobile = useIsMobile();
 
   const [card, setCard]           = useState<CreditCardConfig | null>(null);
   const [dashboard, setDashboard] = useState<CardDashboard | null>(null);
@@ -92,7 +94,12 @@ export default function CardDetailPage({ params }: { params: Promise<{ cardId: s
   if (loading) {
     return (
       <>
-        <Header title="Cartão de Crédito" subtitle="Carregando..." />
+        <PageHeader
+          title="Cartão de Crédito"
+          subtitle="Carregando..."
+          crumbs={[{ href: '/carteira', label: 'Carteira' }]}
+          px={isMobile ? 14 : 32}
+        />
         <main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <LoadingSpinner />
         </main>
@@ -115,7 +122,15 @@ export default function CardDetailPage({ params }: { params: Promise<{ cardId: s
 
   return (
     <>
-      <Header title={card.name} subtitle={card.institution ?? 'Cartão de crédito'} />
+      <PageHeader
+        title={card.name}
+        subtitle={card.institution ?? undefined}
+        crumbs={[
+          { href: '/carteira', label: 'Carteira' },
+          ...(card.institution ? [{ href: `/carteira/${encodeURIComponent(card.institution.toLowerCase().trim())}`, label: card.institution }] : []),
+        ]}
+        px={isMobile ? 14 : 32}
+      />
 
       <main style={{ padding: '0 20px 40px', flex: 1, maxWidth: 680, margin: '0 auto', width: '100%' }}>
 

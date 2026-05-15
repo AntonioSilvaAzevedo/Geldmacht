@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronLeft, Landmark, Upload, RefreshCw } from 'lucide-react';
-import Header from '@/components/Layout/Header';
+import { Landmark, Upload, RefreshCw } from 'lucide-react';
+import PageHeader from '@/components/Layout/PageHeader';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import {
   api,
@@ -181,7 +181,12 @@ export default function InstitutionDetailPage() {
   if (loading) {
     return (
       <>
-        <Header title={institutionName} subtitle="Carregando..." />
+        <PageHeader
+          title={institutionName}
+          subtitle="Carregando..."
+          crumbs={[{ href: '/carteira', label: 'Carteira' }]}
+          px={isMobile ? 14 : 32}
+        />
         <main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <LoadingSpinner />
         </main>
@@ -191,7 +196,11 @@ export default function InstitutionDetailPage() {
   if (error) {
     return (
       <>
-        <Header title={institutionName} />
+        <PageHeader
+          title={institutionName}
+          crumbs={[{ href: '/carteira', label: 'Carteira' }]}
+          px={isMobile ? 14 : 32}
+        />
         <main style={{ padding: 24 }}>
           <p style={{ color: 'var(--red-400, #FF453A)', fontSize: 14, marginBottom: 12 }}>{error}</p>
           <button onClick={() => window.location.reload()} style={ghostBtnStyle}>
@@ -204,30 +213,28 @@ export default function InstitutionDetailPage() {
 
   return (
     <>
-      <Header title={institutionName} subtitle={subtitle} />
+      <PageHeader
+        title={institutionName}
+        subtitle={subtitle}
+        crumbs={[{ href: '/carteira', label: 'Carteira' }]}
+        px={isMobile ? 14 : 32}
+      />
 
       <main style={{ padding: pad, flex: 1, maxWidth: 700, margin: '0 auto', width: '100%' }}>
 
-        {/* Back + title row */}
-        <div style={{ padding: '16px 0 18px', marginBottom: 20, borderBottom: '1px solid var(--border-subtle, rgba(255,255,255,0.07))' }}>
-          <Link href="/carteira" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--blue-400, #0A84FF)', fontSize: 13, textDecoration: 'none', marginBottom: 14 }}>
-            <ChevronLeft size={15} /> Carteira
-          </Link>
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
-            <div>
-              <h1 style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 3 }}>{institutionName}</h1>
-              <p style={{ fontSize: 12, color: 'var(--text-secondary, rgba(255,255,255,0.6))', margin: 0 }}>{subtitle}</p>
-            </div>
-            {cards.length > 0 && currentInvoiceTotal > 0 && (
+        {/* Invoice total chip */}
+        {cards.length > 0 && currentInvoiceTotal > 0 && (
+          <div style={{ padding: '16px 0 18px', marginBottom: 20, borderBottom: '1px solid var(--border-subtle, rgba(255,255,255,0.07))' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
               <div style={{ textAlign: 'right', flexShrink: 0 }}>
                 <div style={{ fontSize: 10, color: 'var(--text-muted, rgba(255,255,255,0.35))', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 3 }}>Fatura atual</div>
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 700, color: 'var(--red-400, #FF453A)', letterSpacing: '-0.025em' }}>
                   {formatCurrency(currentInvoiceTotal)}
                 </div>
               </div>
-            )}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Tabs */}
         <div style={{ display: 'flex', gap: 2, background: 'var(--s2, #2C2C2E)', borderRadius: 12, padding: 4, marginBottom: 20, width: 'fit-content' }}>

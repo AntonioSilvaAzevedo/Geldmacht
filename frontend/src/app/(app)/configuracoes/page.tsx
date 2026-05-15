@@ -1,13 +1,13 @@
 'use client';
 
 import { Settings } from 'lucide-react';
-import Header from '@/components/Layout/Header';
+import PageHeader from '@/components/Layout/PageHeader';
 import ComingSoonState from '@/components/ComingSoonState';
 
 export default function ConfiguracoesPage() {
   return (
     <>
-      <Header title="Configurações" subtitle="Preferências e ajustes do app" />
+      <PageHeader title="Configurações" subtitle="Preferências e ajustes do app" />
       <ComingSoonState
         icon={<Settings size={20} color="var(--purple)" />}
         title="Configurações em desenvolvimento"

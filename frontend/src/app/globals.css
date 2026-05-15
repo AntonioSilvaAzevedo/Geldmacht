@@ -370,3 +370,8 @@ body {
 .animate-in-fast { animation: gm-fade-up 0.18s cubic-bezier(0.25,0.46,0.45,0.94) both; }
 
 /* Scrollbars: em `Apple_Direction.html` usamos scroll oculto; na app mantém-se barra fina acima. */
+
+/* PageHeader fica fixo — nunca rola */
+.app-main-content > [data-page-header] {
+  flex-shrink: 0;
+}

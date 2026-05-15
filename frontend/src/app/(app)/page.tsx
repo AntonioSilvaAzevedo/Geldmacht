@@ -10,7 +10,7 @@ import {
   ArrowUpRight,
 } from 'lucide-react';
 import Link from 'next/link';
-import Header from '@/components/Layout/Header';
+import PageHeader from '@/components/Layout/PageHeader';
 import ErrorState from '@/components/ErrorState';
 import EmptyState from '@/components/EmptyState';
 import WelcomeFlowGate from '@/components/WelcomeFlowGate';
@@ -196,7 +196,7 @@ export default function DashboardPage() {
   return (
     <>
       <WelcomeFlowGate />
-      <Header title="Dashboard Anual" subtitle={rangeLabel} />
+      <PageHeader title="Dashboard Anual" subtitle={rangeLabel} />
 
       <main style={{ padding: '24px', flex: 1 }}>
 
