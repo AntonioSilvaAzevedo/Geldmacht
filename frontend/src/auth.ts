@@ -4,22 +4,64 @@ import Google from 'next-auth/providers/google';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? '';
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+/** Decodifica o payload de um JWT sem verificar assinatura (apenas para ler exp). */
+function decodeJwtPayload(token: string): Record<string, unknown> | null {
+  try {
+    const b64 = token.split('.')[1];
+    const json = Buffer.from(b64, 'base64').toString('utf-8');
+    return JSON.parse(json) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+/** Chama /auth/refresh com o token atual e retorna o token atualizado. */
+async function refreshAccessToken(
+  oldToken: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  try {
+    const res = await fetch(`${API}/auth/refresh`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${oldToken.accessToken as string}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!res.ok) throw new Error(`Refresh HTTP ${res.status}`);
+
+    const data = await res.json() as { access_token: string };
+    const payload = decodeJwtPayload(data.access_token);
+
+    return {
+      ...oldToken,
+      accessToken: data.access_token,
+      tokenExpiry:  ((payload?.exp as number) ?? 0) * 1000,
+      error:        undefined,
+    };
+  } catch (err) {
+    console.error('[auth] refresh falhou:', err);
+    return { ...oldToken, error: 'RefreshAccessTokenError' as const };
+  }
+}
 
 // ── Auth config ───────────────────────────────────────────────────────────────
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
   secret: process.env.AUTH_SECRET,
 
   session: {
     strategy: 'jwt',
-    maxAge: 30 * 24 * 60 * 60, // 30 dias (quando "Manter logado" está ativo)
+    maxAge:   30 * 24 * 60 * 60, // 30 dias
   },
 
   providers: [
     Credentials({
       credentials: {
-        email:      { label: 'E-mail',      type: 'email'    },
-        password:   { label: 'Senha',       type: 'password' },
-        rememberMe: { label: 'Manter',      type: 'text'     },
+        email:    { label: 'E-mail',  type: 'email'    },
+        password: { label: 'Senha',   type: 'password' },
       },
       async authorize(credentials) {
         try {
@@ -32,12 +74,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             }),
           });
           if (!res.ok) return null;
-          const data = await res.json();
+          const data = await res.json() as {
+            access_token: string;
+            user: { email: string; name?: string | null };
+          };
           return {
             email:       data.user.email,
             name:        data.user.name ?? null,
             accessToken: data.access_token,
-            rememberMe:  credentials.rememberMe as string | undefined,
           };
         } catch {
           return null;
@@ -46,22 +90,24 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     }),
 
     Google({
-      clientId:     process.env.GOOGLE_CLIENT_ID  ?? '',
+      clientId:     process.env.GOOGLE_CLIENT_ID     ?? '',
       clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? '',
     }),
   ],
 
   callbacks: {
     async jwt({ token, user, account }) {
-      // Credentials: accessToken + rememberMe vêm do authorize()
-      if (user) {
-        if (user.accessToken) token.accessToken = user.accessToken;
-        // Sem "Manter logado" → sessão expira em 1 dia
-        if (user.rememberMe !== 'true') {
-          token.exp = Math.floor(Date.now() / 1000) + 24 * 60 * 60;
-        }
+      // ── Primeiro login via Credentials ──────────────────────────────────────
+      if (user?.accessToken) {
+        const payload = decodeJwtPayload(user.accessToken as string);
+        return {
+          ...token,
+          accessToken: user.accessToken,
+          tokenExpiry: ((payload?.exp as number) ?? 0) * 1000,
+        };
       }
-      // Google: trocar token Google por JWT do backend
+
+      // ── Primeiro login via Google ────────────────────────────────────────────
       if (account?.provider === 'google' && account.access_token) {
         try {
           const res = await fetch(`${API}/auth/google`, {
@@ -70,16 +116,32 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             body:    JSON.stringify({ access_token: account.access_token }),
           });
           if (res.ok) {
-            const data = await res.json();
-            token.accessToken = data.access_token;
+            const data = await res.json() as { access_token: string };
+            const payload = decodeJwtPayload(data.access_token);
+            return {
+              ...token,
+              accessToken: data.access_token,
+              tokenExpiry: ((payload?.exp as number) ?? 0) * 1000,
+            };
           }
         } catch { /* mantém token existente */ }
       }
-      return token;
+
+      // ── Token ainda válido? (margem de 5 minutos) ────────────────────────────
+      const FIVE_MIN = 5 * 60 * 1000;
+      if (Date.now() < ((token.tokenExpiry as number) ?? 0) - FIVE_MIN) {
+        return token;
+      }
+
+      // ── Token expirado (ou sem tokenExpiry) → renovar ────────────────────────
+      return refreshAccessToken(token as Record<string, unknown>);
     },
 
     async session({ session, token }) {
-      session.accessToken = token.accessToken as string ?? '';
+      session.accessToken = (token.accessToken as string) ?? '';
+      if (token.error) {
+        session.error = token.error as string;
+      }
       return session;
     },
   },

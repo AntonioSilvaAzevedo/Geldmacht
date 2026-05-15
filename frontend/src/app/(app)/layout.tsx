@@ -1,11 +1,13 @@
 import Sidebar from '@/components/Layout/Sidebar';
 import BottomTabBar from '@/components/Layout/BottomTabBar';
 import AuthVersionGate from '@/components/AuthVersionGate';
+import AuthRefreshGuard from '@/components/AuthRefreshGuard';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div style={{ height: '100vh', overflow: 'hidden', display: 'flex', background: '#000' }}>
       <AuthVersionGate />
+      <AuthRefreshGuard />
       <Sidebar />
       <BottomTabBar />
       <div

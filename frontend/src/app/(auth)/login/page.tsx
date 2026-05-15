@@ -65,6 +65,7 @@ function GoogleIcon() {
 function LoginForm() {
   const searchParams = useSearchParams();
   const prefillEmail = searchParams.get('email') ?? '';
+  const sessionExpired = searchParams.get('reason') === 'expired';
 
   const [email, setEmail] = useState(prefillEmail);
   const [password, setPassword] = useState('');
@@ -106,6 +107,13 @@ function LoginForm() {
     <div style={styles.wrapper}>
 
       <h1 style={styles.title}>Geldmacht</h1>
+
+      {sessionExpired && !error && (
+        <div style={{ ...styles.error, background: 'rgba(255,159,10,0.10)', color: 'var(--orange, #FF9F0A)' }}>
+          <AlertIcon />
+          <span>Sua sessão expirou. Faça login novamente.</span>
+        </div>
+      )}
 
       {error && (
         <div style={styles.error}>
