@@ -166,7 +166,7 @@ export default function CarteiraPage() {
   if (loading) {
     return (
       <>
-        <main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+<main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <LoadingSpinner />
         </main>
       </>
@@ -176,7 +176,7 @@ export default function CarteiraPage() {
   if (error) {
     return (
       <>
-        <main style={{ padding: 24 }}>
+<main style={{ padding: 24 }}>
           <p style={{ color: 'var(--red-400)', fontSize: 14, marginBottom: 12 }}>{error}</p>
           <button onClick={() => void load()} style={{
             display: 'inline-flex', alignItems: 'center', gap: 8,
@@ -202,7 +202,7 @@ export default function CarteiraPage() {
         subtitle="Contas, cartões e investimentos — por instituição"
         px={isMobile ? 14 : 32}
       />
-      <main style={{ padding, flex: 1, maxWidth: 860, margin: '0 auto', width: '100%' }}>
+<main style={{ padding, flex: 1, maxWidth: 860, margin: '0 auto', width: '100%' }}>
 
         {/* Summary strip */}
         <div style={{
@@ -253,7 +253,7 @@ export default function CarteiraPage() {
               Cadastre contas e cartões para visualizar sua carteira consolidada.
             </p>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
-              <Link href="/carteira" style={primaryLinkStyle}>Cadastrar conta</Link>
+              <Link href="/contas" style={primaryLinkStyle}>Cadastrar conta</Link>
               <Link href="/cartao" style={ghostLinkStyle}>Cadastrar cartão</Link>
             </div>
           </div>
@@ -271,7 +271,7 @@ export default function CarteiraPage() {
             ))}
 
             {/* Add CTA */}
-            <Link href="/carteira" style={{
+            <Link href="/contas" style={{
               border: '1px dashed rgba(255,255,255,0.09)', borderRadius: 16,
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
               padding: '24px', color: 'rgba(255,255,255,0.25)',

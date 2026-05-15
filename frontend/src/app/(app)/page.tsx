@@ -10,10 +10,10 @@ import {
   ArrowUpRight,
 } from 'lucide-react';
 import Link from 'next/link';
-import PageHeader from '@/components/Layout/PageHeader';
 import ErrorState from '@/components/ErrorState';
 import EmptyState from '@/components/EmptyState';
 import WelcomeFlowGate from '@/components/WelcomeFlowGate';
+import PageHeader from '@/components/Layout/PageHeader';
 import { useFinancialData } from '@/hooks/useFinancialData';
 import { formatCurrency, classifyValue } from '@/lib/formatters';
 import type { MonthlyData } from '@/types/financial';
@@ -197,8 +197,7 @@ export default function DashboardPage() {
     <>
       <WelcomeFlowGate />
       <PageHeader title="Dashboard Anual" subtitle={rangeLabel} />
-
-      <main style={{ padding: '24px', flex: 1 }}>
+<main style={{ padding: '24px', flex: 1 }}>
 
         {/* KPI Cards */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 28 }}>

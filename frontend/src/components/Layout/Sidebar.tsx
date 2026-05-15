@@ -10,11 +10,10 @@ import { config } from '@/config/env';
 
 // ── Nav config ────────────────────────────────────────────────────────────────
 const NAV_PRINCIPAL = [
-  { href: '/',             label: 'Início'      },
-  { href: '/carteira',      label: 'Carteira'    },
-  { href: '/lancamentos',  label: 'Lançamentos' },
-  { href: '/faturas',      label: 'Faturas'     },
-  { href: '/proventos',    label: 'Proventos'   },
+  { href: '/',                  label: 'Início'       },
+  { href: '/carteira',          label: 'Carteira'     },
+  { href: '/lancamentos/novo',  label: 'Lançamentos'  },
+  { href: '/proventos',         label: 'Proventos'    },
 ];
 
 const NAV_ANALISE = [
@@ -41,21 +40,15 @@ function NavIcon({ href, active }: { href: string; active: boolean }) {
     ),
     '/carteira': (
       <svg {...props}>
-        <rect x="2" y="5" width="20" height="14" rx="2"/>
-        <line x1="2" y1="10" x2="22" y2="10"/>
+        <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
+        <line x1="1" y1="10" x2="23" y2="10"/>
       </svg>
     ),
-    '/lancamentos': (
+    '/lancamentos/novo': (
       <svg {...props}>
         <line x1="3" y1="6" x2="21" y2="6"/>
         <line x1="3" y1="12" x2="21" y2="12"/>
         <line x1="3" y1="18" x2="21" y2="18"/>
-      </svg>
-    ),
-    '/faturas': (
-      <svg {...props}>
-        <rect x="3" y="3" width="18" height="18" rx="2"/>
-        <path d="M3 9h18"/><path d="M9 21V9"/>
       </svg>
     ),
     '/proventos': (
@@ -122,6 +115,14 @@ export default function Sidebar() {
 
   function isActive(href: string) {
     if (href === '/') return pathname === '/';
+    // /lancamentos/novo deve acender para qualquer sub-rota de /lancamentos
+    if (href === '/lancamentos/novo') return pathname.startsWith('/lancamentos');
+    // /carteira cobre contas e cartão (rotas legadas continuam funcionando)
+    if (href === '/carteira') return (
+      pathname.startsWith('/carteira') ||
+      pathname.startsWith('/contas') ||
+      pathname.startsWith('/cartao')
+    );
     return pathname.startsWith(href);
   }
 

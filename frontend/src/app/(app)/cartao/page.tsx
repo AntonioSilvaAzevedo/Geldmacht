@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Plus, CreditCard, Upload, Edit3, Trash2, X, AlertTriangle } from 'lucide-react';
-import PageHeader from '@/components/Layout/PageHeader';
 import EmptyState from '@/components/EmptyState';
 import ErrorState from '@/components/ErrorState';
 import LoadingSpinner from '@/components/LoadingSpinner';
@@ -100,8 +99,7 @@ export default function CardsPage() {
   if (loading) {
     return (
       <>
-        <PageHeader title="Cartões de Crédito" subtitle="Carregando..." />
-        <main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+<main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <LoadingSpinner />
         </main>
       </>
@@ -112,8 +110,7 @@ export default function CardsPage() {
 
   return (
     <>
-      <PageHeader title="Cartões de Crédito" subtitle="Cartões cadastrados e faturas reais importadas" />
-      <main style={{ padding: 24, flex: 1 }}>
+<main style={{ padding: 24, flex: 1 }}>
 
         {/* Toast de feedback */}
         {toast && (

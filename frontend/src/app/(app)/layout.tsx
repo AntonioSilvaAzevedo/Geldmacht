@@ -4,13 +4,23 @@ import AuthVersionGate from '@/components/AuthVersionGate';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ minHeight: '100vh', background: '#000' }}>
+    <div style={{ height: '100vh', overflow: 'hidden', display: 'flex', background: '#000' }}>
       <AuthVersionGate />
       <Sidebar />
       <BottomTabBar />
-      <main className="app-main-content">
+      <div
+        className="app-main-content"
+        style={{
+          display:        'flex',
+          flexDirection:  'column',
+          flex:           1,
+          overflow:       'hidden',
+          minWidth:       0,
+          overflowX:      'hidden',
+        }}
+      >
         {children}
-      </main>
+      </div>
     </div>
   );
 }
