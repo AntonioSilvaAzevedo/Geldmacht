@@ -13,7 +13,6 @@
 'use client';
 
 import { use, useCallback, useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight, TrendingUp } from 'lucide-react';
 import { CategoryChoiceSelect } from '@/components/category-choice-select';

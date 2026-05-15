@@ -131,7 +131,7 @@ export default function CarteiraPage() {
     }
   };
 
-  useEffect(() => { void load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { void load(); }, []);
 
   // Agrupa por campo `institution` (string livre em ambos os tipos)
   const institutions = useMemo<InstitutionGroup[]>(() => {

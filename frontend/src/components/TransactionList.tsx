@@ -250,9 +250,6 @@ export function TransactionList({
   limit, onCtaClick, ctaLabel = 'Ver todas →',
   editable = false, categories = [],
   headerRight, onSave,
-  // compat fields — ignorados no novo design
-  isMobile: _isMobile,
-  onRecategorize: _onRecategorize,
 }: TransactionListProps) {
   const rows = limit ? transactions.slice(0, limit) : transactions;
 

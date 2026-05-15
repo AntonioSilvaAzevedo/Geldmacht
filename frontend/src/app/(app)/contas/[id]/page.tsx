@@ -24,7 +24,6 @@ import { api, type BankAccountConfig, type Category } from '@/lib/api';
 import type { Transaction } from '@/types/financial';
 import { formatCurrency } from '@/lib/formatters';
 import { useIsMobile } from '@/hooks/useIsMobile';
-import { getInstitutionColor } from '@/lib/institutionColors';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
