@@ -222,20 +222,6 @@ export default function InstitutionDetailPage() {
 
       <main style={{ padding: pad, flex: 1, maxWidth: 700, margin: '0 auto', width: '100%' }}>
 
-        {/* Invoice total chip */}
-        {cards.length > 0 && currentInvoiceTotal > 0 && (
-          <div style={{ padding: '16px 0 18px', marginBottom: 20, borderBottom: '1px solid var(--border-subtle, rgba(255,255,255,0.07))' }}>
-            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                <div style={{ fontSize: 10, color: 'var(--text-muted, rgba(255,255,255,0.35))', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 3 }}>Fatura atual</div>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 700, color: 'var(--red-400, #FF453A)', letterSpacing: '-0.025em' }}>
-                  {formatCurrency(currentInvoiceTotal)}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Tabs */}
         <div style={{ display: 'flex', gap: 2, background: 'var(--s2, #2C2C2E)', borderRadius: 12, padding: 4, marginBottom: 20, width: 'fit-content' }}>
           {tabs.map(t => (
