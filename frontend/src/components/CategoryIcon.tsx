@@ -31,9 +31,16 @@ interface CategoryIconProps {
 
 /**
  * Renderiza o ícone de uma categoria ou subcategoria.
+ * Aceita emoji (string curta com codepoint não-ASCII) ou chave Lucide.
  * Usa fallback `Tag` quando a chave não existe após aliases.
  */
 export default function CategoryIcon({ icon, size = 14, color, className }: CategoryIconProps) {
+  if (!icon) {
+    return <Tag size={size} color={color} className={className} />;
+  }
+  if (/\p{Emoji}/u.test(icon) && icon.length <= 4) {
+    return <span style={{ fontSize: size, lineHeight: 1 }} className={className}>{icon}</span>;
+  }
   const key = resolveIconKey(icon);
   const IconComponent = CATEGORY_ICONS[key] ?? Tag;
   return <IconComponent size={size} color={color} className={className} />;
