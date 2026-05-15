@@ -7,12 +7,15 @@
 
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Landmark, RefreshCw } from 'lucide-react';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import PageHeader from '@/components/Layout/PageHeader';
+import AccountCard from '@/components/Cards/AccountCard';
+import KPIStrip from '@/components/KPIStrip';
+import { TransactionList } from '@/components/TransactionList';
 import {
   api,
   type BankAccountConfig,
@@ -27,7 +30,30 @@ import { getInstitutionColor } from '@/lib/institutionColors';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type Tab = 'extrato' | 'cartao' | 'resumo';
+type Tab = 'conta' | 'cartao' | 'resumo';
+
+/** Entradas / saídas do mês para o KPIStrip */
+interface MonthStats {
+  entradas: number;
+  saidas: number;
+}
+
+/** Sigla da instituição para o avatar do AccountCard */
+function institutionAbbr(name: string): string {
+  const words = name.trim().split(/\s+/);
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return words.map(w => w[0]).join('').slice(0, 2).toUpperCase();
+}
+
+/** Mês atual no formato "YYYY-MM" */
+function currentYearMonth(): string {
+  return new Date().toISOString().slice(0, 7);
+}
+
+/** Label legível do mês atual: "Maio 2026" */
+function currentMonthLabel(): string {
+  return new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+}
 
 // ── Color palette ─────────────────────────────────────────────────────────────
 // Importado de @/lib/institutionColors — compartilhado com cartao/[cardId]
@@ -51,129 +77,63 @@ const ACCOUNT_TYPE_LABELS: Record<string, string> = {
   other:      'Outra',
 };
 
-function fmtTxDate(iso: string): string {
-  const d = iso.split('T')[0].split('-');
-  return d.length === 3 ? `${d[2]}/${d[1]}` : iso;
-}
 
-function txDotColor(tx: Transaction): string {
-  if (tx.is_internal_transfer) return 'rgba(255,255,255,0.25)';
-  if (tx.transaction_type === 'income')  return 'var(--green-400)';
-  if (tx.transaction_type === 'expense' || tx.transaction_type === 'payment') return 'var(--red-400)';
-  return 'rgba(255,255,255,0.25)';
-}
+// ── ContaTab ──────────────────────────────────────────────────────────────────
 
-function txAmountColor(tx: Transaction): string {
-  if (tx.is_internal_transfer) return 'var(--text-muted)';
-  if (tx.transaction_type === 'income')  return 'var(--green-400)';
-  if (tx.transaction_type === 'expense' || tx.transaction_type === 'payment') return 'var(--red-400)';
-  return 'var(--text-muted)';
-}
-
-function fmtSignedAmount(amount: number): string {
-  const prefix = amount >= 0 ? '+' : '−';
-  return `${prefix}${formatCurrency(Math.abs(amount))}`;
-}
-
-// ── TxRow ─────────────────────────────────────────────────────────────────────
-
-function TxRow({ tx, last }: { tx: Transaction; last: boolean }) {
-  const [hov, setHov] = useState(false);
-  return (
-    <div
-      data-txrow=""
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
-      style={{
-        display: 'flex', alignItems: 'flex-start', gap: 14,
-        padding: '14px 20px',
-        borderBottom: last ? 'none' : '1px solid rgba(255,255,255,0.07)',
-        background: hov ? 'rgba(255,255,255,0.03)' : 'transparent',
-        transition: 'background 0.1s',
-      }}
-    >
-      {/* Dot */}
-      <div style={{
-        width: 7, height: 7, borderRadius: '50%',
-        background: txDotColor(tx),
-        flexShrink: 0, marginTop: 7,
-      }} />
-
-      {/* Description + category */}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 15, fontWeight: 600, letterSpacing: '-0.01em', lineHeight: 1.3, color: 'var(--text-primary)' }}>
-          {tx.description}
-        </div>
-        {tx.category_name && (
-          <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 3 }}>
-            {tx.category_name}
-          </div>
-        )}
-      </div>
-
-      {/* Amount + date */}
-      <div style={{ textAlign: 'right', flexShrink: 0 }}>
-        <div style={{
-          fontFamily: 'var(--font-mono)',
-          fontSize: 15, fontWeight: 600,
-          letterSpacing: '-0.01em', lineHeight: 1.2,
-          color: txAmountColor(tx),
-        }}>
-          {fmtSignedAmount(tx.amount)}
-        </div>
-        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 3 }}>
-          {fmtTxDate(tx.date)}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── ExtratoPanel ──────────────────────────────────────────────────────────────
-
-function ExtratoPanel({
-  accounts, activeAccountId, setActiveAccountId, transactions, txLoading,
+function ContaTab({
+  accounts,
+  activeAccountId,
+  setActiveAccountId,
+  transactions,
+  txLoading,
+  monthStats,
+  displayName,
+  institutionColor,
+  onVerTodas,
 }: {
   accounts: BankAccountConfig[];
   activeAccountId: number | null;
   setActiveAccountId: (id: number) => void;
   transactions: Transaction[];
   txLoading: boolean;
+  monthStats: MonthStats;
+  displayName: string;
+  institutionColor: string;
+  onVerTodas: () => void;
 }) {
   const activeAccount = accounts.find(a => a.id === activeAccountId);
-  const listRef = useRef<HTMLDivElement>(null);
-  const [visibleCount, setVisibleCount] = useState(8);
 
-  useEffect(() => {
-    const list = listRef.current;
-    if (!list) return;
+  // Saldo = soma de todas as transações carregadas
+  const balance = transactions.reduce((s, tx) => s + tx.amount, 0);
 
-    const measure = () => {
-      const listH = list.clientHeight;
-      if (listH <= 0) return;
-      const firstRow = list.querySelector<HTMLElement>('[data-txrow]');
-      if (!firstRow) return;
-      const rowH = firstRow.getBoundingClientRect().height;
-      if (rowH <= 0) return;
-      setVisibleCount(Math.max(1, Math.floor(listH / rowH)));
-    };
+  const inst = {
+    name:  displayName,
+    abbr:  institutionAbbr(displayName),
+    color: institutionColor,
+  };
 
-    const frame = requestAnimationFrame(measure);
-    const ro = new ResizeObserver(measure);
-    ro.observe(list);
-    return () => { cancelAnimationFrame(frame); ro.disconnect(); };
-  }, [activeAccountId, transactions.length]);
+  const conta = {
+    label:   activeAccount?.name ?? 'Conta',
+    number:  null,
+    balance,
+    type:    ACCOUNT_TYPE_LABELS[activeAccount?.account_type ?? ''] ?? 'Conta pagamento',
+  };
 
-  const visibleTxs = transactions.slice(0, visibleCount);
+  const saldo = monthStats.entradas - monthStats.saidas;
+  const monthLabel = currentMonthLabel();
+
+  // capitalize first letter
+  const monthLabelCap = monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
 
   if (accounts.length === 0) {
     return (
       <div style={{
         background: 'var(--surface-card)', borderRadius: 20,
-        border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden',
+        border: '1px solid rgba(255,255,255,0.06)',
         padding: '40px 24px', textAlign: 'center',
       }}>
-        <p style={{ fontSize: 14, color: 'var(--text-secondary)' }}>
+        <Landmark size={32} color="var(--text-muted)" style={{ margin: '0 auto 12px', display: 'block' }} />
+        <p style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 16 }}>
           Nenhuma conta bancária nesta instituição.
         </p>
       </div>
@@ -181,86 +141,64 @@ function ExtratoPanel({
   }
 
   return (
-    <div style={{
-      background: 'var(--surface-card)', borderRadius: 20,
-      border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden',
-      display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0,
-    }}>
-      {/* Header */}
-      <div style={{
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        padding: '16px 20px',
-        borderBottom: '1px solid rgba(255,255,255,0.07)',
-        flexShrink: 0,
-      }}>
-        <div>
-          <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: '-0.01em' }}>Extrato</div>
-          {activeAccount && (
-            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 3 }}>
-              {activeAccount.name}
-            </div>
-          )}
+    <div>
+      {/* Account switcher — só quando há múltiplas contas */}
+      {accounts.length > 1 && (
+        <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
+          {accounts.map(acc => (
+            <button
+              key={acc.id}
+              onClick={() => setActiveAccountId(acc.id)}
+              style={{
+                padding: '5px 13px', borderRadius: 9, border: '1px solid',
+                borderColor: activeAccountId === acc.id ? 'var(--blue)' : 'rgba(255,255,255,0.1)',
+                background: activeAccountId === acc.id ? 'rgba(10,132,255,0.15)' : 'transparent',
+                color: activeAccountId === acc.id ? 'var(--blue)' : 'var(--text-secondary)',
+                fontSize: 12, fontWeight: activeAccountId === acc.id ? 700 : 400,
+                cursor: 'pointer', transition: 'all 0.12s',
+              }}
+            >
+              {acc.name.length > 14 ? acc.name.slice(0, 12) + '…' : acc.name}
+            </button>
+          ))}
         </div>
+      )}
 
-        {/* Account switcher — only when multiple */}
-        {accounts.length > 1 && (
-          <div style={{ display: 'flex', gap: 6 }}>
-            {accounts.map(acc => (
-              <button
-                key={acc.id}
-                onClick={() => setActiveAccountId(acc.id)}
-                style={{
-                  padding: '5px 13px', borderRadius: 9, border: '1px solid',
-                  borderColor: activeAccountId === acc.id ? 'var(--blue-400)' : 'rgba(255,255,255,0.1)',
-                  background: activeAccountId === acc.id ? 'rgba(10,132,255,0.15)' : 'transparent',
-                  color: activeAccountId === acc.id ? 'var(--blue-400)' : 'var(--text-secondary)',
-                  fontSize: 12, fontWeight: activeAccountId === acc.id ? 700 : 400,
-                  cursor: 'pointer', transition: 'all 0.12s',
-                  letterSpacing: '0.02em',
-                }}
-              >
-                {acc.name.length > 12 ? acc.name.slice(0, 10) + '…' : acc.name}
-              </button>
-            ))}
-          </div>
-        )}
+      {/* ② AccountCard */}
+      <div style={{ marginBottom: 14 }}>
+        <AccountCard inst={inst} conta={conta} />
       </div>
 
-      {/* Transactions — flex: 1 fills remaining height, overflow hidden clips excess */}
-      <div ref={listRef} style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
-        {txLoading ? (
-          <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}>
-            <LoadingSpinner />
-          </div>
-        ) : transactions.length === 0 ? (
+      {/* ③ KPIStrip */}
+      {txLoading ? (
+        <div style={{ display: 'flex', justifyContent: 'center', padding: 20 }}>
+          <LoadingSpinner />
+        </div>
+      ) : (
+        <KPIStrip
+          mb={14}
+          items={[
+            { label: 'Entradas', value: formatCurrency(monthStats.entradas), color: 'var(--green)' },
+            { label: 'Saídas',   value: formatCurrency(monthStats.saidas),   color: 'var(--red)'   },
+            { label: 'Saldo',    value: formatCurrency(saldo),               color: saldo < 0 ? 'var(--red)' : undefined },
+          ]}
+        />
+      )}
+
+      {/* ④ TransactionList */}
+      {!txLoading && (
+        transactions.length === 0 ? (
           <EmptyExtrato accountId={activeAccountId} />
         ) : (
-          visibleTxs.map((tx, i) => (
-            <TxRow key={tx.id} tx={tx} last={i === visibleTxs.length - 1} />
-          ))
-        )}
-      </div>
-
-      {/* Footer */}
-      {transactions.length > 0 && (
-        <div style={{
-          borderTop: '1px solid rgba(255,255,255,0.07)',
-          padding: '12px 20px',
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          flexShrink: 0,
-        }}>
-          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-            {visibleTxs.length} de {transactions.length} lançamentos
-          </span>
-          {activeAccountId && (
-            <Link href={`/contas/${activeAccountId}`} style={{
-              background: 'none', border: 'none', color: 'var(--blue-400)',
-              fontSize: 12, cursor: 'pointer', textDecoration: 'none',
-            }}>
-              Ver extrato completo →
-            </Link>
-          )}
-        </div>
+          <TransactionList
+            title="Lançamentos recentes"
+            subtitle={monthLabelCap}
+            transactions={transactions}
+            limit={5}
+            onCtaClick={onVerTodas}
+            ctaLabel="Ver todas as movimentações →"
+          />
+        )
       )}
     </div>
   );
@@ -733,6 +671,7 @@ function EmptyExtrato({ accountId }: { accountId: number | null }) {
 
 export default function InstitutionDetailPage() {
   const { slug } = useParams<{ slug: string }>();
+  const router = useRouter();
   const institutionName = decodeSlug(slug ?? '');
   const isMobile = useIsMobile();
 
@@ -743,11 +682,12 @@ export default function InstitutionDetailPage() {
 
   const [activeAccountId, setActiveAccountId] = useState<number | null>(null);
   const [transactions, setTransactions]       = useState<Transaction[]>([]);
+  const [monthStats, setMonthStats]           = useState<MonthStats>({ entradas: 0, saidas: 0 });
   const [txLoading, setTxLoading]             = useState(false);
 
   const [loading, setLoading]         = useState(true);
   const [error, setError]             = useState<string | null>(null);
-  const [tab, setTab]                 = useState<Tab>('extrato');
+  const [tab, setTab]                 = useState<Tab>('conta');
   const [displayName, setDisplayName] = useState<string>('');
 
   useEffect(() => {
@@ -780,7 +720,7 @@ export default function InstitutionDetailPage() {
         );
 
         if (filteredAccounts.length > 0) setActiveAccountId(filteredAccounts[0].id);
-        else if (filteredCards.length > 0) setTab('cartao');
+        else if (filteredCards.length > 0) { setTab('cartao'); }
 
         const dashMap = new Map<number, CardDashboard>();
         const invMap  = new Map<number, CardInvoice[]>();
@@ -807,10 +747,24 @@ export default function InstitutionDetailPage() {
   const loadTransactions = useCallback(async (accountId: number) => {
     setTxLoading(true);
     try {
-      const txs = await api.getTransactions({ bank_account_id: accountId, limit: 20 }) as Transaction[];
-      setTransactions(txs.sort((a, b) => b.date.localeCompare(a.date)));
+      // Busca todas as transações disponíveis (sem limit) para calcular saldo e KPIs
+      const txs = await api.getTransactions({ bank_account_id: accountId }) as Transaction[];
+      const sorted = txs.sort((a, b) => b.date.localeCompare(a.date));
+      setTransactions(sorted);
+
+      // Calcula entradas/saídas do mês atual
+      const ym = currentYearMonth(); // "YYYY-MM"
+      const monthTxs = sorted.filter(tx => tx.date.startsWith(ym));
+      const entradas = monthTxs
+        .filter(tx => tx.amount > 0 && tx.transaction_type !== 'transfer')
+        .reduce((s, tx) => s + tx.amount, 0);
+      const saidas = monthTxs
+        .filter(tx => tx.amount < 0 && tx.transaction_type !== 'transfer')
+        .reduce((s, tx) => s + Math.abs(tx.amount), 0);
+      setMonthStats({ entradas, saidas });
     } catch {
       setTransactions([]);
+      setMonthStats({ entradas: 0, saidas: 0 });
     } finally {
       setTxLoading(false);
     }
@@ -821,7 +775,7 @@ export default function InstitutionDetailPage() {
   }, [activeAccountId, loadTransactions]);
 
   const tabs = useMemo<{ id: Tab; label: string }[]>(() => [
-    { id: 'extrato', label: 'Extrato' },
+    { id: 'conta', label: 'Conta' },
     ...(cards.length > 0 ? [{ id: 'cartao' as Tab, label: cards.length === 1 ? 'Cartão' : 'Cartões' }] : []),
     { id: 'resumo', label: 'Resumo' },
   ], [cards]);
@@ -898,14 +852,20 @@ export default function InstitutionDetailPage() {
           ))}
         </div>
 
-        {/* Tab: Extrato */}
-        {tab === 'extrato' && (
-          <ExtratoPanel
+        {/* Tab: Conta */}
+        {tab === 'conta' && (
+          <ContaTab
             accounts={accounts}
             activeAccountId={activeAccountId}
             setActiveAccountId={setActiveAccountId}
             transactions={transactions}
             txLoading={txLoading}
+            monthStats={monthStats}
+            displayName={displayName || institutionName}
+            institutionColor={institutionColor}
+            onVerTodas={() => {
+              if (activeAccountId) router.push(`/contas/${activeAccountId}`);
+            }}
           />
         )}
 

@@ -1,22 +1,30 @@
 'use client';
 
 /**
- * TransactionList — Geldmacht redesign
+ * TransactionList — Geldmacht
  *
- * Substitui a <table> na página contas/[id]/page.tsx.
- * Agrupa por data com cabeçalho sticky, descrições inteligentes de Pix,
- * e expandir por clique para ver descrição completa + alterar categoria.
+ * Lista compacta de lançamentos em card. Versão embedded usada nos dashboards
+ * (aba Conta, fatura recente, tela Movimentações, etc.).
  *
- * Uso:
- *   import { TransactionList } from '@/components/TransactionList';
- *   <TransactionList transactions={movements} isMobile={isMobile} onRecategorize={...} />
+ * Diferente do Extrato Component, que é standalone e sem card wrapper.
+ *
+ * Props:
+ *   title       — string                  cabeçalho principal
+ *   subtitle    — string?                 texto secundário no header (ex: mês)
+ *   transactions — Transaction[]
+ *   limit       — number?                 máx de rows visíveis (default: todas)
+ *   onCtaClick  — () => void?             callback do link no header/footer
+ *   ctaLabel    — string?                 label do link (default "Ver todas →")
+ *   editable    — boolean?                habilita editor inline por linha
+ *   categories  — string[]?               lista de categorias para o select
+ *   headerRight — ReactNode?              substitui o CTA padrão do header
+ *   onSave      — (tx: Transaction) => void?  callback ao salvar edição
  */
 
-import { useState, useMemo } from 'react';
-import { TrendingUp, TrendingDown, ChevronDown } from 'lucide-react';
-import CategoryIcon from '@/components/CategoryIcon';
+import React, { useState } from 'react';
 import { formatCurrency } from '@/lib/formatters';
 import type { Transaction } from '@/types/financial';
+import TransactionEditForm from '@/components/TransactionEditForm';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -26,272 +34,305 @@ function txIsIncome(tx: Transaction): boolean {
   return tx.amount >= 0;
 }
 
-/**
- * Extrai o nome do destinatário de transferências Pix/TED longas.
- * Ex: "Transferência enviada pelo Pix - Antonio Carlos Silva de Azevedo (Transferência enviada)"
- *  → { primary: "Antonio Carlos Silva de Azevedo", tag: "PIX" }
- */
-function parseDescription(desc: string): { primary: string; tag: string | null } {
-  const pixMatch = desc.match(/Pix\s*-\s*/i);
-  if (pixMatch) {
-    const after = desc.slice(desc.search(/Pix\s*-\s*/i) + pixMatch[0].length);
-    const name = after.split(/\s*-\s*/)[0].replace(/\s*\(.*\)/, '').trim();
-    return { primary: name || desc, tag: 'PIX' };
-  }
-  const recMatch = desc.match(/Recebid[ao]\s*-\s*/i);
-  if (recMatch && recMatch.index !== undefined) {
-    const after = desc.slice(recMatch.index + recMatch[0].length);
-    const name = after.split(/\s*-\s*/)[0].trim();
-    return { primary: name || desc, tag: 'PIX' };
-  }
-  return { primary: desc.length > 54 ? `${desc.slice(0, 54)}…` : desc, tag: null };
+function txType(tx: Transaction): 'entrada' | 'saida' | 'movimentacao' {
+  if (tx.transaction_type === 'transfer') return 'movimentacao';
+  return txIsIncome(tx) ? 'entrada' : 'saida';
 }
 
-function formatDateHeader(dateStr: string) {
-  const dt = new Date(`${dateStr}T12:00:00`);
-  const months = ['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];
-  const weekdays = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
-  return {
-    day: String(dt.getDate()).padStart(2, '0'),
-    mon: months[dt.getMonth()],
-    yr: dt.getFullYear(),
-    wd: weekdays[dt.getDay()],
-  };
+function dotColor(type: 'entrada' | 'saida' | 'movimentacao'): string {
+  if (type === 'entrada') return 'var(--green)';
+  if (type === 'saida') return 'var(--red)';
+  return 'rgba(255,255,255,0.22)';
 }
 
-function groupByDate(transactions: Transaction[]): { date: string; items: Transaction[] }[] {
-  const map = new Map<string, Transaction[]>();
-  transactions.forEach(tx => {
-    if (!map.has(tx.date)) map.set(tx.date, []);
-    map.get(tx.date)!.push(tx);
-  });
-  return [...map.entries()].map(([date, items]) => ({ date, items }));
+function amtColor(type: 'entrada' | 'saida' | 'movimentacao'): string {
+  if (type === 'entrada') return 'var(--green)';
+  if (type === 'saida') return 'var(--red)';
+  return 'var(--text-secondary)';
 }
 
-// ─── TransactionRow ───────────────────────────────────────────────────────────
+/** "2026-05-14" → "14/05" */
+function formatShortDate(dateStr: string): string {
+  const parts = dateStr.split('-');
+  if (parts.length === 3) return `${parts[2]}/${parts[1]}`;
+  return dateStr;
+}
 
-function TransactionRow({
-  tx, isLast, isMobile, onRecategorize,
-}: {
-  tx: Transaction;
-  isLast: boolean;
-  isMobile: boolean;
-  onRecategorize?: (txId: number) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const income = txIsIncome(tx);
-  const accent = income ? 'var(--green-400)' : 'var(--red-400)';
-  const parsed = parseDescription(tx.description);
-  const catLabel = tx.category_display_label || tx.category_name || tx.category;
+function txDesc(tx: Transaction): string {
+  return tx.description || '';
+}
 
-  const CategoryPill = () => catLabel ? (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center', gap: 5,
-      padding: '2px 8px', borderRadius: 9999,
-      background: 'rgba(161,174,190,0.1)', border: '1px solid rgba(161,174,190,0.18)',
-      fontSize: 11, color: 'var(--text-secondary)', fontWeight: 500,
-    }}>
-      {tx.category_icon && <CategoryIcon icon={tx.category_icon} size={10} />}
-      {catLabel}
-    </span>
-  ) : (
-    <span style={{ fontSize: isMobile ? 11 : 12, color: 'var(--text-muted)', fontStyle: isMobile ? 'normal' : 'italic' }}>
-      Sem categoria
-    </span>
-  );
+function txCat(tx: Transaction): string {
+  return tx.category_display_label || tx.category_name || tx.category || '';
+}
+
+// ─── ReadRow ──────────────────────────────────────────────────────────────────
+
+function ReadRow({ tx, last }: { tx: Transaction; last: boolean }) {
+  const [hov, setHov] = useState(false);
+  const type = txType(tx);
 
   return (
-    <div>
-      <div
-        role="button"
-        tabIndex={0}
-        onClick={() => setOpen(v => !v)}
-        onKeyDown={e => e.key === 'Enter' && setOpen(v => !v)}
-        style={{
-          display: 'flex', alignItems: 'center', gap: isMobile ? 10 : 12,
-          padding: isMobile ? '12px 14px' : '11px 18px',
-          borderBottom: open || isLast ? 'none' : '1px solid var(--border-subtle)',
-          borderLeft: `3px solid ${accent}`,
-          cursor: 'pointer', transition: 'background 0.1s', background: 'transparent',
-          outline: 'none',
-        }}
-        onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-hover)')}
-        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-      >
-        {/* Ícone de tipo */}
+    <div
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        display: 'flex', alignItems: 'flex-start', gap: 12,
+        padding: '11px 18px',
+        borderBottom: !last ? '1px solid rgba(255,255,255,0.05)' : 'none',
+        background: hov ? 'var(--surface-hover)' : 'transparent',
+        transition: 'background 0.1s',
+      }}
+    >
+      {/* Dot indicator */}
+      <div style={{
+        width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
+        marginTop: 6, background: dotColor(type),
+      }} />
+
+      {/* Desc + cat */}
+      <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{
-          width: 30, height: 30, borderRadius: '50%', flexShrink: 0,
-          background: income ? 'rgba(72,187,120,0.12)' : 'rgba(252,129,129,0.12)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 13, fontWeight: 500,
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          color: 'var(--text-primary)',
         }}>
-          {income
-            ? <TrendingUp size={13} color="var(--green-400)" />
-            : <TrendingDown size={13} color="var(--red-400)" />
-          }
+          {txDesc(tx)}
         </div>
-
-        {/* Descrição */}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-            <span style={{
-              fontSize: 13, fontWeight: 500, color: 'var(--text-primary)',
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-            }}>
-              {parsed.primary}
-            </span>
-            {parsed.tag && (
-              <span style={{
-                fontSize: 9, fontWeight: 700, letterSpacing: '0.07em', flexShrink: 0,
-                background: 'rgba(99,179,237,0.1)', border: '1px solid rgba(99,179,237,0.25)',
-                color: 'var(--blue-400)', padding: '1px 5px', borderRadius: 3,
-              }}>
-                {parsed.tag}
-              </span>
-            )}
-          </div>
-          {isMobile && <div style={{ marginTop: 3 }}><CategoryPill /></div>}
-        </div>
-
-        {/* Categoria — desktop */}
-        {!isMobile && <div style={{ flexShrink: 0, minWidth: 140 }}><CategoryPill /></div>}
-
-        {/* Valor */}
-        <div style={{
-          flexShrink: 0, fontFamily: 'var(--font-mono)', fontSize: 13,
-          fontWeight: 700, color: accent, textAlign: 'right', minWidth: 85,
-        }}>
-          {income ? '' : '−'}{formatCurrency(Math.abs(tx.amount))}
-        </div>
-
-        <div style={{ flexShrink: 0, color: 'var(--text-muted)', opacity: 0.45 }}>
-          <ChevronDown
-            size={11}
-            style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s ease' }}
-          />
+        <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2 }}>
+          {txCat(tx) || <span style={{ fontStyle: 'italic' }}>Sem categoria</span>}
         </div>
       </div>
 
-      {/* Detalhe expandido */}
-      {open && (
+      {/* Amount + date */}
+      <div style={{ textAlign: 'right', flexShrink: 0 }}>
         <div style={{
-          padding: '10px 18px 13px 63px',
-          background: 'var(--surface-panel)',
-          borderBottom: isLast ? 'none' : '1px solid var(--border-subtle)',
-          borderLeft: `3px solid ${income ? 'rgba(72,187,120,0.3)' : 'rgba(252,129,129,0.3)'}`,
+          fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 600,
+          color: amtColor(type),
         }}>
+          {tx.amount > 0 ? '+' : ''}{formatCurrency(tx.amount)}
+        </div>
+        <div style={{ fontSize: 10, color: 'var(--text-quaternary)', marginTop: 2 }}>
+          {formatShortDate(tx.date)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── EditableRow ──────────────────────────────────────────────────────────────
+
+function EditableRow({
+  tx, last, categories, onSave,
+}: {
+  tx: Transaction;
+  last: boolean;
+  categories: string[];
+  onSave?: (tx: Transaction) => Promise<void> | void;
+}) {
+  const [open,   setOpen]   = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [hov,    setHov]    = useState(false);
+  const type = txType(tx);
+  const cat  = txCat(tx);
+
+  async function handleSave(updated: Transaction) {
+    setSaving(true);
+    try {
+      await onSave?.(updated);
+      setOpen(false);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div>
+      {/* Row header */}
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => !saving && setOpen(v => !v)}
+        onKeyDown={e => e.key === 'Enter' && !saving && setOpen(v => !v)}
+        onMouseEnter={() => setHov(true)}
+        onMouseLeave={() => setHov(false)}
+        style={{
+          display: 'flex', alignItems: 'flex-start', gap: 12,
+          padding: '12px 18px',
+          borderBottom: !open && !last ? '1px solid rgba(255,255,255,0.05)' : 'none',
+          background: open ? 'var(--surface-2)' : hov ? 'var(--surface-hover)' : 'transparent',
+          cursor: saving ? 'wait' : 'pointer',
+          transition: 'background 0.1s', outline: 'none',
+        }}
+      >
+        {/* Dot */}
+        <div style={{
+          width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
+          marginTop: 6, background: dotColor(type),
+        }} />
+
+        {/* Desc + cat pill */}
+        <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{
-            fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase',
-            letterSpacing: '0.07em', fontWeight: 700, marginBottom: 5,
+            fontSize: 13, fontWeight: open ? 600 : 500,
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            color: 'var(--text-primary)',
           }}>
-            Descrição completa
-          </div>
-          <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.65, wordBreak: 'break-word' }}>
             {tx.description}
           </div>
-          {onRecategorize && (
-            <div style={{ marginTop: 9 }}>
-              <button
-                type="button"
-                style={{
-                  fontSize: 11, color: 'var(--blue-400)', background: 'none',
-                  border: 'none', cursor: 'pointer', padding: 0,
-                  textDecoration: 'underline', textUnderlineOffset: 2, fontFamily: 'inherit',
-                }}
-                onClick={e => { e.stopPropagation(); onRecategorize(tx.id); }}
-              >
-                Alterar categoria
-              </button>
-            </div>
-          )}
+          <div style={{
+            fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2,
+            display: 'flex', alignItems: 'center', gap: 6,
+          }}>
+            {cat && (
+              <span style={{
+                background: 'rgba(255,255,255,0.06)', borderRadius: 4,
+                padding: '1px 6px', fontSize: 10,
+              }}>
+                {cat}
+              </span>
+            )}
+            <span>{formatShortDate(tx.date)}</span>
+          </div>
+        </div>
+
+        {/* Amount + hint */}
+        <div style={{ textAlign: 'right', flexShrink: 0 }}>
+          <div style={{
+            fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 600,
+            color: amtColor(type),
+          }}>
+            {tx.amount > 0 ? '+' : ''}{formatCurrency(tx.amount)}
+          </div>
+          <div style={{ fontSize: 10, color: 'var(--text-quaternary)', marginTop: 2 }}>
+            {saving ? 'salvando…' : open ? '▲ fechar' : 'editar'}
+          </div>
+        </div>
+      </div>
+
+      {/* TransactionEditForm — inline */}
+      {open && (
+        <div style={{ borderBottom: !last ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
+          <TransactionEditForm
+            tx={tx}
+            categories={categories}
+            onSave={handleSave}
+            onCancel={() => setOpen(false)}
+            saving={saving}
+          />
         </div>
       )}
     </div>
   );
 }
 
-// ─── DateGroup ────────────────────────────────────────────────────────────────
+// ─── TransactionList ──────────────────────────────────────────────────────────
 
-function DateGroup({
-  date, items, isMobile, onRecategorize,
-}: {
-  date: string;
-  items: Transaction[];
-  isMobile: boolean;
-  onRecategorize?: (txId: number) => void;
-}) {
-  const fmt = formatDateHeader(date);
-  const net = items.reduce((s, tx) => s + tx.amount, 0);
-
-  return (
-    <div style={{ marginBottom: 16 }}>
-      {/* Cabeçalho sticky */}
-      <div style={{
-        display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
-        padding: '0 2px 7px',
-        // Ajuste o `top` conforme a altura do seu header + filtros fixos
-        position: 'sticky', top: 108, zIndex: 5,
-        background: 'var(--surface-bg)',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-          <span style={{
-            fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 700,
-            color: 'var(--text-muted)', letterSpacing: '0.08em',
-          }}>
-            {fmt.day} {fmt.mon} {fmt.yr}
-          </span>
-          <span style={{ fontSize: 11, color: 'var(--text-muted)', opacity: 0.45 }}>{fmt.wd}</span>
-        </div>
-        <span style={{
-          fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 700,
-          color: net >= 0 ? 'var(--green-300)' : 'var(--red-400)', opacity: 0.85,
-        }}>
-          {net >= 0 ? '+' : '−'}{formatCurrency(Math.abs(net))}
-        </span>
-      </div>
-
-      {/* Linhas */}
-      <div style={{
-        borderRadius: 10, border: '1px solid var(--border-subtle)',
-        overflow: 'hidden', background: 'var(--surface-card)',
-      }}>
-        {items.map((tx, i) => (
-          <TransactionRow
-            key={tx.id}
-            tx={tx}
-            isLast={i === items.length - 1}
-            isMobile={isMobile}
-            onRecategorize={onRecategorize}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ─── Export principal ─────────────────────────────────────────────────────────
-
-interface TransactionListProps {
+export interface TransactionListProps {
+  title: string;
+  subtitle?: string;
   transactions: Transaction[];
+  limit?: number;
+  onCtaClick?: () => void;
+  ctaLabel?: string;
+  editable?: boolean;
+  categories?: string[];
+  headerRight?: React.ReactNode;
+  onSave?: (tx: Transaction) => Promise<void> | void;
+  /** @deprecated — não utilizado no novo design */
   isMobile?: boolean;
-  /** Chamado ao clicar "Alterar categoria" — recebe o id da transação */
+  /** @deprecated — use editable + onSave */
   onRecategorize?: (txId: number) => void;
 }
 
-export function TransactionList({ transactions, isMobile = false, onRecategorize }: TransactionListProps) {
-  const groups = useMemo(() => groupByDate(transactions), [transactions]);
-  if (groups.length === 0) return null;
+export function TransactionList({
+  title, subtitle, transactions,
+  limit, onCtaClick, ctaLabel = 'Ver todas →',
+  editable = false, categories = [],
+  headerRight, onSave,
+  // compat fields — ignorados no novo design
+  isMobile: _isMobile,
+  onRecategorize: _onRecategorize,
+}: TransactionListProps) {
+  const rows = limit ? transactions.slice(0, limit) : transactions;
+
+  const CtaBtn = () => (
+    <button
+      type="button"
+      onClick={onCtaClick}
+      style={{
+        background: 'none', border: 'none', color: 'var(--blue)',
+        fontSize: 12, cursor: 'pointer', fontFamily: 'var(--font-sans)',
+      }}
+    >
+      {ctaLabel}
+    </button>
+  );
 
   return (
-    <div>
-      {groups.map(g => (
-        <DateGroup
-          key={g.date}
-          date={g.date}
-          items={g.items}
-          isMobile={isMobile}
-          onRecategorize={onRecategorize}
-        />
-      ))}
+    <div style={{
+      background: 'var(--surface-card)',
+      border: '1px solid rgba(255,255,255,0.06)',
+      borderRadius: 16,
+      overflow: 'hidden',
+    }}>
+      {/* Header */}
+      <div style={{
+        padding: '13px 18px',
+        borderBottom: '1px solid var(--separator)',
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+      }}>
+        <div>
+          <span style={{ fontSize: 13, fontWeight: 600 }}>{title}</span>
+          {subtitle && (
+            <span style={{ fontSize: 11, color: 'var(--text-tertiary)', marginLeft: 8 }}>
+              {subtitle}
+            </span>
+          )}
+        </div>
+        {headerRight ?? (onCtaClick ? <CtaBtn /> : null)}
+      </div>
+
+      {/* Rows */}
+      {rows.length === 0 ? (
+        <div style={{
+          padding: '32px 18px',
+          textAlign: 'center',
+          color: 'var(--text-tertiary)',
+          fontSize: 13,
+        }}>
+          Nenhum lançamento encontrado.
+        </div>
+      ) : rows.map((tx, i) =>
+        editable
+          ? (
+            <EditableRow
+              key={tx.id}
+              tx={tx}
+              last={i === rows.length - 1}
+              categories={categories}
+              onSave={onSave}
+            />
+          )
+          : (
+            <ReadRow
+              key={tx.id}
+              tx={tx}
+              last={i === rows.length - 1}
+            />
+          )
+      )}
+
+      {/* Footer CTA */}
+      {onCtaClick && (
+        <div style={{
+          borderTop: '1px solid var(--separator)',
+          padding: '11px 18px',
+          textAlign: 'center',
+        }}>
+          <CtaBtn />
+        </div>
+      )}
     </div>
   );
 }
