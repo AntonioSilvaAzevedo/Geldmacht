@@ -3,8 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { Landmark, Upload, RefreshCw } from 'lucide-react';
-import PageHeader from '@/components/Layout/PageHeader';
+import { Landmark, Upload, RefreshCw, ChevronLeft } from 'lucide-react';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import {
   api,
@@ -42,23 +41,50 @@ const ACCOUNT_TYPE_LABELS: Record<string, string> = {
 };
 
 const INSTITUTION_COLORS: Record<string, string> = {
-  nubank:        '#820AD1',
-  itaú:          '#FF6B00',
-  itau:          '#FF6B00',
-  bradesco:      '#CC0000',
-  santander:     '#EC0000',
-  inter:         '#FF6B2B',
-  'mercado pago':'#009EE3',
-  c6:            '#1A1A2E',
-  'banco do brasil': '#FFDD00',
-  caixa:         '#006B3F',
-  xp:            '#000',
+  nubank:              '#820AD1',
+  'nu invest':         '#820AD1',
+  nuinvest:            '#820AD1',
+  itaú:                '#FF6B00',
+  itau:                '#FF6B00',
+  bradesco:            '#CC092F',
+  santander:           '#EC0000',
+  caixa:               '#006AAC',
+  'banco do brasil':   '#F9B900',
+  inter:               '#FF7A00',
+  'mercado pago':      '#00B1EA',
+  xp:                  '#1A1A1A',
+  c6:                  '#2D2D2D',
+  next:                '#00E06C',
+  picpay:              '#21C25E',
+  pagbank:             '#03A64A',
+  sicoob:              '#006E35',
+  sicredi:             '#009A44',
+  original:            '#00A859',
 };
-const CARD_PALETTE = ['#0A84FF', '#5E5CE6', '#30D158', '#FF9F0A', '#FF453A', '#5AC8FA'];
+const FALLBACK_COLORS = ['#3B82F6', '#8B5CF6', '#EC4899', '#F59E0B', '#10B981', '#6366F1'];
+const CARD_PALETTE    = ['#0A84FF', '#5E5CE6', '#30D158', '#FF9F0A', '#FF453A', '#5AC8FA'];
+
+function getInstColor(name: string): string {
+  const key = name.toLowerCase();
+  for (const [k, v] of Object.entries(INSTITUTION_COLORS)) {
+    if (key.includes(k)) return v;
+  }
+  const sum = name.split('').reduce((s, c) => s + c.charCodeAt(0), 0);
+  return FALLBACK_COLORS[sum % FALLBACK_COLORS.length];
+}
+
+function getAbbr(name: string): string {
+  const words = name.trim().split(/\s+/);
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return (words[0][0] + words[1][0]).toUpperCase();
+}
 
 function cardAccent(card: CreditCardConfig, idx: number): string {
   const key = (card.institution ?? '').toLowerCase().trim();
-  return INSTITUTION_COLORS[key] ?? CARD_PALETTE[idx % CARD_PALETTE.length];
+  for (const [k, v] of Object.entries(INSTITUTION_COLORS)) {
+    if (key.includes(k)) return v;
+  }
+  return CARD_PALETTE[idx % CARD_PALETTE.length];
 }
 
 function txDotColor(type: string | null): string {
@@ -177,15 +203,20 @@ export default function InstitutionDetailPage() {
 
   const pad = isMobile ? '0 14px 32px' : '0 28px 40px';
 
+  const instColor = getInstColor(institutionName);
+
   // ── Loading / Error ──
   if (loading) {
     return (
       <>
-        <PageHeader
-          title={institutionName}
+        <InstitutionHeader
+          name={institutionName}
+          color={instColor}
           subtitle="Carregando..."
-          crumbs={[{ href: '/carteira', label: 'Carteira' }]}
-          px={isMobile ? 14 : 32}
+          tabs={[]}
+          activeTab={tab}
+          onTabChange={setTab}
+          isMobile={isMobile}
         />
         <main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <LoadingSpinner />
@@ -196,10 +227,14 @@ export default function InstitutionDetailPage() {
   if (error) {
     return (
       <>
-        <PageHeader
-          title={institutionName}
-          crumbs={[{ href: '/carteira', label: 'Carteira' }]}
-          px={isMobile ? 14 : 32}
+        <InstitutionHeader
+          name={institutionName}
+          color={instColor}
+          subtitle=""
+          tabs={[]}
+          activeTab={tab}
+          onTabChange={setTab}
+          isMobile={isMobile}
         />
         <main style={{ padding: 24 }}>
           <p style={{ color: 'var(--red-400, #FF453A)', fontSize: 14, marginBottom: 12 }}>{error}</p>
@@ -213,28 +248,17 @@ export default function InstitutionDetailPage() {
 
   return (
     <>
-      <PageHeader
-        title={institutionName}
+      <InstitutionHeader
+        name={institutionName}
+        color={instColor}
         subtitle={subtitle}
-        crumbs={[{ href: '/carteira', label: 'Carteira' }]}
-        px={isMobile ? 14 : 32}
+        tabs={tabs}
+        activeTab={tab}
+        onTabChange={setTab}
+        isMobile={isMobile}
       />
 
       <main style={{ padding: pad, flex: 1, maxWidth: 700, margin: '0 auto', width: '100%' }}>
-
-        {/* Tabs */}
-        <div style={{ display: 'flex', gap: 2, background: 'var(--s2, #2C2C2E)', borderRadius: 12, padding: 4, marginBottom: 20, width: 'fit-content' }}>
-          {tabs.map(t => (
-            <button key={t.id} onClick={() => setTab(t.id)} style={{
-              padding: '7px 18px', borderRadius: 9, border: 'none',
-              background: tab === t.id ? 'var(--s0, #000)' : 'transparent',
-              color:      tab === t.id ? '#fff' : 'var(--text-secondary, rgba(255,255,255,0.6))',
-              fontSize: 14, fontWeight: tab === t.id ? 600 : 400,
-              cursor: 'pointer', transition: 'all 0.1s',
-              boxShadow: tab === t.id ? '0 1px 4px rgba(0,0,0,0.4)' : 'none',
-            }}>{t.label}</button>
-          ))}
-        </div>
 
         {/* ── Tab: Extrato ── */}
         {tab === 'extrato' && (
@@ -273,6 +297,100 @@ export default function InstitutionDetailPage() {
         )}
       </main>
     </>
+  );
+}
+
+// ── InstitutionHeader ─────────────────────────────────────────────────────────
+
+function InstitutionHeader({
+  name, color, subtitle, tabs, activeTab, onTabChange, isMobile,
+}: {
+  name: string;
+  color: string;
+  subtitle: string;
+  tabs: { id: Tab; label: string }[];
+  activeTab: Tab;
+  onTabChange: (t: Tab) => void;
+  isMobile: boolean;
+}) {
+  const abbr = getAbbr(name);
+  const px   = isMobile ? 14 : 32;
+
+  return (
+    <div
+      data-institution-header=""
+      style={{
+        flexShrink: 0,
+        padding: `13px ${px}px 0`,
+        borderBottom: '1px solid rgba(255,255,255,0.08)',
+        background: '#000',
+      }}
+    >
+      {/* Breadcrumb */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+        <ChevronLeft size={13} color="#0A84FF" strokeWidth={2.2} />
+        <Link href="/carteira" style={{ color: '#0A84FF', fontSize: 13, textDecoration: 'none' }}>
+          Carteira
+        </Link>
+      </div>
+
+      {/* Title row */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'flex-end',
+        justifyContent: 'space-between',
+        gap: 12,
+        paddingBottom: 12,
+        flexWrap: isMobile ? 'wrap' : 'nowrap',
+      }}>
+        {/* Left: avatar + name */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
+          <div style={{
+            width: 44, height: 44, borderRadius: 13, flexShrink: 0,
+            background: `${color}1a`,
+            border: `1px solid ${color}33`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 13, fontWeight: 800, color,
+          }}>
+            {abbr}
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <h1 style={{
+              fontSize: 22, fontWeight: 700, letterSpacing: '-0.02em',
+              marginBottom: 2, lineHeight: 1.1,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>
+              {name}
+            </h1>
+            {subtitle && (
+              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.60)', margin: 0 }}>{subtitle}</p>
+            )}
+          </div>
+        </div>
+
+        {/* Right: SegmentedControl */}
+        {tabs.length > 0 && (
+          <div style={{ display: 'inline-flex', gap: 4, background: '#2C2C2E', borderRadius: 10, padding: 3, flexShrink: 0 }}>
+            {tabs.map(t => {
+              const on = t.id === activeTab;
+              return (
+                <button key={t.id} onClick={() => onTabChange(t.id)} style={{
+                  padding: '6px 14px', borderRadius: 8, border: 'none',
+                  background: on ? '#000' : 'transparent',
+                  color: on ? '#fff' : 'rgba(255,255,255,0.60)',
+                  fontSize: 13, fontWeight: on ? 600 : 400,
+                  cursor: 'pointer', transition: 'all .12s',
+                  boxShadow: on ? '0 1px 4px rgba(0,0,0,0.4)' : 'none',
+                  whiteSpace: 'nowrap', lineHeight: 1,
+                }}>
+                  {t.label}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
