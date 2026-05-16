@@ -82,7 +82,7 @@ export default function PageHeader({
       data-page-header=""
       style={{
         flexShrink: 0,
-        padding: `${hasCrumbs ? 12 : 16}px ${px}px ${nav ? 0 : 13}px`,
+        padding: `${hasCrumbs ? 12 : 16}px ${px}px ${nav ? 0 : 16}px`,
         borderBottom: '1px solid var(--separator)',
         background: 'var(--surface-bg)',
       }}
@@ -120,7 +120,7 @@ export default function PageHeader({
       {/* ── Title row ── */}
       <div style={{
         display: 'flex',
-        alignItems: 'flex-start',
+        alignItems: 'center',
         justifyContent: 'space-between',
         gap: 16,
       }}>

@@ -795,7 +795,7 @@ export default function InstitutionDetailPage() {
   );
 
   const institutionColor = getInstitutionColor(displayName || institutionName);
-  const padding = isMobile ? '0 14px 32px' : '0 32px 40px';
+  const padding = isMobile ? '24px 14px 32px' : '24px 32px 40px';
 
   if (loading) {
     return (
