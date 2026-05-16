@@ -27,6 +27,7 @@ import type { Transaction } from '@/types/financial';
 import { formatCurrency } from '@/lib/formatters';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { getInstitutionColor } from '@/lib/institutionColors';
+import ContaEmptyState from '@/components/ContaEmptyState';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -82,6 +83,7 @@ const ACCOUNT_TYPE_LABELS: Record<string, string> = {
 
 function ContaTab({
   accounts,
+  cards,
   activeAccountId,
   setActiveAccountId,
   transactions,
@@ -90,8 +92,11 @@ function ContaTab({
   displayName,
   institutionColor,
   onVerTodas,
+  onAccountCreated,
+  onImportOFX,
 }: {
   accounts: BankAccountConfig[];
+  cards: CreditCardConfig[];
   activeAccountId: number | null;
   setActiveAccountId: (id: number) => void;
   transactions: Transaction[];
@@ -100,6 +105,8 @@ function ContaTab({
   displayName: string;
   institutionColor: string;
   onVerTodas: () => void;
+  onAccountCreated: (account: BankAccountConfig) => void;
+  onImportOFX: () => void;
 }) {
   const activeAccount = accounts.find(a => a.id === activeAccountId);
 
@@ -126,17 +133,14 @@ function ContaTab({
   const monthLabelCap = monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
 
   if (accounts.length === 0) {
+    const reason = cards.length > 0 ? 'card_only' : 'new';
     return (
-      <div style={{
-        background: 'var(--surface-card)', borderRadius: 20,
-        border: '1px solid rgba(255,255,255,0.06)',
-        padding: '40px 24px', textAlign: 'center',
-      }}>
-        <Landmark size={32} color="var(--text-muted)" style={{ margin: '0 auto 12px', display: 'block' }} />
-        <p style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 16 }}>
-          Nenhuma conta bancária nesta instituição.
-        </p>
-      </div>
+      <ContaEmptyState
+        inst={inst}
+        reason={reason}
+        onSave={onAccountCreated}
+        onImportOFX={onImportOFX}
+      />
     );
   }
 
@@ -856,6 +860,7 @@ export default function InstitutionDetailPage() {
         {tab === 'conta' && (
           <ContaTab
             accounts={accounts}
+            cards={cards}
             activeAccountId={activeAccountId}
             setActiveAccountId={setActiveAccountId}
             transactions={transactions}
@@ -866,6 +871,11 @@ export default function InstitutionDetailPage() {
             onVerTodas={() => {
               if (activeAccountId) router.push(`/contas/${activeAccountId}`);
             }}
+            onAccountCreated={account => {
+              setAccounts(prev => [...prev, account]);
+              setActiveAccountId(account.id);
+            }}
+            onImportOFX={() => router.push('/upload?type=bank_statement')}
           />
         )}
 
