@@ -226,14 +226,17 @@ export default function MovimentacoesPage() {
         </div>
       )}
 
-      {/* ── Área scrollável: só a lista ── */}
+      {/* ── Lista — flex column, só as rows rolam ── */}
       <main style={{
         flex: 1,
-        padding: isMobile ? '12px 14px 40px' : '16px 32px 48px',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+        minHeight: 0,
+        padding: isMobile ? '12px 14px' : '12px 32px 16px',
         maxWidth: 800,
         margin: '0 auto',
         width: '100%',
-        minHeight: 0,
       }}>
         {months.length === 0 ? (
           <div style={{
@@ -258,6 +261,7 @@ export default function MovimentacoesPage() {
             editable={true}
             categories={categories}
             onSave={handleSave}
+            scrollable={true}
           />
         )}
       </main>

@@ -37,7 +37,8 @@ type Tab = 'conta' | 'cartao' | 'resumo';
 /** Entradas / saídas do mês para o KPIStrip */
 interface MonthStats {
   entradas: number;
-  saidas: number;
+  saidas:   number;
+  monthYM:  string; // "YYYY-MM" do mês com dados mais recente
 }
 
 /** Sigla da instituição para o avatar do AccountCard */
@@ -128,9 +129,9 @@ function ContaTab({
   };
 
   const saldo = monthStats.entradas - monthStats.saidas;
-  const monthLabel = currentMonthLabel();
-
-  // capitalize first letter
+  const [ym_y, ym_m] = monthStats.monthYM.split('-');
+  const monthLabel = new Date(Number(ym_y), Number(ym_m) - 1, 1)
+    .toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
   const monthLabelCap = monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
 
   if (accounts.length === 0) {
@@ -694,7 +695,7 @@ export default function InstitutionDetailPage() {
 
   const [activeAccountId, setActiveAccountId] = useState<number | null>(null);
   const [transactions, setTransactions]       = useState<Transaction[]>([]);
-  const [monthStats, setMonthStats]           = useState<MonthStats>({ entradas: 0, saidas: 0 });
+  const [monthStats, setMonthStats]           = useState<MonthStats>({ entradas: 0, saidas: 0, monthYM: currentYearMonth() });
   const [txLoading, setTxLoading]             = useState(false);
 
   const [loading, setLoading]         = useState(true);
@@ -764,19 +765,19 @@ export default function InstitutionDetailPage() {
       const sorted = txs.sort((a, b) => b.date.localeCompare(a.date));
       setTransactions(sorted);
 
-      // Calcula entradas/saídas do mês atual
-      const ym = currentYearMonth(); // "YYYY-MM"
-      const monthTxs = sorted.filter(tx => tx.date.startsWith(ym));
+      // Usa o mês mais recente com dados (não necessariamente o mês atual)
+      const latestYM = sorted.length > 0 ? sorted[0].date.slice(0, 7) : currentYearMonth();
+      const monthTxs = sorted.filter(tx => tx.date.startsWith(latestYM));
       const entradas = monthTxs
         .filter(tx => tx.amount > 0 && tx.transaction_type !== 'transfer')
         .reduce((s, tx) => s + tx.amount, 0);
       const saidas = monthTxs
         .filter(tx => tx.amount < 0 && tx.transaction_type !== 'transfer')
         .reduce((s, tx) => s + Math.abs(tx.amount), 0);
-      setMonthStats({ entradas, saidas });
+      setMonthStats({ entradas, saidas, monthYM: latestYM });
     } catch {
       setTransactions([]);
-      setMonthStats({ entradas: 0, saidas: 0 });
+      setMonthStats({ entradas: 0, saidas: 0, monthYM: currentYearMonth() });
     } finally {
       setTxLoading(false);
     }

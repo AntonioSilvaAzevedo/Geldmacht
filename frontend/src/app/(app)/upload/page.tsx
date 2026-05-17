@@ -1,7 +1,7 @@
 'use client';
 
 import { Suspense, useState, useCallback, useEffect, useRef } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { Upload, FileText, FileSpreadsheet, X, AlertCircle, Loader2 } from 'lucide-react';
 import {
   api,
@@ -43,6 +43,7 @@ function formatImportedAtPt(iso: string | null): string {
 
 function UploadPageInner() {
   const isMobile = useIsMobile();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const uploadType = searchParams.get('type');
   const cardIdParam = searchParams.get('cardId');
@@ -196,9 +197,13 @@ function UploadPageInner() {
   };
 
   const handleImportDone = () => {
-    setSelectedFile(null);
-    setUploadResult(null);
-    setStage('idle');
+    if (needsBankSelector && selectedBankId) {
+      router.push(`/contas/${selectedBankId}`);
+    } else if (isCreditCardType && card?.id) {
+      router.push(`/cartao/${card.id}`);
+    } else {
+      router.push('/carteira');
+    }
   };
 
   const fileAccept = isBankStatementType

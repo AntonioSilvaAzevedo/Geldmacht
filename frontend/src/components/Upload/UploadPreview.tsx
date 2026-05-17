@@ -1,1319 +1,728 @@
 'use client';
 
 /**
- * UploadPreview — Etapa 2.3 Passo 3
- * Exibe os lançamentos extraídos com checkboxes para seleção antes de importar.
+ * UploadReview — Redesign da tela de revisão de lançamentos
  *
- * Este componente é o núcleo do fluxo de importação:
- *   upload → preview → selecionar → importar → dashboard
+ * Destino: src/components/Upload/UploadPreview.tsx (substituição direta)
+ * Protótipo: Screen - Revisar Lançamentos.html
  *
- * Implementado no Passo 3 desta etapa.
+ * Props idênticas ao UploadPreview.tsx anterior — sem alterações em upload/page.tsx.
  */
 
-import { useState, useMemo, useCallback, useEffect } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useState, useMemo, useCallback } from 'react';
 import {
-  CheckSquare, Square, ArrowLeft, Download,
-  AlertTriangle, TrendingUp, TrendingDown,
-  Search, Filter, Loader2, CheckCircle2,
-} from 'lucide-react';
-import EditableDescription from '@/components/EditableDescription';
-import { CategoryChoiceSelect } from '@/components/category-choice-select';
-import {
+  importTransactions,
   type UploadResponse,
   type PreviewTransaction,
-  type InvoiceSummary,
-  type InvoiceCreate,
   type Category,
   type CreditCardConfig,
   type BankAccountConfig,
-  type ImportResponse,
   type ImportKind,
-  importTransactions,
+  type InvoiceCreate,
 } from '@/lib/api';
-import { formatCurrency, formatDate } from '@/lib/formatters';
+import { formatCurrency } from '@/lib/formatters';
 import { useIsMobile } from '@/hooks/useIsMobile';
 
-// ── Labels amigáveis por parser ───────────────────────────────────────────────
-const PARSER_LABELS: Record<string, string> = {
-  nubankpf:            'Extrato Nubank PF',
-  nubankpj:            'Extrato Nubank PJ',
-  faturacartaonubank:  'Fatura Cartão Nubank',
-  itau:                'Extrato Itaú Uniclass',
-  mercadopago:         'Extrato Mercado Pago',
-  bank_statement_ofx:  'Extrato bancário (OFX)',
-};
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-type Filter = 'todos' | 'entradas' | 'saidas' | 'transferencias';
+type TxFilter = 'todos' | 'entradas' | 'saidas' | 'transferencias';
+type TxType   = 'income' | 'expense';
 
-function previewMovementLabel(tx: PreviewTransaction): string {
-  if (tx.transaction_type === 'income') return 'Entrada';
-  if (tx.transaction_type === 'expense') return 'Saída';
-  return tx.amount >= 0 ? 'Entrada' : 'Saída';
+/** Versão local enriquecida de PreviewTransaction para o estado de revisão */
+interface ReviewTx extends PreviewTransaction {
+  _id:         number;
+  selected:    boolean;
+  editDesc:    string;
+  editAmount:  number;
+  editType:    TxType;
+  editCatId:   number | null;
+  editNote:    string;
 }
 
 interface Props {
-  result: UploadResponse;
-  card?: CreditCardConfig | null;
-  cards?: CreditCardConfig[];
-  categories?: Category[];
-  uploadType?: string | null;
-  /** Explicita o tipo de importação (Fase 1). Omitir no fluxo antigo só se não for cartão. */
-  importKind?: ImportKind | null;
-  /** Conta bancária selecionada no fluxo `?type=bank_statement`. */
+  result:       UploadResponse;
+  card?:        CreditCardConfig | null;
+  cards?:       CreditCardConfig[];
+  categories?:  Category[];
+  uploadType?:  string | null;
+  importKind?:  ImportKind | null;
   bankAccount?: BankAccountConfig | null;
-  onBack: () => void;
+  onBack:       () => void;
   onImportDone: () => void;
 }
 
-function SummaryCard({
-  label,
-  value,
-  subtitle,
-  color,
-}: {
-  label: string;
-  value: string;
-  subtitle: string;
-  color: string;
-}) {
-  return (
-    <div style={{
-      background: 'var(--surface-card)',
-      border: '1px solid var(--border-subtle)',
-      borderRadius: 10,
-      padding: '12px 14px',
-      minWidth: 0,
-    }}>
-      <div style={{
-        fontSize: 10,
-        fontWeight: 600,
-        letterSpacing: '0.08em',
-        textTransform: 'uppercase',
-        color: 'var(--text-muted)',
-        marginBottom: 6,
-      }}>
-        {label}
-      </div>
-      <div style={{
-        fontFamily: 'var(--font-mono)',
-        fontSize: 16,
-        fontWeight: 700,
-        color,
-        fontVariantNumeric: 'tabular-nums',
-        whiteSpace: 'nowrap',
-      }}>
-        {value}
-      </div>
-      <div style={{
-        fontSize: 11,
-        color: 'var(--text-muted)',
-        marginTop: 4,
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        whiteSpace: 'nowrap',
-      }}>
-        {subtitle}
-      </div>
-    </div>
-  );
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const PARSER_LABELS: Record<string, string> = {
+  nubankpf:           'Extrato Nubank PF',
+  nubankpj:           'Extrato Nubank PJ',
+  faturacartaonubank: 'Fatura Cartão Nubank',
+  itau:               'Extrato Itaú',
+  mercadopago:        'Extrato Mercado Pago',
+  bank_statement_ofx: 'Extrato bancário (OFX)',
+};
+
+function fmtDate(iso: string): string {
+  const d = iso.split('T')[0];
+  const [, mo, dy] = d.split('-');
+  return `${dy}/${mo}`;
 }
 
-function SummaryNotice({
-  label,
-  value,
-  description,
-}: {
-  label: string;
-  value: string;
-  description: string;
-}) {
-  return (
-    <div style={{
-      background: 'rgba(56,161,105,0.12)',
-      border: '1px solid rgba(56,161,105,0.25)',
-      borderRadius: 10,
-      padding: '12px 14px',
-      marginBottom: 10,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      gap: 14,
-    }}>
-      <div style={{ minWidth: 0 }}>
-        <div style={{
-          fontSize: 10,
-          fontWeight: 700,
-          letterSpacing: '0.08em',
-          textTransform: 'uppercase',
-          color: 'var(--green-400)',
-          marginBottom: 4,
-        }}>
-          {label}
-        </div>
-        <div style={{
-          fontSize: 12,
-          color: 'var(--text-secondary)',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-        }}>
-          {description}
-        </div>
-      </div>
-      <div style={{
-        fontFamily: 'var(--font-mono)',
-        fontSize: 16,
-        fontWeight: 700,
-        color: 'var(--green-400)',
-        fontVariantNumeric: 'tabular-nums',
-        whiteSpace: 'nowrap',
-      }}>
-        {value}
-      </div>
-    </div>
-  );
+function txType(t: PreviewTransaction): TxType {
+  if (t.transaction_type === 'income') return 'income';
+  if (t.transaction_type === 'expense') return 'expense';
+  return t.amount >= 0 ? 'income' : 'expense';
 }
 
-function InvoiceSummaryCards({ summary }: { summary: InvoiceSummary }) {
-  const averageExpense = summary.total_expenses > 0
-    ? summary.total_invoice / summary.total_expenses
-    : 0;
-  const paymentAmount = summary.payment_amount ?? 0;
-  const totalOtherCredits = summary.total_other_credits ?? 0;
-  const totalOtherCreditsCount = summary.total_other_credits_count ?? 0;
+// ─── Sub-components ───────────────────────────────────────────────────────────
 
+function TxCheckbox({ checked, onChange }: { checked: boolean; onChange: () => void }) {
   return (
-    <>
-      {paymentAmount > 0 && (
-        <SummaryNotice
-          label="Pagamento recebido"
-          value={formatCurrency(paymentAmount)}
-          description={summary.payment_description || 'Pagamento da fatura'}
-        />
+    <div
+      onClick={e => { e.stopPropagation(); onChange(); }}
+      style={{
+        width: 18, height: 18, borderRadius: 5, flexShrink: 0,
+        border: `1.5px solid ${checked ? 'var(--blue-400, #0A84FF)' : 'rgba(255,255,255,0.22)'}`,
+        background: checked ? 'var(--blue-400, #0A84FF)' : 'transparent',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        cursor: 'pointer', transition: 'all .1s',
+      }}
+    >
+      {checked && (
+        <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M20 6L9 17l-5-5"/>
+        </svg>
       )}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
-        gap: 10,
-        marginBottom: 14,
-        flexShrink: 0,
-      }}>
-        <SummaryCard
-          label="Total da Fatura"
-          value={formatCurrency(summary.total_invoice)}
-          subtitle={`${summary.total_expenses} gastos`}
-          color="var(--red-400)"
-        />
-        {totalOtherCredits > 0 && (
-          <SummaryCard
-            label="Estornos / Reembolsos"
-            value={formatCurrency(totalOtherCredits)}
-            subtitle={`${totalOtherCreditsCount} créditos`}
-            color="var(--green-400)"
-          />
-        )}
-        <SummaryCard
-          label="Maior Gasto"
-          value={formatCurrency(summary.largest_expense)}
-          subtitle={summary.largest_expense_description || 'Sem gastos'}
-          color="var(--amber-400)"
-        />
-        <SummaryCard
-          label="Parcelas Futuras"
-          value={formatCurrency(summary.future_commitment)}
-          subtitle={`${summary.total_installment_count} parceladas · média ${formatCurrency(averageExpense)}`}
-          color="var(--blue-400)"
-        />
-      </div>
-    </>
+    </div>
   );
 }
 
-export default function UploadPreview({ result, card, cards = [], categories = [], uploadType, importKind, bankAccount, onBack, onImportDone }: Props) {
-  const isMobile = useIsMobile();
-  const router = useRouter();
-  const { transactions, parser_used, source_file, summary, statement_metadata } = result;
-  const isCreditCardType = uploadType === 'credit_card';
-  const isBankStatement =
-    uploadType === 'bank_statement' ||
-    result.import_kind === 'bank_statement' ||
-    parser_used === 'bank_statement_ofx';
-  const [selectedCard, setSelectedCard] = useState<CreditCardConfig | null>(card ?? null);
-  const isCreditCardImport = isCreditCardType && !!selectedCard && !isBankStatement;
-
-  // ── Metadados editáveis da fatura ────────────────────────────────────────────
-  const [invoiceData, setInvoiceData] = useState<InvoiceCreate>(() => {
-    const meta = result.invoice_metadata;
-    return {
-      due_month: meta?.due_month ?? result.detected_reference_month ?? '',
-      due_date: meta?.due_date ?? null,
-      cycle_start_date: meta?.cycle_start_date ?? null,
-      cycle_end_date: meta?.cycle_end_date ?? null,
-      issue_date: meta?.issue_date ?? null,
-      closing_date: meta?.closing_date ?? null,
-      total_amount: meta?.total_amount ?? null,
-      source: meta?.source ?? null,
-      raw_reference_month: meta?.due_month ?? result.detected_reference_month ?? null,
-    };
-  });
-
-  const updateInvoice = (patch: Partial<InvoiceCreate>) =>
-    setInvoiceData(prev => ({ ...prev, ...patch }));
-
-  // ── Estado de seleção ───────────────────────────────────────────────────────
-  // Transferências internas começam desmarcadas por padrão
-  const [selected, setSelected] = useState<Set<number>>(
-    () => new Set(
-      transactions
-        .map((_, i) => i)
-        .filter(i => !transactions[i].is_internal_transfer)
-    )
+function CatSelect({
+  catId,
+  categories,
+  onChange,
+}: {
+  catId:      number | null;
+  categories: Category[];
+  onChange:   (id: number | null) => void;
+}) {
+  const cat = categories.find(c => c.id === catId);
+  return (
+    <div style={{ position: 'relative', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+      <select
+        value={catId ?? ''}
+        onChange={e => onChange(e.target.value ? Number(e.target.value) : null)}
+        style={{
+          appearance: 'none',
+          background: 'var(--surface-2, #2C2C2E)',
+          border: '1px solid rgba(255,255,255,0.1)',
+          borderRadius: 8,
+          padding: '4px 24px 4px 8px',
+          fontSize: 11,
+          color: cat?.color ?? 'rgba(255,255,255,0.35)',
+          cursor: 'pointer',
+          maxWidth: 150,
+          outline: 'none',
+          letterSpacing: '-0.01em',
+          fontFamily: 'inherit',
+        }}
+      >
+        <option value="">Sem categoria</option>
+        {categories.map(c => (
+          <option key={c.id} value={c.id}>
+            {c.icon ? `${c.icon} ` : ''}{c.name}
+          </option>
+        ))}
+      </select>
+      <div style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', opacity: .4 }}>
+        <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M6 9l6 6 6-6"/>
+        </svg>
+      </div>
+    </div>
   );
+}
 
-  // ── Edição inline de descrição (local, antes de importar) ───────────────────
-  const [descriptions, setDescriptions] = useState<Record<number, string>>(
-    () => Object.fromEntries(transactions.map((tx, i) => [i, tx.description]))
-  );
+function EditPanel({
+  tx,
+  categories,
+  onSave,
+  onCancel,
+}: {
+  tx:         ReviewTx;
+  categories: Category[];
+  onSave:     (ch: Partial<ReviewTx>) => void;
+  onCancel:   () => void;
+}) {
+  const [desc,   setDesc]   = useState(tx.editDesc);
+  const [amt,    setAmt]    = useState(String(tx.editAmount));
+  const [type,   setType]   = useState<TxType>(tx.editType);
+  const [catId,  setCatId]  = useState<number | null>(tx.editCatId);
+  const [note,   setNote]   = useState(tx.editNote);
 
-  // ── Edição inline de categoria ──────────────────────────────────────────────
-  const [categoryIds, setCategoryIds] = useState<Record<number, number | null>>(
-    () => Object.fromEntries(transactions.map((tx, i) => [i, tx.category_id ?? null]))
-  );
-
-  // ── Filtros ─────────────────────────────────────────────────────────────────
-  const [activeFilter, setActiveFilter] = useState<Filter>('todos');
-  const [search, setSearch] = useState('');
-
-  // ── Import state ────────────────────────────────────────────────────────────
-  const [importing, setImporting] = useState(false);
-  const [importResult, setImportResult] = useState<ImportResponse | null>(null);
-
-  // ── Opções de categoria válidas para o cartão selecionado ──────────────────
-  // Inclui categorias globais (card_id=null) + específicas do cartão atual.
-  // Sub aparece com label hierárquico "Pai / Sub". Ordena por label.
-  const categoryOptions = useMemo(() => {
-    if (isBankStatement) {
-      const valid = categories.filter(c => c.scope === 'bank');
-      const byId = new Map(valid.map(c => [c.id, c] as const));
-      return valid
-        .map(c => {
-          const parent = c.parent_id != null ? byId.get(c.parent_id) : null;
-          const label = parent ? `${parent.name} / ${c.name}` : c.name;
-          return { id: c.id, label, icon: c.icon ?? null, isSub: !!parent };
-        })
-        .sort((a, b) => a.label.localeCompare(b.label));
-    }
-    const cardId = selectedCard?.id;
-    const valid = categories.filter(c => {
-      if (c.scope !== 'credit_card') return false;
-      if (c.card_id == null) return true;
-      return cardId != null && c.card_id === cardId;
-    });
-    const byId = new Map(valid.map(c => [c.id, c] as const));
-    return valid
-      .map(c => {
-        const parent = c.parent_id != null ? byId.get(c.parent_id) : null;
-        const label = parent ? `${parent.name} / ${c.name}` : c.name;
-        return { id: c.id, label, icon: c.icon ?? null, isSub: !!parent };
-      })
-      .sort((a, b) => a.label.localeCompare(b.label));
-  }, [categories, selectedCard, isBankStatement]);
-
-  useEffect(() => {
-    if (isBankStatement && activeFilter === 'transferencias') setActiveFilter('todos');
-  }, [isBankStatement, activeFilter]);
-
-  // Limpa categoryIds que ficaram inválidos quando cartão / escopo de categorias muda
-  useEffect(() => {
-    const validIds = new Set(categoryOptions.map(o => o.id));
-    setCategoryIds(prev => {
-      let changed = false;
-      const next: Record<number, number | null> = {};
-      Object.entries(prev).forEach(([k, v]) => {
-        if (v === null || validIds.has(v)) next[Number(k)] = v;
-        else { next[Number(k)] = null; changed = true; }
-      });
-      return changed ? next : prev;
-    });
-  }, [categoryOptions]);
-
-  // ── Transações filtradas ────────────────────────────────────────────────────
-  const filteredIndices = useMemo(() => {
-    return transactions
-      .map((tx, i) => ({ tx, i }))
-      .filter(({ tx }) => {
-        if (activeFilter === 'entradas' && tx.amount <= 0) return false;
-        if (activeFilter === 'saidas' && tx.amount >= 0) return false;
-        if (activeFilter === 'transferencias' && !tx.is_internal_transfer) return false;
-        if (search) {
-          const q = search.toLowerCase();
-          if (!tx.description.toLowerCase().includes(q)) return false;
-        }
-        return true;
-      })
-      .map(({ i }) => i);
-  }, [transactions, activeFilter, search]);
-
-  // ── Contagens ────────────────────────────────────────────────────────────────
-  const selectedCount = selected.size;
-  const filteredSelected = filteredIndices.filter(i => selected.has(i)).length;
-  const filteredTotal = filteredIndices.length;
-  const allFilteredSelected = filteredTotal > 0 && filteredSelected === filteredTotal;
-
-  // ── Toggle individual ───────────────────────────────────────────────────────
-  const toggle = useCallback((i: number) => {
-    setSelected(prev => {
-      const next = new Set(prev);
-      if (next.has(i)) next.delete(i);
-      else next.add(i);
-      return next;
-    });
-  }, []);
-
-  // ── Selecionar / desmarcar todos os filtrados ───────────────────────────────
-  const toggleAllFiltered = () => {
-    setSelected(prev => {
-      const next = new Set(prev);
-      if (allFilteredSelected) {
-        filteredIndices.forEach(i => next.delete(i));
-      } else {
-        filteredIndices.forEach(i => next.add(i));
-      }
-      return next;
-    });
+  const lbl: React.CSSProperties = {
+    fontSize: 9, fontWeight: 600, letterSpacing: '0.07em',
+    textTransform: 'uppercase', color: 'rgba(255,255,255,0.38)',
+    display: 'block', marginBottom: 5,
+  };
+  const inp: React.CSSProperties = {
+    width: '100%', padding: '8px 11px', borderRadius: 9,
+    border: '1px solid rgba(255,255,255,0.1)',
+    background: 'var(--surface-1, #1C1C1E)',
+    color: '#fff', fontSize: 13, outline: 'none', fontFamily: 'inherit',
   };
 
-  // ── Importar ─────────────────────────────────────────────────────────────────
-  const handleImport = async () => {
-    if (selected.size === 0) return;
-    if (!isBankStatement && isCreditCardType && !selectedCard) return;
-    if (isBankStatement && !bankAccount) return;
+  return (
+    <div
+      onClick={e => e.stopPropagation()}
+      style={{
+        background: 'var(--surface-1, #1C1C1E)',
+        borderBottom: '1px solid rgba(255,255,255,0.05)',
+        padding: '14px 20px 16px 52px',
+        display: 'grid', gap: 12,
+      }}
+    >
+      {/* Desc + type */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 12, alignItems: 'flex-end' }}>
+        <div>
+          <label style={lbl}>Descrição</label>
+          <input value={desc} onChange={e => setDesc(e.target.value)} style={inp}/>
+        </div>
+        <div>
+          <label style={lbl}>Tipo</label>
+          <div style={{ display: 'flex', gap: 3, background: 'rgba(255,255,255,.05)', borderRadius: 9, padding: 2 }}>
+            {([['expense','Saída','var(--red-400,#FF453A)'],['income','Entrada','var(--green-400,#30D158)']] as const).map(([id,label,c]) => {
+              const on = type === id;
+              return (
+                <button key={id} onClick={() => setType(id as TxType)} style={{
+                  padding: '5px 12px', borderRadius: 7, border: 'none',
+                  background: on ? c : 'transparent',
+                  color: on ? '#fff' : c,
+                  fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+                }}>
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Amount + notes */}
+      <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', gap: 12 }}>
+        <div>
+          <label style={lbl}>Valor (R$)</label>
+          <input
+            value={amt}
+            onChange={e => setAmt(e.target.value.replace(/[^0-9.,]/g, ''))}
+            inputMode="decimal"
+            style={{ ...inp, fontFamily: 'var(--font-mono)', fontSize: 15, fontWeight: 600 }}
+          />
+        </div>
+        <div>
+          <label style={lbl}>Observações <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, color: 'rgba(255,255,255,.2)' }}>(opcional)</span></label>
+          <input value={note} onChange={e => setNote(e.target.value)} placeholder="Nota interna…" style={inp}/>
+        </div>
+      </div>
+
+      {/* Category grid */}
+      <div>
+        <label style={lbl}>Categoria</label>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          {categories.map(c => {
+            const on = catId === c.id;
+            return (
+              <button key={c.id} onClick={() => setCatId(on ? null : c.id)} style={{
+                display: 'flex', alignItems: 'center', gap: 5,
+                padding: '5px 10px', borderRadius: 18,
+                border: `1.5px solid ${on ? (c.color ?? '#0A84FF') : 'rgba(255,255,255,0.09)'}`,
+                background: on ? `${c.color ?? '#0A84FF'}18` : 'rgba(255,255,255,0.04)',
+                color: on ? (c.color ?? '#0A84FF') : 'rgba(255,255,255,0.4)',
+                fontSize: 11, fontWeight: on ? 600 : 400,
+                cursor: 'pointer', transition: 'all .1s', fontFamily: 'inherit',
+              }}>
+                {c.icon && <span style={{ fontSize: 13, lineHeight: 1 }}>{c.icon}</span>}
+                {c.name}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+        <button onClick={onCancel} style={{
+          padding: '7px 14px', borderRadius: 8,
+          border: '1px solid rgba(255,255,255,.1)',
+          background: 'transparent', color: 'rgba(255,255,255,.4)',
+          fontSize: 12, cursor: 'pointer', fontFamily: 'inherit',
+        }}>
+          Cancelar
+        </button>
+        <button onClick={() => onSave({
+          editDesc: desc, editNote: note, editType: type, editCatId: catId,
+          editAmount: parseFloat(amt.replace(',', '.')) || tx.editAmount,
+        })} style={{
+          padding: '7px 14px', borderRadius: 8, border: 'none',
+          background: 'var(--blue-400, #0A84FF)', color: '#fff',
+          fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+        }}>
+          Salvar
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function TxRow({
+  tx,
+  categories,
+  expanded,
+  onExpand,
+  onToggle,
+  onUpdate,
+}: {
+  tx:         ReviewTx;
+  categories: Category[];
+  expanded:   boolean;
+  onExpand:   () => void;
+  onToggle:   () => void;
+  onUpdate:   (ch: Partial<ReviewTx>) => void;
+}) {
+  const amtColor = tx.editType === 'income'
+    ? 'var(--green-400, #30D158)'
+    : 'var(--red-400, #FF453A)';
+
+  return (
+    <div>
+      <div
+        onClick={onExpand}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 12,
+          padding: '10px 20px',
+          borderBottom: expanded ? 'none' : '1px solid rgba(255,255,255,0.05)',
+          background: expanded ? 'var(--surface-1, #1C1C1E)' : 'transparent',
+          cursor: 'pointer', transition: 'background .1s',
+          opacity: tx.selected ? 1 : 0.48,
+        }}
+        onMouseEnter={e => { if (!expanded) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.03)'; }}
+        onMouseLeave={e => { if (!expanded) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+      >
+        <TxCheckbox checked={tx.selected} onChange={onToggle}/>
+
+        {/* Date */}
+        <div style={{ width: 38, fontSize: 11, color: 'rgba(255,255,255,0.35)', flexShrink: 0, fontFamily: 'var(--font-mono)', letterSpacing: '-0.01em' }}>
+          {fmtDate(tx.date)}
+        </div>
+
+        {/* Type dot */}
+        <div style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, background: amtColor, marginTop: 1 }}/>
+
+        {/* Description */}
+        <div style={{
+          flex: 1, minWidth: 0, fontSize: 13, fontWeight: 500,
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          color: tx.selected ? '#fff' : 'rgba(255,255,255,0.4)',
+          letterSpacing: '-0.01em',
+        }}>
+          {tx.editDesc}
+        </div>
+
+        {/* Category */}
+        <CatSelect catId={tx.editCatId} categories={categories} onChange={id => onUpdate({ editCatId: id })}/>
+
+        {/* Amount */}
+        <div style={{
+          fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 600,
+          color: tx.selected ? amtColor : 'rgba(255,255,255,0.25)',
+          flexShrink: 0, letterSpacing: '-0.02em', minWidth: 88, textAlign: 'right',
+        }}>
+          {tx.editType === 'income' ? '+' : '-'}{formatCurrency(tx.editAmount)}
+        </div>
+
+        {/* Caret */}
+        <div style={{ flexShrink: 0, opacity: .3, transition: 'transform .12s', transform: expanded ? 'rotate(180deg)' : 'none' }}>
+          <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M6 9l6 6 6-6"/>
+          </svg>
+        </div>
+      </div>
+
+      {expanded && (
+        <EditPanel
+          tx={tx}
+          categories={categories}
+          onSave={ch => { onUpdate(ch); onExpand(); }}
+          onCancel={onExpand}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+
+export default function UploadPreview({
+  result,
+  card,
+  cards: _cards,
+  categories = [],
+  uploadType: _uploadType,
+  importKind,
+  bankAccount,
+  onBack,
+  onImportDone,
+}: Props) {
+  const isMobile  = useIsMobile();
+
+  const [txs, setTxs] = useState<ReviewTx[]>(() =>
+    result.transactions.map((t, i) => ({
+      ...t,
+      _id:        i,
+      selected:   !t.is_internal_transfer,
+      editDesc:   t.description,
+      editAmount: Math.abs(t.amount),
+      editType:   txType(t),
+      editCatId:  t.category_id ?? null,
+      editNote:   '',
+    }))
+  );
+
+  const [filter,     setFilter]     = useState<TxFilter>('todos');
+  const [search,     setSearch]     = useState('');
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [statsOpen,  setStatsOpen]  = useState(false);
+  const [importing,  setImporting]  = useState(false);
+  const [error,      setError]      = useState<string | null>(null);
+
+  // ── Derived ────────────────────────────────────────────────────
+  const filtered = useMemo(() => txs.filter(t => {
+    if (filter === 'entradas'      && t.editType !== 'income')  return false;
+    if (filter === 'saidas'        && t.editType !== 'expense') return false;
+    if (filter === 'transferencias' && !t.is_internal_transfer) return false;
+    if (search && !t.editDesc.toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
+  }), [txs, filter, search]);
+
+  const selectedCount = txs.filter(t => t.selected).length;
+  const allFilteredSelected = filtered.length > 0 && filtered.every(t => t.selected);
+  const totIn  = txs.reduce((s, t) => t.amount >= 0 ? s + Math.abs(t.amount) : s, 0);
+  const totOut = txs.reduce((s, t) => t.amount < 0  ? s + Math.abs(t.amount) : s, 0);
+
+  const parserLabel = PARSER_LABELS[result.parser_used] ?? result.parser_used;
+  const meta = result.statement_metadata;
+  const smPeriod = meta?.period_start && meta?.period_end
+    ? `${meta.period_start.slice(0, 10).split('-').reverse().join('/')} — ${meta.period_end.slice(0, 10).split('-').reverse().join('/')}`
+    : null;
+
+  // ── Actions ────────────────────────────────────────────────────
+  const toggleAll = useCallback(() => {
+    const ids = new Set(filtered.map(t => t._id));
+    const nv  = !allFilteredSelected;
+    setTxs(p => p.map(t => ids.has(t._id) ? { ...t, selected: nv } : t));
+  }, [filtered, allFilteredSelected]);
+
+  const toggleTx = useCallback((id: number) => {
+    setTxs(p => p.map(t => t._id === id ? { ...t, selected: !t.selected } : t));
+  }, []);
+
+  const updateTx = useCallback((id: number, ch: Partial<ReviewTx>) => {
+    setTxs(p => p.map(t => t._id === id ? { ...t, ...ch } : t));
+  }, []);
+
+  const deselectTransfers = useCallback(() => {
+    setTxs(p => p.map(t => t.is_internal_transfer ? { ...t, selected: false } : t));
+  }, []);
+
+  const handleConfirm = useCallback(async () => {
+    const selected = txs.filter(t => t.selected);
+    if (!selected.length) return;
     setImporting(true);
-
-    const toImport: PreviewTransaction[] = Array.from(selected).map(i => {
-      const tx = transactions[i];
-      const isInstallment =
-        tx.installment_current != null &&
-        tx.installment_total != null &&
-        tx.installment_total > 1;
-      const isPayment = !!tx.is_payment;
-      const isSystemic = isInstallment || isPayment;
-      const catId = isSystemic ? null : (categoryIds[i] ?? null);
-      return {
-        ...tx,
-        description: descriptions[i] ?? tx.description,
-        raw_description: tx.raw_description ?? null,
-        category_id: catId,
-        category: isSystemic ? null : (categories.find(cat => cat.id === catId)?.name ?? null),
-      };
-    });
-
+    setError(null);
     try {
-      const resolvedImportKind: ImportKind | undefined =
-        importKind !== undefined && importKind !== null
-          ? importKind
-          : (isCreditCardImport ? 'credit_card_invoice' : undefined);
-
-      const res = await importTransactions({
-        source_file,
-        parser_used,
-        transactions: toImport,
-        ...(isBankStatement && bankAccount
-          ? {
-              import_kind: 'bank_statement',
-              bank_account_id: bankAccount.id,
-              file_hash: result.file_hash ?? undefined,
-              period_start: result.statement_metadata?.period_start ?? undefined,
-              period_end: result.statement_metadata?.period_end ?? undefined,
-              card_id: null,
-              reference_month: null,
-            }
-          : {
-              card_id: selectedCard?.id ?? null,
-              reference_month: isCreditCardImport ? (invoiceData.due_month || null) : null,
-              invoice: isCreditCardImport && invoiceData.due_month ? invoiceData : undefined,
-              ...(resolvedImportKind ? { import_kind: resolvedImportKind } : {}),
-            }),
-      });
-      if (isBankStatement && bankAccount) {
-        router.push(`/contas/${bankAccount.id}`);
-        return;
-      }
-      setImportResult(res);
-      if (isCreditCardImport && selectedCard) {
-        if (res.invoice_id) {
-          router.push(`/cartao/${selectedCard.id}/fatura/${res.invoice_id}`);
-        } else if (res.due_month) {
-          router.push(`/cartao/${selectedCard.id}/${res.due_month}`);
-        }
-      }
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'Erro ao importar. Tente novamente.');
+      const payload = {
+        source_file:     result.source_file,
+        parser_used:     result.parser_used,
+        import_kind:     importKind ?? null,
+        card_id:         card?.id ?? null,
+        bank_account_id: bankAccount?.id ?? null,
+        file_hash:       result.file_hash ?? null,
+        invoice:         null as InvoiceCreate | null,
+        transactions:    selected.map(t => ({
+          ...t,
+          description:      t.editDesc,
+          amount:           t.editType === 'income' ? t.editAmount : -t.editAmount,
+          transaction_type: t.editType === 'income' ? 'income' : 'expense',
+          category_id:      t.editCatId,
+        })),
+      };
+      await importTransactions(payload as never);
+      onImportDone();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erro ao importar. Tente novamente.');
     } finally {
       setImporting(false);
     }
+  }, [txs, result, importKind, card, bankAccount, onImportDone]);
+
+  // ── Styles helpers ─────────────────────────────────────────────
+  const lbl9: React.CSSProperties = {
+    fontSize: 9, fontWeight: 600, letterSpacing: '0.07em',
+    textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)',
   };
 
-  // ── Resultado da importação ───────────────────────────────────────────────────
-  if (importResult) {
-    return (
-      <div style={{ padding: '48px 40px', maxWidth: 560, margin: '0 auto', textAlign: 'center' }}>
-        <div style={{
-          width: 72,
-          height: 72,
-          borderRadius: '50%',
-          background: 'rgba(56,161,105,0.15)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          margin: '0 auto 20px',
-        }}>
-          <CheckCircle2 size={36} color="var(--green-400)" />
+  const filterTabs: { id: TxFilter; label: string }[] = [
+    { id: 'todos',          label: `Todos (${txs.length})` },
+    { id: 'entradas',       label: `Entradas (${txs.filter(t => t.editType === 'income').length})` },
+    { id: 'saidas',         label: `Saídas (${txs.filter(t => t.editType === 'expense').length})` },
+    { id: 'transferencias', label: `Transferências (${txs.filter(t => t.is_internal_transfer).length})` },
+  ];
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', background: '#000' }}>
+
+      {/* ══ HEADER ═══════════════════════════════════════════════ */}
+      <div style={{
+        flexShrink: 0, padding: isMobile ? '12px 16px 10px' : '14px 28px 12px',
+        borderBottom: '1px solid rgba(255,255,255,0.07)',
+        background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16,
+      }}>
+        <div style={{ minWidth: 0 }}>
+          <button onClick={onBack} style={{
+            display: 'flex', alignItems: 'center', gap: 4,
+            color: 'var(--blue-400, #0A84FF)', fontSize: 13,
+            background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginBottom: 6,
+            fontFamily: 'inherit',
+          }}>
+            <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+            Voltar
+          </button>
+          <h1 style={{ fontSize: isMobile ? 18 : 22, fontWeight: 700, letterSpacing: '-0.022em', marginBottom: 4 }}>
+            Revisar lançamentos
+          </h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              background: 'rgba(10,132,255,0.12)', border: '1px solid rgba(10,132,255,0.25)',
+              borderRadius: 6, padding: '3px 9px', fontSize: 11, fontWeight: 600,
+              color: 'var(--blue-400, #0A84FF)',
+            }}>
+              {parserLabel}
+            </span>
+            {!isMobile && (
+              <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)' }}>
+                {result.source_file}
+              </span>
+            )}
+            <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
+              {txs.length} lançamentos
+            </span>
+          </div>
         </div>
-        <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 }}>
-          Importação concluída!
-        </h2>
-        <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginBottom: 8 }}>
-          <strong style={{ color: 'var(--green-400)' }}>{importResult.imported}</strong> lançamentos importados
-          {importResult.skipped > 0 && (
-            <>, <strong style={{ color: 'var(--amber-400)' }}>{importResult.skipped}</strong> duplicatas ignoradas</>
-          )}
-        </p>
-        {importResult.summary && (
-          <div style={{ marginTop: 24, textAlign: 'left' }}>
-            <InvoiceSummaryCards summary={importResult.summary} />
+
+        {!isMobile && (
+          <button onClick={() => void handleConfirm()} disabled={importing || selectedCount === 0}
+            style={{
+              flexShrink: 0, padding: '10px 20px', borderRadius: 10, border: 'none',
+              background: selectedCount > 0 && !importing ? 'var(--blue-400, #0A84FF)' : 'rgba(255,255,255,0.06)',
+              color: selectedCount > 0 && !importing ? '#fff' : 'rgba(255,255,255,0.25)',
+              fontSize: 14, fontWeight: 700, cursor: selectedCount > 0 && !importing ? 'pointer' : 'not-allowed',
+              transition: 'all .15s', fontFamily: 'inherit',
+              boxShadow: selectedCount > 0 && !importing ? '0 4px 16px rgba(10,132,255,0.3)' : 'none',
+            }}
+          >
+            {importing ? 'Importando…' : `Confirmar ${selectedCount} selecionados`}
+          </button>
+        )}
+      </div>
+
+      {/* ══ STATS BAR (colapsável) ════════════════════════════════ */}
+      <div style={{ flexShrink: 0, borderBottom: '1px solid rgba(255,255,255,0.07)', background: '#000' }}>
+        <button onClick={() => setStatsOpen(v => !v)} style={{
+          width: '100%', padding: isMobile ? '8px 16px' : '9px 28px',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <span style={lbl9}>EXTRATO</span>
+            {meta?.institution && <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>{meta.institution}</span>}
+            {smPeriod && <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>{smPeriod}</span>}
+            <span style={{ fontSize: 12 }}>
+              <span style={{ color: 'var(--green-400,#30D158)', fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{formatCurrency(totIn)}</span>
+              <span style={{ color: 'rgba(255,255,255,0.3)', margin: '0 4px' }}>↑</span>
+              <span style={{ color: 'var(--red-400,#FF453A)', fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{formatCurrency(totOut)}</span>
+              <span style={{ color: 'rgba(255,255,255,0.3)', marginLeft: 4 }}>↓</span>
+            </span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'rgba(255,255,255,0.35)', fontSize: 11, flexShrink: 0 }}>
+            {statsOpen ? 'Ocultar' : 'Detalhes'}
+            <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+              style={{ transform: statsOpen ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }}>
+              <path d="M6 9l6 6 6-6"/>
+            </svg>
+          </div>
+        </button>
+
+        {statsOpen && (
+          <div style={{ padding: '4px 28px 14px', display: 'flex', flexWrap: 'wrap', gap: '6px 24px' }}>
+            {[
+              meta?.institution  && ['Instituição', meta.institution],
+              meta?.account_id   && ['ID conta', meta.account_id],
+              smPeriod           && ['Período', smPeriod],
+              bankAccount?.name  && ['Conta destino', bankAccount.name],
+              card?.name         && ['Cartão', card.name],
+              ['Lançamentos', String(txs.length)],
+            ].filter((x): x is string[] => Boolean(x)).map(([k, v]) => (
+              <div key={String(k)}>
+                <div style={{ ...lbl9, marginBottom: 3 }}>{k}</div>
+                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', fontWeight: 500 }}>{v}</div>
+              </div>
+            ))}
           </div>
         )}
-        <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 28 }}>
-          <button
-            onClick={onImportDone}
-            style={{
-              padding: '10px 20px',
-              borderRadius: 8,
-              border: '1px solid var(--border-default)',
-              background: 'transparent',
-              color: 'var(--text-secondary)',
-              fontSize: 14,
-              cursor: 'pointer',
-            }}
-          >
-            Importar outro arquivo
-          </button>
-          <Link
-            href={
-              importResult.bank_account_id
-                ? `/contas/${importResult.bank_account_id}`
-                : importResult.card_id && importResult.invoice_id
-                  ? `/cartao/${importResult.card_id}/fatura/${importResult.invoice_id}`
-                  : importResult.card_id && importResult.due_month
-                    ? `/cartao/${importResult.card_id}/${importResult.due_month}`
-                    : '/'
-            }
-            style={{
-              padding: '10px 20px',
-              borderRadius: 8,
-              border: 'none',
-              background: 'linear-gradient(135deg, #3182ce 0%, #2c7a7b 100%)',
-              color: '#fff',
-              fontSize: 14,
-              fontWeight: 600,
-              textDecoration: 'none',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-            }}
-          >
-            {importResult.bank_account_id
-              ? 'Ver movimentações da conta'
-              : (importResult.card_id && (importResult.invoice_id || importResult.due_month))
-                ? 'Ver fatura'
-                : 'Ver no Dashboard'}
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  // ── Render principal ────────────────────────────────────────────────────────
-  return (
-    <div
-      className={isMobile ? 'has-mobile-actionbar' : undefined}
-      style={{
-        padding: isMobile ? '20px 14px 16px' : '28px 32px',
-        display: 'flex',
-        flexDirection: 'column',
-        height: isMobile ? 'auto' : '100%',
-        minHeight: 0,
-      }}
-    >
-
-      {/* Header */}
-      <div style={{ marginBottom: isMobile ? 14 : 20, flexShrink: 0 }}>
-        <button
-          onClick={onBack}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            background: 'none',
-            border: 'none',
-            color: 'var(--text-muted)',
-            fontSize: 13,
-            cursor: 'pointer',
-            marginBottom: 8,
-            padding: 0,
-          }}
-        >
-          <ArrowLeft size={14} /> Trocar arquivo
-        </button>
-        <h1 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 }}>
-          Revisar lançamentos
-        </h1>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          {/* Badge tipo detectado */}
-          <span style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 5,
-            padding: '3px 10px',
-            borderRadius: 20,
-            fontSize: 12,
-            fontWeight: 600,
-            background: 'rgba(49,130,206,0.12)',
-            border: '1px solid rgba(49,130,206,0.25)',
-            color: 'var(--blue-400)',
-          }}>
-            🏷️ {PARSER_LABELS[parser_used] ?? parser_used}
-          </span>
-          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-            📄 {source_file}
-          </span>
-          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-            🔢 {transactions.length} lançamentos
-          </span>
-        </div>
       </div>
 
-      {isCreditCardType && !isBankStatement && (
+      {/* ══ ERROR BANNER ══════════════════════════════════════════ */}
+      {error && (
         <div style={{
-          background: 'var(--surface-card)',
-          border: `1px solid ${!selectedCard ? 'rgba(229,62,62,0.4)' : 'var(--border-subtle)'}`,
-          borderRadius: 10,
-          padding: '14px 16px',
-          marginBottom: 14,
-          flexShrink: 0,
+          flexShrink: 0, padding: '10px 28px',
+          background: 'rgba(255,69,58,0.1)', borderBottom: '1px solid rgba(255,69,58,0.25)',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
         }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>
-            Dados da fatura
-          </div>
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(180px, 1fr))',
-            gap: '12px 16px',
-          }}>
-
-            {/* Cartão — obrigatório */}
-            <label style={{ display: 'grid', gap: 4, fontSize: 12 }}>
-              <span style={{ fontWeight: 600, color: selectedCard ? 'var(--text-secondary)' : 'var(--red-400)' }}>
-                Cartão {!selectedCard && '— obrigatório'}
-              </span>
-              <select
-                value={selectedCard?.id ?? ''}
-                onChange={e => {
-                  const id = e.target.value ? Number(e.target.value) : null;
-                  setSelectedCard(cards.find(c => c.id === id) ?? null);
-                }}
-                style={{
-                  padding: '6px 9px',
-                  borderRadius: 6,
-                  border: `1px solid ${!selectedCard ? 'rgba(229,62,62,0.5)' : 'var(--border-default)'}`,
-                  background: 'var(--surface-panel)',
-                  color: selectedCard ? 'var(--text-primary)' : 'var(--text-muted)',
-                  fontSize: 12,
-                }}
-              >
-                <option value="">Selecione um cartão</option>
-                {cards.map(c => (
-                  <option key={c.id} value={c.id}>{c.name}{c.institution ? ` — ${c.institution}` : ''}</option>
-                ))}
-              </select>
-              {!selectedCard && (
-                <span style={{ color: 'var(--red-400)', fontSize: 11 }}>Obrigatório para importar.</span>
-              )}
-            </label>
-
-            {/* Vencimento */}
-            <label style={{ display: 'grid', gap: 4, fontSize: 12 }}>
-              <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Vencimento</span>
-              <input
-                type="date"
-                value={invoiceData.due_date ?? ''}
-                onChange={e => {
-                  const v = e.target.value;
-                  updateInvoice({ due_date: v || null, due_month: v ? v.slice(0, 7) : invoiceData.due_month });
-                }}
-                style={{ padding: '6px 9px', borderRadius: 6, border: '1px solid var(--border-default)', background: 'var(--surface-panel)', color: 'var(--text-primary)', fontSize: 12 }}
-              />
-            </label>
-
-            {/* Mês de pagamento */}
-            <label style={{ display: 'grid', gap: 4, fontSize: 12 }}>
-              <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Mês de pagamento</span>
-              <input
-                type="month"
-                value={invoiceData.due_month ?? ''}
-                onChange={e => updateInvoice({ due_month: e.target.value })}
-                style={{ padding: '6px 9px', borderRadius: 6, border: '1px solid var(--border-default)', background: 'var(--surface-panel)', color: 'var(--text-primary)', fontSize: 12 }}
-              />
-            </label>
-
-            {/* Período — início */}
-            <label style={{ display: 'grid', gap: 4, fontSize: 12 }}>
-              <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Início do período</span>
-              <input
-                type="date"
-                value={invoiceData.cycle_start_date ?? ''}
-                onChange={e => updateInvoice({ cycle_start_date: e.target.value || null })}
-                style={{ padding: '6px 9px', borderRadius: 6, border: '1px solid var(--border-default)', background: 'var(--surface-panel)', color: 'var(--text-primary)', fontSize: 12 }}
-              />
-            </label>
-
-            {/* Período — fim */}
-            <label style={{ display: 'grid', gap: 4, fontSize: 12 }}>
-              <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Fim do período</span>
-              <input
-                type="date"
-                value={invoiceData.cycle_end_date ?? ''}
-                onChange={e => updateInvoice({ cycle_end_date: e.target.value || null })}
-                style={{ padding: '6px 9px', borderRadius: 6, border: '1px solid var(--border-default)', background: 'var(--surface-panel)', color: 'var(--text-primary)', fontSize: 12 }}
-              />
-            </label>
-
-            {/* Total da fatura */}
-            <label style={{ display: 'grid', gap: 4, fontSize: 12 }}>
-              <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Total da fatura</span>
-              <input
-                type="number"
-                min={0}
-                step={0.01}
-                placeholder="0,00"
-                value={invoiceData.total_amount ?? ''}
-                onChange={e => updateInvoice({ total_amount: e.target.value ? Number(e.target.value) : null })}
-                style={{ padding: '6px 9px', borderRadius: 6, border: '1px solid var(--border-default)', background: 'var(--surface-panel)', color: 'var(--text-primary)', fontSize: 12 }}
-              />
-            </label>
-          </div>
-
-          {/* Resumo visual da fatura */}
-          {selectedCard && (invoiceData.due_date || invoiceData.due_month) && (
-            <div style={{ marginTop: 10, padding: '8px 10px', background: 'rgba(49,130,206,0.07)', borderRadius: 7, fontSize: 12, color: 'var(--text-muted)', display: 'flex', flexWrap: 'wrap', gap: '4px 16px' }}>
-              {invoiceData.due_date && (
-                <span>Vence em <strong style={{ color: 'var(--blue-400)' }}>{formatDate(invoiceData.due_date)}</strong></span>
-              )}
-              {invoiceData.cycle_start_date && invoiceData.cycle_end_date && (
-                <span>Período: <strong style={{ color: 'var(--text-primary)' }}>{formatDate(invoiceData.cycle_start_date)} a {formatDate(invoiceData.cycle_end_date)}</strong></span>
-              )}
-              {invoiceData.total_amount != null && (
-                <span>Total: <strong style={{ color: 'var(--red-400)' }}>{formatCurrency(invoiceData.total_amount)}</strong></span>
-              )}
-            </div>
-          )}
+          <span style={{ fontSize: 13, color: 'var(--red-400,#FF453A)' }}>{error}</span>
+          <button onClick={() => setError(null)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 16 }}>×</button>
         </div>
       )}
 
-      {isBankStatement && (
-        <div style={{
-          background: 'var(--surface-card)',
-          border: '1px solid var(--border-subtle)',
-          borderRadius: 10,
-          padding: '14px 16px',
-          marginBottom: 14,
-          flexShrink: 0,
-        }}>
-          <div style={{
-            fontSize: 12, fontWeight: 700, color: 'var(--text-muted)',
-            textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10,
-          }}>
-            Dados do extrato
-          </div>
-          <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.55, display: 'grid', gap: 6 }}>
-            {bankAccount && (
-              <div><strong style={{ color: 'var(--text-primary)' }}>Conta:</strong>{' '}{bankAccount.name}{bankAccount.institution ? ` — ${bankAccount.institution}` : ''}</div>
-            )}
-            {statement_metadata?.institution != null && statement_metadata.institution !== '' && (
-              <div><strong style={{ color: 'var(--text-primary)' }}>Instituição (arquivo):</strong>{' '}{statement_metadata.institution}</div>
-            )}
-            {statement_metadata?.account_id != null && statement_metadata.account_id !== '' && (
-              <div><strong style={{ color: 'var(--text-primary)' }}>ID conta (OFX):</strong>{' '}{statement_metadata.account_id}</div>
-            )}
-            {(statement_metadata?.period_start || statement_metadata?.period_end) && (
-              <div>
-                <strong style={{ color: 'var(--text-primary)' }}>Período:</strong>{' '}
-                {statement_metadata.period_start ? formatDate(statement_metadata.period_start) : '—'}
-                {' — '}
-                {statement_metadata.period_end ? formatDate(statement_metadata.period_end) : '—'}
-              </div>
-            )}
-            {statement_metadata?.ledger_balance != null && (
-              <div><strong style={{ color: 'var(--text-primary)' }}>Saldo (extrato):</strong>{' '}{formatCurrency(statement_metadata.ledger_balance)}</div>
-            )}
-            {(statement_metadata?.total_inflows != null || statement_metadata?.total_outflows != null) && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 16px' }}>
-                {statement_metadata.total_inflows != null && (
-                  <span><strong style={{ color: 'var(--green-400)' }}>Entradas:</strong>{' '}{formatCurrency(statement_metadata.total_inflows)}</span>
-                )}
-                {statement_metadata.total_outflows != null && (
-                  <span><strong style={{ color: 'var(--red-400)' }}>Saídas:</strong>{' '}{formatCurrency(statement_metadata.total_outflows)}</span>
-                )}
-              </div>
-            )}
-            <div><strong style={{ color: 'var(--text-primary)' }}>Lançamentos:</strong>{' '}{transactions.length}</div>
-          </div>
-        </div>
-      )}
-
-      {summary && !isBankStatement && <InvoiceSummaryCards summary={summary} />}
-
-      {isBankStatement && categoryOptions.length === 0 && (
-        <div style={{
-          marginBottom: 12,
-          padding: '10px 12px',
-          borderRadius: 9,
-          background: 'rgba(49,130,206,0.07)',
-          border: '1px solid rgba(49,130,206,0.2)',
-          fontSize: 12.5,
-          color: 'var(--text-secondary)',
-          lineHeight: 1.5,
-        }}>
-          Você ainda não tem categorias para conta bancária. Você pode importar sem categoria ou{' '}
-          <Link href="/categorias" style={{ color: 'var(--blue-400)', fontWeight: 600 }}>criar categorias</Link>
-          {' '}depois.
-        </div>
-      )}
-
-      {/* Filtros + busca */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 14, flexShrink: 0, flexWrap: 'wrap' }}>
-        {/* Chips de filtro */}
-        <div style={{ display: 'flex', gap: 6 }}>
-          {(isBankStatement
-            ? ['todos', 'entradas', 'saidas']
-            : ['todos', 'entradas', 'saidas', 'transferencias']
-          ).map(f => (
-            <button
-              key={f}
-              onClick={() => setActiveFilter(f as Filter)}
-              style={{
-                padding: '6px 12px',
-                borderRadius: 7,
-                border: `1px solid ${activeFilter === f ? 'var(--blue-500)' : 'var(--border-default)'}`,
-                background: activeFilter === f ? 'rgba(49,130,206,0.15)' : 'var(--surface-card)',
-                color: activeFilter === f ? 'var(--blue-400)' : 'var(--text-secondary)',
-                fontSize: 12,
-                fontWeight: activeFilter === f ? 600 : 400,
-                cursor: 'pointer',
-                textTransform: 'capitalize',
-              }}
-            >
-              {f === 'todos'
-                ? `Todos (${transactions.length})`
-                : f === 'entradas'
-                  ? 'Entradas'
-                  : f === 'saidas'
-                    ? 'Saídas'
-                    : 'Transferências'}
-            </button>
-          ))}
-        </div>
-
-        {/* Busca */}
-        <div style={{ flex: 1, minWidth: 200, position: 'relative' }}>
-          <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-          <input
-            type="text"
-            placeholder="Buscar por descrição..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            style={{
-              width: '100%',
-              padding: '7px 12px 7px 30px',
-              borderRadius: 7,
-              border: '1px solid var(--border-default)',
-              background: 'var(--surface-card)',
-              color: 'var(--text-primary)',
-              fontSize: 13,
-              outline: 'none',
-            }}
-          />
-        </div>
-      </div>
-
-      {/* Lista de lançamentos — cards no mobile, tabela no desktop */}
-      {isMobile ? (
-        <div style={{ display: 'grid', gap: 8 }}>
-          {filteredIndices.map(i => {
-            const tx = transactions[i];
-            const isSelected = selected.has(i);
-            const isInstallment =
-              tx.installment_current != null &&
-              tx.installment_total != null &&
-              tx.installment_total > 1;
-            const isPayment = !!tx.is_payment;
-            const systemicLabel = isPayment
-              ? 'Pagamento da fatura'
-              : isInstallment
-                ? 'Compra parcelada'
-                : null;
+      {/* ══ FILTER + SEARCH ══════════════════════════════════════ */}
+      <div style={{
+        flexShrink: 0, padding: isMobile ? '8px 16px' : '10px 28px',
+        borderBottom: '1px solid rgba(255,255,255,0.07)',
+        background: '#000', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+      }}>
+        <div style={{ display: 'flex', gap: 3, background: 'var(--surface-2,#2C2C2E)', borderRadius: 9, padding: 3 }}>
+          {filterTabs.map(tab => {
+            const on = filter === tab.id;
             return (
-              <div
-                key={i}
-                onClick={() => toggle(i)}
-                style={{
-                  background: isSelected ? 'rgba(49,130,206,0.08)' : 'var(--surface-card)',
-                  border: `1px solid ${isSelected ? 'rgba(49,130,206,0.35)' : 'var(--border-subtle)'}`,
-                  borderRadius: 10,
-                  padding: '12px 12px 10px',
-                  display: 'grid',
-                  gap: 8,
-                  cursor: 'pointer',
-                  opacity: tx.is_internal_transfer && !isSelected ? 0.7 : 1,
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
-                  <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', minWidth: 0, flex: 1 }}>
-                    <span style={{ color: isSelected ? 'var(--blue-400)' : 'var(--text-muted)', flexShrink: 0, marginTop: 2 }}>
-                      {isSelected ? <CheckSquare size={17} /> : <Square size={17} />}
-                    </span>
-                    <div style={{ minWidth: 0, flex: 1 }}>
-                      <div style={{
-                        fontFamily: 'var(--font-mono)',
-                        fontSize: 11,
-                        color: 'var(--text-muted)',
-                        marginBottom: 3,
-                      }}>
-                        {formatDate(tx.date)}
-                      </div>
-                      <div onClick={e => e.stopPropagation()}>
-                        <EditableDescription
-                          value={descriptions[i] ?? tx.description}
-                          onSave={val => setDescriptions(prev => ({ ...prev, [i]: val }))}
-                          textStyle={{ fontSize: 13.5, fontWeight: 500, color: 'var(--text-primary)' }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  <div style={{
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: 14,
-                    fontWeight: 700,
-                    whiteSpace: 'nowrap',
-                    flexShrink: 0,
-                  }}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                      {tx.amount > 0
-                        ? <TrendingUp size={12} color="var(--green-400)" />
-                        : <TrendingDown size={12} color="var(--red-400)" />
-                      }
-                      <span className={tx.amount >= 0 ? 'value-positive' : 'value-negative'}>
-                        {formatCurrency(tx.amount)}
-                      </span>
-                    </span>
-                  </div>
-                </div>
-
-                {isInstallment && (
-                  <div style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 5,
-                    fontSize: 11,
-                    color: 'var(--blue-400)',
-                  }}>
-                    <span style={{
-                      padding: '2px 7px',
-                      borderRadius: 5,
-                      background: 'rgba(49,130,206,0.12)',
-                      border: '1px solid rgba(49,130,206,0.20)',
-                      fontFamily: 'var(--font-mono)',
-                      fontWeight: 600,
-                    }}>
-                      Parcela {tx.installment_current}/{tx.installment_total}
-                    </span>
-                  </div>
-                )}
-
-                <div onClick={e => e.stopPropagation()} style={{
-                  display: 'grid', gap: 4,
-                  paddingTop: 4,
-                  borderTop: '1px dashed var(--border-subtle)',
-                }}>
-                  <span style={{ fontSize: 10.5, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                    Categoria
-                  </span>
-                  {systemicLabel ? (
-                    <span style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      padding: '6px 10px',
-                      borderRadius: 6,
-                      background: 'rgba(255,255,255,0.04)',
-                      border: '1px dashed var(--border-default)',
-                      color: 'var(--text-muted)',
-                      fontSize: 12,
-                      fontWeight: 600,
-                      width: 'fit-content',
-                    }}>
-                      {systemicLabel} · Bloqueado
-                    </span>
-                  ) : (
-                    <CategoryChoiceSelect
-                      value={categoryIds[i] ?? null}
-                      options={categoryOptions}
-                      onChange={id => setCategoryIds(prev => ({ ...prev, [i]: id }))}
-                      maxWidth="100%"
-                    />
-                  )}
-                </div>
-              </div>
+              <button key={tab.id} onClick={() => setFilter(tab.id)} style={{
+                padding: '5px 11px', borderRadius: 7, border: 'none',
+                background: on ? '#000' : 'transparent',
+                color: on ? '#fff' : 'rgba(255,255,255,0.4)',
+                fontSize: 11, fontWeight: on ? 600 : 400,
+                cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all .1s',
+                boxShadow: on ? '0 1px 4px rgba(0,0,0,0.4)' : 'none',
+                fontFamily: 'inherit',
+              }}>
+                {tab.label}
+              </button>
             );
           })}
-          {filteredIndices.length === 0 && (
-            <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-muted)', border: '1px dashed var(--border-subtle)', borderRadius: 10 }}>
-              <Filter size={22} style={{ margin: '0 auto 8px', display: 'block', opacity: 0.4 }} />
-              Nenhum lançamento para este filtro.
-            </div>
+        </div>
+
+        <div style={{ flex: 1, maxWidth: 340, position: 'relative' }}>
+          <div style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', opacity: .4 }}>
+            <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+            </svg>
+          </div>
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Buscar por descrição…"
+            style={{
+              width: '100%', paddingLeft: 30, paddingRight: search ? 28 : 10,
+              paddingTop: 7, paddingBottom: 7, borderRadius: 9,
+              border: '1px solid rgba(255,255,255,0.1)',
+              background: 'var(--surface-1,#1C1C1E)', color: '#fff',
+              fontSize: 12, outline: 'none', fontFamily: 'inherit',
+            }}
+          />
+          {search && (
+            <button onClick={() => setSearch('')} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>×</button>
           )}
         </div>
-      ) : (
-      <div style={{ maxHeight: '60vh', overflowY: 'auto', borderRadius: 10, border: '1px solid var(--border-subtle)', flexShrink: 0 }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-          <thead>
-            <tr style={{ background: 'var(--surface-panel)', borderBottom: '1px solid var(--border-subtle)' }}>
-              <th style={{ padding: '10px 12px', width: 40, textAlign: 'center' }}>
-                <button
-                  onClick={toggleAllFiltered}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: allFilteredSelected ? 'var(--blue-400)' : 'var(--text-muted)', display: 'flex', alignItems: 'center' }}
-                  title={allFilteredSelected ? 'Desmarcar todos' : 'Selecionar todos'}
-                >
-                  {allFilteredSelected
-                    ? <CheckSquare size={16} />
-                    : <Square size={16} />
-                  }
-                </button>
-              </th>
-              <th style={{ padding: '10px 12px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 500 }}>Data</th>
-              <th style={{ padding: '10px 12px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 500 }}>Descrição</th>
-              <th style={{ padding: '10px 12px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 500 }}>{isBankStatement ? 'Tipo' : 'Parcela'}</th>
-              <th style={{ padding: '10px 12px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 500 }}>Categoria</th>
-              <th style={{ padding: '10px 12px', textAlign: 'right', color: 'var(--text-muted)', fontWeight: 500 }}>Valor</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredIndices.map(i => {
-              const tx = transactions[i];
-              const isSelected = selected.has(i);
-              const isTransfer = tx.is_internal_transfer;
 
-              return (
-                <tr
-                  key={i}
-                  onClick={() => toggle(i)}
-                  style={{
-                    borderBottom: '1px solid var(--border-subtle)',
-                    background: isSelected
-                      ? 'rgba(49,130,206,0.05)'
-                      : isTransfer
-                      ? 'rgba(255,255,255,0.01)'
-                      : 'transparent',
-                    cursor: 'pointer',
-                    opacity: isTransfer && !isSelected ? 0.55 : 1,
-                    transition: 'background 0.1s',
-                  }}
-                  onMouseEnter={e => {
-                    if (!isSelected) (e.currentTarget as HTMLTableRowElement).style.background = 'rgba(255,255,255,0.03)';
-                  }}
-                  onMouseLeave={e => {
-                    (e.currentTarget as HTMLTableRowElement).style.background = isSelected ? 'rgba(49,130,206,0.05)' : isTransfer ? 'rgba(255,255,255,0.01)' : 'transparent';
-                  }}
-                >
-                  {/* Checkbox */}
-                  <td style={{ padding: '10px 12px', textAlign: 'center' }}>
-                    <span style={{ color: isSelected ? 'var(--blue-400)' : 'var(--text-muted)' }}>
-                      {isSelected ? <CheckSquare size={15} /> : <Square size={15} />}
-                    </span>
-                  </td>
-
-                  {/* Data */}
-                  <td style={{ padding: '10px 12px', color: 'var(--text-muted)', whiteSpace: 'nowrap', fontFamily: 'var(--font-mono)', fontSize: 12 }}>
-                    {formatDate(tx.date)}
-                  </td>
-
-                  {/* Descrição */}
-                  <td
-                    style={{ padding: '10px 12px', color: 'var(--text-primary)', maxWidth: 300 }}
-                    onClick={e => e.stopPropagation()}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      {isTransfer && (
-                        <span title="Transferência interna">
-                          <AlertTriangle size={13} color="var(--amber-400)" style={{ flexShrink: 0 }} />
-                        </span>
-                      )}
-                      <EditableDescription
-                        value={descriptions[i] ?? tx.description}
-                        onSave={val => setDescriptions(prev => ({ ...prev, [i]: val }))}
-                      />
-                    </div>
-                  </td>
-
-                  {/* Parcela ou tipo (extrato OFX) */}
-                  <td
-                    style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}
-                    title={isBankStatement && tx.source_reference ? `Ref.: ${tx.source_reference}` : undefined}
-                  >
-                    {isBankStatement ? (
-                      <span style={{
-                        fontSize: 11,
-                        fontWeight: 600,
-                        color: previewMovementLabel(tx) === 'Entrada' ? 'var(--green-400)' : 'var(--red-400)',
-                      }}>
-                        {previewMovementLabel(tx)}
-                      </span>
-                    ) : tx.installment_current != null && tx.installment_total != null ? (
-                      <span style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        padding: '2px 7px',
-                        borderRadius: 5,
-                        background: 'rgba(49,130,206,0.12)',
-                        border: '1px solid rgba(49,130,206,0.2)',
-                        color: 'var(--blue-400)',
-                        fontSize: 11,
-                        fontWeight: 600,
-                        fontFamily: 'var(--font-mono)',
-                      }}>
-                        {tx.installment_current}/{tx.installment_total}
-                      </span>
-                    ) : (
-                      <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>—</span>
-                    )}
-                  </td>
-
-                  {/* Categoria (edição inline) */}
-                  <td style={{ padding: '8px 12px' }} onClick={e => e.stopPropagation()}>
-                    {(() => {
-                      const isInstallment =
-                        tx.installment_current != null &&
-                        tx.installment_total != null &&
-                        tx.installment_total > 1;
-                      const isPayment = !!tx.is_payment;
-                      const systemicLabel = isPayment
-                        ? 'Pagamento da fatura'
-                        : isInstallment
-                          ? 'Compra parcelada'
-                          : null;
-                      if (systemicLabel) {
-                        return (
-                          <span
-                            title="Este lançamento é sistêmico e não pode ser categorizado manualmente."
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              padding: '3px 8px',
-                              borderRadius: 6,
-                              background: 'rgba(255,255,255,0.04)',
-                              border: '1px dashed var(--border-default)',
-                              color: 'var(--text-muted)',
-                              fontSize: 11,
-                              fontWeight: 600,
-                              maxWidth: 150,
-                            }}
-                          >
-                            {systemicLabel}
-                          </span>
-                        );
-                      }
-                      return (
-                        <CategoryChoiceSelect
-                          value={categoryIds[i] ?? null}
-                          options={categoryOptions}
-                          onChange={id => setCategoryIds(prev => ({ ...prev, [i]: id }))}
-                          maxWidth={200}
-                        />
-                      );
-                    })()}
-                  </td>
-
-                  {/* Valor */}
-                  <td style={{ padding: '10px 12px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' }}>
-                    <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
-                      {tx.amount > 0
-                        ? <TrendingUp size={12} color="var(--green-400)" />
-                        : <TrendingDown size={12} color="var(--red-400)" />
-                      }
-                      <span className={tx.amount >= 0 ? 'value-positive' : 'value-negative'}>
-                        {formatCurrency(tx.amount)}
-                      </span>
-                    </span>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-
-        {filteredIndices.length === 0 && (
-          <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>
-            <Filter size={24} style={{ margin: '0 auto 8px', display: 'block', opacity: 0.4 }} />
-            Nenhum lançamento para este filtro.
-          </div>
-        )}
+        <div style={{ marginLeft: 'auto', fontSize: 12, color: 'rgba(255,255,255,0.35)', flexShrink: 0 }}>
+          {selectedCount} de {txs.length} selecionados
+        </div>
       </div>
+
+      {/* ══ COLUMN HEADER ════════════════════════════════════════ */}
+      {!isMobile && (
+        <div style={{
+          flexShrink: 0, padding: '7px 20px',
+          borderBottom: '1px solid rgba(255,255,255,0.05)',
+          background: 'var(--surface-1,#1C1C1E)',
+          display: 'flex', alignItems: 'center', gap: 12,
+        }}>
+          <TxCheckbox checked={allFilteredSelected} onChange={toggleAll}/>
+          <div style={{ width: 38 }}><span style={lbl9}>Data</span></div>
+          <div style={{ width: 6 }}/>
+          <div style={{ flex: 1 }}><span style={lbl9}>Descrição</span></div>
+          <div style={{ width: 150 }}><span style={lbl9}>Categoria</span></div>
+          <div style={{ width: 88, textAlign: 'right' }}><span style={lbl9}>Valor</span></div>
+          <div style={{ width: 20 }}/>
+        </div>
       )}
 
-      {/* Rodapé — sticky no mobile, normal no desktop */}
-      <div style={{
-        marginTop: 14,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: isMobile ? 'space-between' : 'space-between',
-        flexShrink: 0,
-        gap: 10,
-        ...(isMobile ? {
-          position: 'fixed',
-          left: 0, right: 0, bottom: 0,
-          padding: '10px 14px calc(10px + env(safe-area-inset-bottom))',
-          background: 'var(--surface-card)',
-          borderTop: '1px solid var(--border-default)',
-          boxShadow: '0 -8px 24px rgba(0,0,0,0.30)',
-          zIndex: 50,
-          marginTop: 0,
-        } : {}),
-      }}>
-        {/* Contador */}
-        <span style={{ fontSize: 12, color: 'var(--text-muted)', minWidth: 0 }}>
-          {isMobile ? (
-            <>
-              <strong style={{ color: 'var(--text-primary)' }}>{selectedCount}</strong>
-              {' '}selecionado{selectedCount === 1 ? '' : 's'}
-            </>
-          ) : (
-            <>
-              Mostrando {filteredTotal} de {transactions.length} ·{' '}
-              <strong style={{ color: 'var(--text-primary)' }}>{selectedCount}</strong> serão importados
-            </>
-          )}
-        </span>
-
-        {/* Ações */}
-        <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
-          {/* Cancelar */}
-          <button
-            onClick={onBack}
-            style={{
-              padding: '10px 20px',
-              borderRadius: 9,
-              border: '1px solid var(--border-default)',
-              background: 'transparent',
-              color: 'var(--text-secondary)',
-              fontSize: 14,
-              fontWeight: 500,
-              cursor: 'pointer',
-              transition: 'border-color 0.15s, color 0.15s',
-            }}
-            onMouseEnter={e => {
-              e.currentTarget.style.borderColor = 'var(--border-strong)';
-              e.currentTarget.style.color = 'var(--text-primary)';
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.borderColor = 'var(--border-default)';
-              e.currentTarget.style.color = 'var(--text-secondary)';
-            }}
-          >
-            Cancelar
-          </button>
-
-          {/* Importar */}
-          {isBankStatement && !bankAccount ? (
-            <button
-              disabled
-              title="Volte e selecione uma conta bancária."
-              style={{
-                padding: '10px 24px',
-                borderRadius: 9,
-                border: '1px solid rgba(229,62,62,0.3)',
-                background: 'var(--surface-card)',
-                color: 'var(--red-400)',
-                fontSize: 14,
-                fontWeight: 600,
-                cursor: 'not-allowed',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                opacity: 0.75,
-              }}
-            >
-              <Download size={15} />
-              Conta obrigatória
-            </button>
-          ) : isCreditCardType && !isBankStatement && !selectedCard ? (
-            <button
-              disabled
-              title="Selecione o cartão desta fatura antes de importar."
-              style={{
-                padding: '10px 24px',
-                borderRadius: 9,
-                border: '1px solid rgba(229,62,62,0.3)',
-                background: 'var(--surface-card)',
-                color: 'var(--red-400)',
-                fontSize: 14,
-                fontWeight: 600,
-                cursor: 'not-allowed',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                opacity: 0.75,
-              }}
-            >
-              <Download size={15} />
-              Selecione um cartão
-            </button>
-          ) : (
-            <button
-              onClick={handleImport}
-              disabled={selectedCount === 0 || importing}
-              style={{
-                padding: '10px 24px',
-                borderRadius: 9,
-                border: 'none',
-                background: selectedCount === 0 ? 'var(--surface-card)' : 'linear-gradient(135deg, #3182ce 0%, #2c7a7b 100%)',
-                color: selectedCount === 0 ? 'var(--text-muted)' : '#fff',
-                fontSize: 14,
-                fontWeight: 600,
-                cursor: selectedCount === 0 ? 'not-allowed' : 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                transition: 'opacity 0.15s',
-              }}
-              onMouseEnter={e => { if (selectedCount > 0) e.currentTarget.style.opacity = '0.9'; }}
-              onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
-            >
-              {importing ? <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} /> : <Download size={15} />}
-              {importing
-                ? 'Importando...'
-                : isMobile
-                  ? `Importar (${selectedCount})`
-                  : `Importar ${selectedCount} selecionados`}
-            </button>
-          )}
-        </div>
+      {/* ══ TRANSACTION LIST (scroll aqui) ═══════════════════════ */}
+      <div style={{ flex: 1, overflowY: 'auto', background: '#000' }}>
+        {filtered.length === 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 180, opacity: .3, gap: 8 }}>
+            <svg width={28} height={28} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+            </svg>
+            <span style={{ fontSize: 13 }}>Nenhum lançamento encontrado</span>
+          </div>
+        ) : (
+          filtered.map(tx => (
+            <TxRow
+              key={tx._id}
+              tx={tx}
+              categories={categories}
+              expanded={expandedId === tx._id}
+              onExpand={() => setExpandedId(expandedId === tx._id ? null : tx._id)}
+              onToggle={() => toggleTx(tx._id)}
+              onUpdate={ch => updateTx(tx._id, ch)}
+            />
+          ))
+        )}
+        <div style={{ height: 40 }}/>
       </div>
 
-      <style>{`
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-      `}</style>
+      {/* ══ FOOTER ═══════════════════════════════════════════════ */}
+      <div style={{
+        flexShrink: 0, padding: isMobile ? '10px 16px' : '10px 28px',
+        borderTop: '1px solid rgba(255,255,255,0.07)',
+        background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+      }}>
+        <div style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)' }}>
+            {selectedCount} selecionados · {txs.length - selectedCount} ignorados
+          </span>
+          <button onClick={deselectTransfers} style={{
+            background: 'none', border: 'none',
+            color: 'var(--blue-400,#0A84FF)', fontSize: 12, cursor: 'pointer',
+            padding: 0, fontFamily: 'inherit',
+          }}>
+            Desmarcar transferências internas
+          </button>
+        </div>
+
+        <button
+          onClick={() => void handleConfirm()}
+          disabled={importing || selectedCount === 0}
+          style={{
+            flexShrink: 0, padding: '9px 18px', borderRadius: 9, border: 'none',
+            background: selectedCount > 0 && !importing ? 'var(--blue-400,#0A84FF)' : 'rgba(255,255,255,0.06)',
+            color: selectedCount > 0 && !importing ? '#fff' : 'rgba(255,255,255,0.25)',
+            fontSize: 13, fontWeight: 700, cursor: selectedCount > 0 && !importing ? 'pointer' : 'not-allowed',
+            transition: 'all .15s', fontFamily: 'inherit',
+          }}
+        >
+          {importing ? 'Importando…' : `Confirmar ${selectedCount} selecionados →`}
+        </button>
+      </div>
     </div>
   );
 }

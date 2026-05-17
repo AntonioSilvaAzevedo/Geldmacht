@@ -239,6 +239,8 @@ export interface TransactionListProps {
   categories?: string[];
   headerRight?: React.ReactNode;
   onSave?: (tx: Transaction) => Promise<void> | void;
+  /** Quando true o card preenche o espaço disponível e só a lista interna rola */
+  scrollable?: boolean;
   /** @deprecated — não utilizado no novo design */
   isMobile?: boolean;
   /** @deprecated — use editable + onSave */
@@ -249,7 +251,7 @@ export function TransactionList({
   title, subtitle, transactions,
   limit, onCtaClick, ctaLabel = 'Ver todas →',
   editable = false, categories = [],
-  headerRight, onSave,
+  headerRight, onSave, scrollable = false,
 }: TransactionListProps) {
   const rows = limit ? transactions.slice(0, limit) : transactions;
 
@@ -272,12 +274,15 @@ export function TransactionList({
       border: '1px solid rgba(255,255,255,0.06)',
       borderRadius: 16,
       overflow: 'hidden',
+      // scrollable mode: o card preenche o espaço disponível
+      ...(scrollable ? { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 } : {}),
     }}>
       {/* Header */}
       <div style={{
         padding: '13px 18px',
         borderBottom: '1px solid var(--separator)',
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        flexShrink: 0,
       }}>
         <div>
           <span style={{ fontSize: 13, fontWeight: 600 }}>{title}</span>
@@ -290,35 +295,37 @@ export function TransactionList({
         {headerRight ?? (onCtaClick ? <CtaBtn /> : null)}
       </div>
 
-      {/* Rows */}
-      {rows.length === 0 ? (
-        <div style={{
-          padding: '32px 18px',
-          textAlign: 'center',
-          color: 'var(--text-tertiary)',
-          fontSize: 13,
-        }}>
-          Nenhum lançamento encontrado.
-        </div>
-      ) : rows.map((tx, i) =>
-        editable
-          ? (
-            <EditableRow
-              key={tx.id}
-              tx={tx}
-              last={i === rows.length - 1}
-              categories={categories}
-              onSave={onSave}
-            />
-          )
-          : (
-            <ReadRow
-              key={tx.id}
-              tx={tx}
-              last={i === rows.length - 1}
-            />
-          )
-      )}
+      {/* Rows — scrollable quando prop ativada */}
+      <div style={scrollable ? { flex: 1, overflowY: 'auto', minHeight: 0 } : {}}>
+        {rows.length === 0 ? (
+          <div style={{
+            padding: '32px 18px',
+            textAlign: 'center',
+            color: 'var(--text-tertiary)',
+            fontSize: 13,
+          }}>
+            Nenhum lançamento encontrado.
+          </div>
+        ) : rows.map((tx, i) =>
+          editable
+            ? (
+              <EditableRow
+                key={tx.id}
+                tx={tx}
+                last={i === rows.length - 1}
+                categories={categories}
+                onSave={onSave}
+              />
+            )
+            : (
+              <ReadRow
+                key={tx.id}
+                tx={tx}
+                last={i === rows.length - 1}
+              />
+            )
+        )}
+      </div>
 
       {/* Footer CTA */}
       {onCtaClick && (
@@ -326,6 +333,7 @@ export function TransactionList({
           borderTop: '1px solid var(--separator)',
           padding: '11px 18px',
           textAlign: 'center',
+          flexShrink: 0,
         }}>
           <CtaBtn />
         </div>
