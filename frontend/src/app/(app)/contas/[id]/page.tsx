@@ -165,17 +165,6 @@ export default function MovimentacoesPage() {
     : undefined;
 
   const px = isMobile ? 14 : 32;
-  const padding = isMobile ? '16px 14px 40px' : '16px 32px 48px';
-
-  // ── MonthNav node (goes in PageHeader nav slot) ───────────────────────────
-
-  const monthNavNode = months.length > 0 ? (
-    <MonthNav
-      items={months}
-      idx={monthIdx}
-      onNavigate={setMonthIdx}
-    />
-  ) : undefined;
 
   // ── Loading / Error ───────────────────────────────────────────────────────
 
@@ -213,31 +202,40 @@ export default function MovimentacoesPage() {
 
   return (
     <>
+      {/* ── Cabeçalho fixo ── */}
       <PageHeader
         title="Movimentações"
         subtitle={subtitle}
         crumbs={crumbs}
-        nav={monthNavNode}
         px={px}
       />
 
-      <main style={{ flex: 1, padding, maxWidth: 800, margin: '0 auto', width: '100%' }}>
+      {/* ── Sub-header fixo: MonthNav + KPI ── */}
+      {months.length > 0 && (
+        <div style={{
+          flexShrink: 0,
+          padding: `12px ${px}px`,
+          borderBottom: '1px solid var(--separator)',
+          background: 'var(--surface-bg)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 12,
+        }}>
+          <MonthNav items={months} idx={monthIdx} onNavigate={setMonthIdx} />
+          <KPIStrip items={kpiItems} mb={0} />
+        </div>
+      )}
 
-        {/* KPIStrip */}
-        <KPIStrip items={kpiItems} mb={14} />
-
-        {/* TransactionList — editable */}
-        <TransactionList
-          title="Lançamentos"
-          subtitle={txSubtitle}
-          transactions={monthTxs}
-          editable={true}
-          categories={categories}
-          onSave={handleSave}
-        />
-
-        {/* Empty state quando não há meses */}
-        {months.length === 0 && (
+      {/* ── Área scrollável: só a lista ── */}
+      <main style={{
+        flex: 1,
+        padding: isMobile ? '12px 14px 40px' : '16px 32px 48px',
+        maxWidth: 800,
+        margin: '0 auto',
+        width: '100%',
+        minHeight: 0,
+      }}>
+        {months.length === 0 ? (
           <div style={{
             background: 'var(--surface-card)',
             border: '1px solid rgba(255,255,255,0.06)',
@@ -252,6 +250,15 @@ export default function MovimentacoesPage() {
               Importe um extrato OFX para começar.
             </p>
           </div>
+        ) : (
+          <TransactionList
+            title="Lançamentos"
+            subtitle={txSubtitle}
+            transactions={monthTxs}
+            editable={true}
+            categories={categories}
+            onSave={handleSave}
+          />
         )}
       </main>
     </>

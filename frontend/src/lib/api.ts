@@ -519,6 +519,12 @@ export const api = {
       body: JSON.stringify(payload),
     }),
 
+  createManualTransactionBatch: (payloads: ManualTransactionPayload[]): Promise<Transaction[]> =>
+    request<Transaction[]>(`${BASE}/api/transactions/batch`, {
+      method: 'POST',
+      body: JSON.stringify(payloads),
+    }),
+
   listCards: (): Promise<CreditCardConfig[]> =>
     request<CreditCardConfig[]>(`${BASE}/api/cards`),
 

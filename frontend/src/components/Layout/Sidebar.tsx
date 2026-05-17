@@ -7,13 +7,13 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { config } from '@/config/env';
+import { useLancamentoModal } from '@/components/LancamentoModal';
 
 // ── Nav config ────────────────────────────────────────────────────────────────
 const NAV_PRINCIPAL = [
-  { href: '/',                  label: 'Início'       },
-  { href: '/carteira',          label: 'Carteira'     },
-  { href: '/lancamentos/novo',  label: 'Lançamentos'  },
-  { href: '/proventos',         label: 'Proventos'    },
+  { href: '/',          label: 'Início'    },
+  { href: '/carteira',  label: 'Carteira'  },
+  { href: '/proventos', label: 'Proventos' },
 ];
 
 const NAV_ANALISE = [
@@ -42,13 +42,6 @@ function NavIcon({ href, active }: { href: string; active: boolean }) {
       <svg {...props}>
         <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
         <line x1="1" y1="10" x2="23" y2="10"/>
-      </svg>
-    ),
-    '/lancamentos/novo': (
-      <svg {...props}>
-        <line x1="3" y1="6" x2="21" y2="6"/>
-        <line x1="3" y1="12" x2="21" y2="12"/>
-        <line x1="3" y1="18" x2="21" y2="18"/>
       </svg>
     ),
     '/proventos': (
@@ -112,12 +105,10 @@ function NavItem({ href, label, active }: { href: string; label: string; active:
 // ── Sidebar ───────────────────────────────────────────────────────────────────
 export default function Sidebar() {
   const pathname = usePathname();
+  const { openModal } = useLancamentoModal();
 
   function isActive(href: string) {
     if (href === '/') return pathname === '/';
-    // /lancamentos/novo deve acender para qualquer sub-rota de /lancamentos
-    if (href === '/lancamentos/novo') return pathname.startsWith('/lancamentos');
-    // /carteira cobre contas e cartão (rotas legadas continuam funcionando)
     if (href === '/carteira') return (
       pathname.startsWith('/carteira') ||
       pathname.startsWith('/contas') ||
@@ -161,6 +152,51 @@ export default function Sidebar() {
       {NAV_PRINCIPAL.map(item => (
         <NavItem key={item.href} {...item} active={isActive(item.href)}/>
       ))}
+
+      {/* Novo lançamento — abre modal, não navega */}
+      <button
+        onClick={() => openModal()}
+        style={{
+          display:      'flex',
+          alignItems:   'center',
+          gap:          10,
+          padding:      '9px 12px',
+          borderRadius: 10,
+          fontSize:     14,
+          fontWeight:   400,
+          color:        'rgba(255,255,255,0.4)',
+          background:   'transparent',
+          textDecoration: 'none',
+          transition:   'all 0.12s',
+          marginBottom: 2,
+          border:       'none',
+          width:        '100%',
+          cursor:       'pointer',
+          fontFamily:   'inherit',
+          textAlign:    'left',
+        }}
+        onMouseEnter={e => {
+          e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
+          e.currentTarget.style.color      = 'rgba(255,255,255,0.7)';
+        }}
+        onMouseLeave={e => {
+          e.currentTarget.style.background = 'transparent';
+          e.currentTarget.style.color      = 'rgba(255,255,255,0.4)';
+        }}
+      >
+        <div style={{
+          width: 28, height: 28, borderRadius: 7,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          flexShrink: 0, background: 'transparent',
+        }}>
+          <svg width={16} height={16} viewBox="0 0 24 24" fill="none"
+            stroke="rgba(255,255,255,0.45)" strokeWidth={1.8}
+            strokeLinecap="round" strokeLinejoin="round">
+            <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
+          </svg>
+        </div>
+        Novo lançamento
+      </button>
 
       {/* Análise */}
       <div style={{

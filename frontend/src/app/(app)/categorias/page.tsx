@@ -10,7 +10,27 @@ import { useIsMobile } from '@/hooks/useIsMobile';
 
 // ─── Color palette ─────────────────────────────────────────────────────────────
 const PALETTE = ['#FF9F0A','#0A84FF','#BF5AF2','#30D158','#FF453A','#5AC8FA','#5E5CE6','#FF6B00','#34C759','#FF375F'];
-const ICONS   = ['🍽️','🛍️','📱','💊','🚗','🎮','🏠','💼','🤝','📈','✈️','🎓','📋','🛒','☕','🎬','💻','⚡','🔑','🏥','🎵','🎨','🐾','👶','🌍'];
+
+const ICON_GROUPS: { label: string; icons: string[] }[] = [
+  { label: 'Alimentação', icons: ['🍽️','🍔','🍕','🌮','🌯','🍣','🍱','🍜','🥗','🥩','🍗','🧆','🍳','🥞','🥐','🍞','🧀','🥚','🍿','🍦','🎂','🍰','🧁','🍩','🍪'] },
+  { label: 'Bebidas',     icons: ['☕','🍵','🧃','🥤','🧋','🍺','🍻','🥂','🍷','🍸','🍹','🧉','🥛','💧'] },
+  { label: 'Compras',     icons: ['🛍️','🛒','🏪','🏬','🏷️','👕','👗','👔','👟','👠','👒','🧣','💍','💎','💄','🧴','🧹','🪣','📦','🎁'] },
+  { label: 'Transporte',  icons: ['🚗','🚕','🚙','🚌','🚎','🚂','🚁','✈️','⛵','🛳️','🚲','🛵','🏍️','⛽','🅿️','🛤️'] },
+  { label: 'Moradia',     icons: ['🏠','🏡','🏢','🔑','🚪','🪟','🛋️','🛏️','🛁','🚿','🧺','💡','🔧','🔨','🪛','🪴','🌿','📦'] },
+  { label: 'Saúde',       icons: ['💊','🏥','🩺','🩻','🧬','🩹','💉','🧪','🔬','🏋️','💪','🧘','🤸','🦷','👁️','❤️','🫀','🧠'] },
+  { label: 'Beleza',      icons: ['💈','✂️','💅','🪒','🪥','🧖','🧗','🌸','🌺','🌹','💐'] },
+  { label: 'Entret.',     icons: ['🎮','🕹️','🎯','🎲','🃏','♟️','🎬','📺','📽️','🎭','🎪','🎠','🎡','🎢','🎵','🎸','🎻','🎹','🥁','🎺','🎷','🎙️','🎤','🎧'] },
+  { label: 'Esportes',    icons: ['⚽','🏀','🏈','⚾','🎾','🏐','🏉','🥏','🎱','🏓','🏸','🥊','🤺','🏊','🚴','🧗','🏄','⛷️','🏂','🤿','🏆','🥇','🎿'] },
+  { label: 'Educação',    icons: ['🎓','📚','📖','📝','✏️','🖊️','📐','📏','🔭','🧪','🔬','🖥️','🖨️','🎒','🏫','🧑‍🏫'] },
+  { label: 'Trabalho',    icons: ['💼','💻','🖥️','⌨️','🖱️','📱','☎️','📠','📧','📨','📋','📊','📈','📉','🗂️','🗃️','🖇️','📎','✂️','🖊️','📌','📍'] },
+  { label: 'Finanças',    icons: ['💰','💵','💴','💶','💷','💳','🏦','🏧','📈','📉','🪙','💹','🤝','🏛️','📑'] },
+  { label: 'Pets',        icons: ['🐾','🐕','🐈','🐇','🐠','🐹','🐦','🦜','🦎','🐢','🐓','🐄','🐴','🐑'] },
+  { label: 'Família',     icons: ['👶','🧒','🧑','👨','👩','👴','👵','🧸','🎒','🪆','🧩','🛺','🍼','🪁'] },
+  { label: 'Viagens',     icons: ['🌍','🌎','🌏','🗺️','🏖️','🏔️','🏕️','⛺','🗼','🏯','🏰','🗽','🎡','🎢','🧳','🏝️','🌋','🏜️'] },
+  { label: 'Serviços',    icons: ['⚡','🔌','📡','🌐','📮','📬','🏗️','🔩','⚙️','🛠️','🪜','🧯','🚒','🚑','🚓','💈'] },
+  { label: 'Natureza',    icons: ['🌱','🌿','🍀','🌲','🌴','🌵','🌾','🍂','🌸','🌺','🌻','🌼','🍄','🌊','🔥','❄️','⛅','🌈','☀️','🌙','⭐','🌟','💫','☁️'] },
+  { label: 'Outros',      icons: ['📁','🗂️','🔔','🎁','🏷️','🔖','🔐','🔒','🔓','🪪','📌','📍','🧲','🔋','💡','🕯️','🪔','🎀','🎊','🎉','🎈','🏅','🥈','🥉'] },
+];
 
 function resolveColor(cat: Category, idx: number): string {
   return cat.color ?? PALETTE[idx % PALETTE.length];
@@ -202,6 +222,7 @@ function CategoryForm({
     return { ...EMPTY_FORM, scope: domain };
   });
   const [showIconPicker, setShowIconPicker] = useState(false);
+  const [iconSearch, setIconSearch]         = useState('');
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -304,17 +325,52 @@ function CategoryForm({
         </div>
 
         {showIconPicker && (
-          <div style={{ background: 'var(--surface-2)', borderRadius: 10, padding: 10, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-            {ICONS.map(ic => (
-              <button key={ic} type="button" onClick={() => { setForm(f => ({ ...f, icon: ic })); setShowIconPicker(false); }} style={{
-                width: 36, height: 36, borderRadius: 8, fontSize: 18, cursor: 'pointer',
-                background: form.icon === ic ? `${form.color}30` : 'transparent',
-                border: `1px solid ${form.icon === ic ? form.color : 'transparent'}`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>
-                {ic}
-              </button>
-            ))}
+          <div style={{ background: 'var(--surface-2)', borderRadius: 12, border: '1px solid rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+            {/* Search */}
+            <div style={{ padding: '8px 10px', borderBottom: '1px solid rgba(255,255,255,0.06)', position: 'relative' }}>
+              <Search size={12} style={{ position: 'absolute', left: 18, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
+              <input
+                value={iconSearch}
+                onChange={e => setIconSearch(e.target.value)}
+                placeholder="Buscar ícone..."
+                autoFocus
+                style={{ ...inp, paddingLeft: 28, width: '100%', fontSize: 12, boxSizing: 'border-box' }}
+              />
+            </div>
+            {/* Groups */}
+            <div style={{ maxHeight: 280, overflowY: 'auto', padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {(() => {
+                const q = iconSearch.trim();
+                const groups = q
+                  ? [{ label: 'Resultados', icons: ICON_GROUPS.flatMap(g => g.icons).filter(ic => ic.includes(q)) }]
+                  : ICON_GROUPS;
+                return groups.map(group => group.icons.length === 0 ? null : (
+                  <div key={group.label}>
+                    <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 5 }}>
+                      {group.label}
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+                      {group.icons.map(ic => (
+                        <button key={ic} type="button"
+                          onClick={() => { setForm(f => ({ ...f, icon: ic })); setShowIconPicker(false); setIconSearch(''); }}
+                          style={{
+                            width: 34, height: 34, borderRadius: 8, fontSize: 18, cursor: 'pointer',
+                            background: form.icon === ic ? `${form.color}30` : 'transparent',
+                            border: `1px solid ${form.icon === ic ? form.color : 'transparent'}`,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            transition: 'background 0.1s',
+                          }}
+                          onMouseEnter={e => { if (form.icon !== ic) e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; }}
+                          onMouseLeave={e => { if (form.icon !== ic) e.currentTarget.style.background = 'transparent'; }}
+                        >
+                          {ic}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ));
+              })()}
+            </div>
           </div>
         )}
 

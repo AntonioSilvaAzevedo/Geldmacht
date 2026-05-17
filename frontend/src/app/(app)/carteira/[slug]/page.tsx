@@ -28,6 +28,7 @@ import { formatCurrency } from '@/lib/formatters';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { getInstitutionColor } from '@/lib/institutionColors';
 import ContaEmptyState from '@/components/ContaEmptyState';
+import { useLancamentoModal } from '@/components/LancamentoModal';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -145,7 +146,7 @@ function ContaTab({
   }
 
   return (
-    <div>
+    <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
       {/* Account switcher — só quando há múltiplas contas */}
       {accounts.length > 1 && (
         <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
@@ -199,8 +200,17 @@ function ContaTab({
             subtitle={monthLabelCap}
             transactions={transactions}
             limit={5}
-            onCtaClick={onVerTodas}
-            ctaLabel="Ver todas as movimentações →"
+            headerRight={
+              <button
+                onClick={onVerTodas}
+                style={{
+                  background: 'none', border: 'none', color: 'var(--blue)',
+                  fontSize: 12, cursor: 'pointer', fontFamily: 'var(--font-sans)',
+                }}
+              >
+                Ver todas as movimentações →
+              </button>
+            }
           />
         )
       )}
@@ -592,25 +602,24 @@ function StatsSection({ displayName }: { displayName: string }) {
 }
 
 function QuickActions() {
-  const [hov1, setHov1] = useState(false);
+  const { openModal } = useLancamentoModal();
   const [hov2, setHov2] = useState(false);
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-      <Link
-        href="/lancamentos/novo"
-        onMouseEnter={() => setHov1(true)}
-        onMouseLeave={() => setHov1(false)}
+      <button
+        onClick={() => openModal()}
         style={{
           padding: '13px', borderRadius: 12, border: 'none',
-          background: 'var(--blue-400)', color: '#fff',
+          background: 'var(--blue, #0A84FF)', color: '#fff',
           fontSize: 14, fontWeight: 700, cursor: 'pointer',
-          textDecoration: 'none', textAlign: 'center',
-          letterSpacing: '-0.01em',
-          opacity: hov1 ? 0.88 : 1, transition: 'opacity 0.12s',
+          letterSpacing: '-0.01em', fontFamily: 'inherit',
+          transition: 'opacity 0.12s',
         }}
+        onMouseEnter={e => { e.currentTarget.style.opacity = '0.88'; }}
+        onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
       >
         + Novo lançamento
-      </Link>
+      </button>
       <Link
         href="/upload"
         onMouseEnter={() => setHov2(true)}
@@ -651,6 +660,7 @@ function ResumoTab({ accounts, cards, dashboards, displayName }: {
 // ── EmptyExtrato ──────────────────────────────────────────────────────────────
 
 function EmptyExtrato({ accountId }: { accountId: number | null }) {
+  const { openModal } = useLancamentoModal();
   return (
     <div style={{ padding: '40px 24px', textAlign: 'center' }}>
       <Landmark size={32} color="var(--text-muted)" style={{ margin: '0 auto 12px', display: 'block' }} />
@@ -658,14 +668,12 @@ function EmptyExtrato({ accountId }: { accountId: number | null }) {
         Nenhum lançamento nesta conta ainda.
       </p>
       <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
-        {accountId && (
-          <Link href={`/upload?type=bank_statement&bankAccountId=${accountId}`} style={primaryLinkStyle}>
-            Importar extrato OFX
-          </Link>
-        )}
-        <Link href="/lancamentos/novo" style={ghostLinkStyle}>
-          Lançamento manual
-        </Link>
+        <button
+          onClick={() => openModal({ bankAccountId: accountId ?? undefined })}
+          style={{ ...primaryLinkStyle, border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
+        >
+          Adicionar lançamento
+        </button>
       </div>
     </div>
   );
@@ -789,11 +797,6 @@ export default function InstitutionDetailPage() {
     cards.length > 0    && `${cards.length} cartão`,
   ].filter(Boolean).join(' · '), [accounts, cards]);
 
-  const currentInvoiceTotal = useMemo(
-    () => cards.reduce((sum, c) => sum + (cardDashboards.get(c.id)?.latest_invoice?.computed_total ?? 0), 0),
-    [cards, cardDashboards],
-  );
-
   const institutionColor = getInstitutionColor(displayName || institutionName);
   const padding = isMobile ? '24px 14px 32px' : '24px 32px 40px';
 
@@ -826,35 +829,36 @@ export default function InstitutionDetailPage() {
         title={displayName || institutionName}
         subtitle={subtitle}
         crumbs={[{ href: '/carteira', label: 'Carteira' }]}
-        right={cards.length > 0 && currentInvoiceTotal > 0 ? (
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 2 }}>
-              Fatura atual
-            </div>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 17, fontWeight: 700, color: 'var(--red-400)', letterSpacing: '-0.025em' }}>
-              {formatCurrency(currentInvoiceTotal)}
-            </div>
+        right={
+          <div style={{
+            display: 'flex', gap: 2,
+            background: 'var(--surface-2)',
+            borderRadius: 12,
+            padding: 4,
+          }}>
+            {tabs.map(t => (
+              <button
+                key={t.id}
+                onClick={() => setTab(t.id)}
+                style={{
+                  padding: '7px 18px', borderRadius: 9, border: 'none',
+                  background: tab === t.id ? '#000' : 'transparent',
+                  color:      tab === t.id ? 'var(--text-primary)' : 'var(--text-secondary)',
+                  fontSize: 14, fontWeight: tab === t.id ? 600 : 400,
+                  cursor: 'pointer', transition: 'all 0.1s',
+                  fontFamily: 'inherit',
+                  boxShadow: tab === t.id ? '0 1px 4px rgba(0,0,0,0.4)' : 'none',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {t.label}
+              </button>
+            ))}
           </div>
-        ) : undefined}
+        }
         px={isMobile ? 14 : 32}
       />
-<main style={{ padding, flex: 1, maxWidth: 860, margin: '0 auto', width: '100%', display: 'flex', flexDirection: 'column' }}>
-
-        {/* Tabs */}
-        <div style={{ display: 'flex', gap: 2, background: 'var(--surface-2)', borderRadius: 12, padding: 4, marginBottom: 20, width: 'fit-content' }}>
-          {tabs.map(t => (
-            <button key={t.id} onClick={() => setTab(t.id)} style={{
-              padding: '7px 18px', borderRadius: 9, border: 'none',
-              background: tab === t.id ? '#000' : 'transparent',
-              color:      tab === t.id ? '#fff' : 'var(--text-secondary)',
-              fontSize: 14, fontWeight: tab === t.id ? 600 : 400,
-              cursor: 'pointer', transition: 'all 0.1s',
-              boxShadow: tab === t.id ? '0 1px 4px rgba(0,0,0,0.4)' : 'none',
-            }}>
-              {t.label}
-            </button>
-          ))}
-        </div>
+<main style={{ padding, flex: 1, maxWidth: 860, margin: '0 auto', width: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
 
         {/* Tab: Conta */}
         {tab === 'conta' && (

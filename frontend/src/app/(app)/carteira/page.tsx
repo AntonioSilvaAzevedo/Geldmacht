@@ -9,15 +9,20 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   Landmark,
   Plus,
 } from 'lucide-react';
+import { useLancamentoModal } from '@/components/LancamentoModal';
+import { ModalOverlay } from '@/components/ModalOverlay';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import PageHeader from '@/components/Layout/PageHeader';
 import {
   api,
   type BankAccountConfig,
+  type BankAccountPayload,
+  type BankAccountType,
   type CreditCardConfig,
   type CardDashboard,
 } from '@/lib/api';
@@ -101,8 +106,9 @@ export default function CarteiraPage() {
   const [accounts, setAccounts]     = useState<BankAccountConfig[]>([]);
   const [cards, setCards]           = useState<CreditCardConfig[]>([]);
   const [dashboards, setDashboards] = useState<Map<number, CardDashboard>>(new Map());
-  const [loading, setLoading]       = useState(true);
-  const [error, setError]           = useState<string | null>(null);
+  const [loading, setLoading]           = useState(true);
+  const [error, setError]               = useState<string | null>(null);
+  const [showNewAccount, setShowNewAccount] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -156,11 +162,6 @@ export default function CarteiraPage() {
     });
   }, [accounts, cards, dashboards]);
 
-  // Totais para o summary strip
-  const totalFaturas = useMemo(
-    () => cards.reduce((sum, card) => sum + (dashboards.get(card.id)?.latest_invoice?.computed_total ?? 0), 0),
-    [cards, dashboards],
-  );
 
   // ── Loading / Error ──
   if (loading) {
@@ -192,7 +193,6 @@ export default function CarteiraPage() {
     );
   }
 
-  const activeAccountCount = accounts.filter(a => a.is_active).length;
   const padding = isMobile ? '16px 14px 32px' : '24px 32px 40px';
 
   return (
@@ -202,44 +202,12 @@ export default function CarteiraPage() {
         subtitle="Contas, cartões e investimentos — por instituição"
         px={isMobile ? 14 : 32}
       />
+      <NewAccountModal
+        isOpen={showNewAccount}
+        onClose={() => setShowNewAccount(false)}
+        onCreated={() => { setShowNewAccount(false); void load(); }}
+      />
 <main style={{ padding, flex: 1, maxWidth: 860, margin: '0 auto', width: '100%' }}>
-
-        {/* Summary strip */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)',
-          background: 'var(--surface-card)',
-          border: '1px solid var(--border-subtle)',
-          borderRadius: 14,
-          overflow: 'hidden',
-          marginBottom: 20,
-          boxShadow: 'var(--shadow-card)',
-        }}>
-          {[
-            { label: 'Contas ativas',        value: String(activeAccountCount),   mono: false },
-            { label: 'Cartões',              value: String(cards.length),          mono: false },
-            { label: 'Fatura atual (total)', value: formatCurrency(totalFaturas),  mono: true,  color: totalFaturas > 0 ? 'var(--red-400)' : undefined },
-            { label: 'Instituições',         value: String(institutions.length),   mono: false },
-          ].map((s, i) => (
-            <div key={i} style={{
-              padding: '14px 18px',
-              borderRight: i < 3 ? '1px solid var(--border-subtle)' : 'none',
-              borderBottom: isMobile && i < 2 ? '1px solid var(--border-subtle)' : 'none',
-            }}>
-              <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 6 }}>
-                {s.label}
-              </div>
-              <div style={{
-                fontFamily: s.mono ? 'var(--font-mono)' : 'inherit',
-                fontSize: 17, fontWeight: 700,
-                color: s.color ?? 'var(--text-primary)',
-                letterSpacing: s.mono ? '-0.02em' : 0,
-              }}>
-                {s.value}
-              </div>
-            </div>
-          ))}
-        </div>
 
         {/* Empty state */}
         {institutions.length === 0 && (
@@ -253,7 +221,7 @@ export default function CarteiraPage() {
               Cadastre contas e cartões para visualizar sua carteira consolidada.
             </p>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
-              <Link href="/contas" style={primaryLinkStyle}>Cadastrar conta</Link>
+              <button onClick={() => setShowNewAccount(true)} style={{ ...primaryLinkStyle, border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>Cadastrar conta</button>
               <Link href="/cartao" style={ghostLinkStyle}>Cadastrar cartão</Link>
             </div>
           </div>
@@ -271,15 +239,27 @@ export default function CarteiraPage() {
             ))}
 
             {/* Add CTA */}
-            <Link href="/contas" style={{
-              border: '1px dashed rgba(255,255,255,0.09)', borderRadius: 16,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-              padding: '24px', color: 'rgba(255,255,255,0.25)',
-              fontSize: 13, textDecoration: 'none', transition: 'all 0.15s',
-              minHeight: 100,
-            }}>
+            <button
+              onClick={() => setShowNewAccount(true)}
+              style={{
+                border: '1px dashed rgba(255,255,255,0.09)', borderRadius: 16,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                padding: '24px', color: 'rgba(255,255,255,0.25)',
+                fontSize: 13, background: 'transparent', cursor: 'pointer',
+                transition: 'all 0.15s', minHeight: 100, fontFamily: 'inherit',
+                width: '100%',
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)';
+                e.currentTarget.style.color = 'rgba(255,255,255,0.5)';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.09)';
+                e.currentTarget.style.color = 'rgba(255,255,255,0.25)';
+              }}
+            >
               <Plus size={15} /> Nova conta / instituição
-            </Link>
+            </button>
           </div>
         )}
       </main>
@@ -292,6 +272,10 @@ export default function CarteiraPage() {
 function InstitutionCard({ institution }: { institution: InstitutionGroup }) {
   const { name, slug, accounts, cards, dashboards } = institution;
   const [hovered, setHovered] = useState(false);
+  const router = useRouter();
+  const { openModal } = useLancamentoModal();
+
+  const firstBankId = accounts[0]?.id ?? undefined;
 
   const color = getInstitutionColor(name);
   const abbr  = getAbbr(name);
@@ -301,26 +285,21 @@ function InstitutionCard({ institution }: { institution: InstitutionGroup }) {
     cards.length > 0    && `${cards.length} cartão`,
   ].filter(Boolean).join(' · ');
 
-  const totalFatura = cards.reduce(
-    (sum, card) => sum + (dashboards.get(card.id)?.latest_invoice?.computed_total ?? 0), 0,
-  );
-
   return (
-    <Link
-      href={`/carteira/${slug}`}
+    <div
+      onClick={() => router.push(`/carteira/${slug}`)}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        background:     hovered ? '#242424' : 'var(--surface-1)',
-        border:         `1px solid ${hovered ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.06)'}`,
-        borderRadius:   20,
-        padding:        20,
-        textDecoration: 'none',
-        color:          'inherit',
-        display:        'block',
-        cursor:         'pointer',
-        transition:     'background 0.15s, border-color 0.15s',
-        userSelect:     'none',
+        background:  hovered ? '#242424' : 'var(--surface-1)',
+        border:      `1px solid ${hovered ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.06)'}`,
+        borderRadius: 20,
+        padding:     20,
+        color:       'inherit',
+        display:     'block',
+        cursor:      'pointer',
+        transition:  'background 0.15s, border-color 0.15s',
+        userSelect:  'none',
       }}
     >
       {/* ── Header ── */}
@@ -351,22 +330,6 @@ function InstitutionCard({ institution }: { institution: InstitutionGroup }) {
           </div>
         </div>
 
-        {/* Total fatura (se houver) */}
-        {totalFatura > 0 && (
-          <div style={{ textAlign: 'right', flexShrink: 0, paddingTop: 1 }}>
-            <div style={{
-              fontFamily: 'var(--font-mono)',
-              fontSize: 17, fontWeight: 700,
-              letterSpacing: '-0.025em', lineHeight: 1.1,
-              color: 'var(--red-400)',
-            }}>
-              {formatCurrency(totalFatura)}
-            </div>
-            <div style={{ fontSize: 11, color: 'var(--text-tertiary, rgba(255,255,255,0.35))', marginTop: 3 }}>
-              fatura
-            </div>
-          </div>
-        )}
       </div>
 
       {/* ── Products ── */}
@@ -406,52 +369,213 @@ function InstitutionCard({ institution }: { institution: InstitutionGroup }) {
         ))}
 
         {/* Cartões de crédito */}
-        {cards.map(card => {
-          const dash    = dashboards.get(card.id);
-          const invoice = dash?.latest_invoice?.computed_total ?? null;
-          return (
-            <div key={card.id} style={productRowStyle}>
-              {/* Dot vermelho */}
-              <div style={{
-                width: 7, height: 7, borderRadius: '50%', flexShrink: 0,
-                background: 'var(--red-400)', marginTop: 1,
-              }} />
+        {cards.map(card => (
+          <div key={card.id} style={productRowStyle}>
+            {/* Dot vermelho */}
+            <div style={{
+              width: 7, height: 7, borderRadius: '50%', flexShrink: 0,
+              background: 'var(--red-400)', marginTop: 1,
+            }} />
 
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 600, letterSpacing: '-0.01em' }}>
-                  {card.name}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, letterSpacing: '-0.01em' }}>
+                {card.name}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 3 }}>
+                Fecha {card.closing_day} · Vence {card.due_day}
+              </div>
+            </div>
+
+            {card.credit_limit != null && (
+              <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                <div style={{
+                  fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 600,
+                  letterSpacing: '-0.01em', lineHeight: 1,
+                  color: 'var(--text-secondary)',
+                }}>
+                  {formatCurrency(card.credit_limit)}
                 </div>
-                <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 3 }}>
-                  Fecha {card.closing_day} · Vence {card.due_day}
+                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 3 }}>
+                  limite
                 </div>
               </div>
-
-              {invoice != null && (
-                <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                  <div style={{
-                    fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 600,
-                    letterSpacing: '-0.01em', lineHeight: 1,
-                    color: 'var(--red-400)',
-                  }}>
-                    {formatCurrency(invoice)}
-                  </div>
-                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 3 }}>
-                    fatura
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
+            )}
+          </div>
+        ))}
       </div>
 
       {/* ── Footer ── */}
-      <div style={{ marginTop: 14, textAlign: 'right' }}>
-        <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--blue-400)', letterSpacing: '-0.005em' }}>
+      <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <button
+          onClick={e => {
+            e.stopPropagation();
+            openModal({ bankAccountId: firstBankId });
+          }}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 5,
+            padding: '5px 11px', borderRadius: 8,
+            border: '1px solid rgba(255,255,255,0.09)',
+            background: 'rgba(255,255,255,0.04)',
+            color: 'rgba(255,255,255,0.4)',
+            fontSize: 12, fontWeight: 600, cursor: 'pointer',
+            transition: 'all .12s', fontFamily: 'inherit',
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.background  = 'rgba(10,132,255,0.1)';
+            e.currentTarget.style.borderColor = 'rgba(10,132,255,0.3)';
+            e.currentTarget.style.color       = 'var(--blue, #0A84FF)';
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.background  = 'rgba(255,255,255,0.04)';
+            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.09)';
+            e.currentTarget.style.color       = 'rgba(255,255,255,0.4)';
+          }}
+        >
+          <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.8} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 5v14M5 12h14"/>
+          </svg>
+          Lançar
+        </button>
+
+        <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--blue-400, #0A84FF)', letterSpacing: '-0.005em' }}>
           Ver detalhes →
         </span>
       </div>
-    </Link>
+    </div>
+  );
+}
+
+// ── NewAccountModal ───────────────────────────────────────────────────────────
+
+const ACCOUNT_TYPE_OPTIONS: { value: BankAccountType; label: string }[] = [
+  { value: 'checking',   label: 'Conta corrente' },
+  { value: 'savings',    label: 'Conta poupança' },
+  { value: 'payment',    label: 'Conta pagamento' },
+  { value: 'business',   label: 'Conta PJ' },
+  { value: 'investment', label: 'Conta investimento' },
+  { value: 'other',      label: 'Outra' },
+];
+
+function NewAccountModal({ isOpen, onClose, onCreated }: {
+  isOpen: boolean;
+  onClose: () => void;
+  onCreated: () => void;
+}) {
+  const [name, setName]               = useState('');
+  const [institution, setInstitution] = useState('');
+  const [accountType, setAccountType] = useState<BankAccountType>('checking');
+  const [saving, setSaving]           = useState(false);
+  const [err, setErr]                 = useState('');
+
+  const reset = () => { setName(''); setInstitution(''); setAccountType('checking'); setErr(''); };
+
+  const handleClose = () => { reset(); onClose(); };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) { setErr('Informe o nome da conta.'); return; }
+    setSaving(true);
+    setErr('');
+    try {
+      const payload: BankAccountPayload = {
+        name: name.trim(),
+        institution: institution.trim() || null,
+        account_type: accountType,
+        is_active: true,
+      };
+      await api.createBankAccount(payload);
+      reset();
+      onCreated();
+    } catch (error) {
+      setErr(error instanceof Error ? error.message : 'Erro ao criar conta.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const inputStyle: React.CSSProperties = {
+    width: '100%', padding: '10px 12px', borderRadius: 9,
+    border: '1px solid var(--border-default)',
+    background: 'var(--surface-panel)',
+    color: 'var(--text-primary)', fontSize: 14,
+    fontFamily: 'inherit', boxSizing: 'border-box',
+  };
+  const labelStyle: React.CSSProperties = {
+    display: 'flex', flexDirection: 'column', gap: 6,
+    fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)',
+    letterSpacing: '0.04em', textTransform: 'uppercase',
+  };
+
+  return (
+    <ModalOverlay isOpen={isOpen} onClose={handleClose} title="Nova conta bancária" width={420}>
+      <form onSubmit={handleSubmit} style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <label style={labelStyle}>
+          Nome da conta
+          <input
+            value={name}
+            onChange={e => setName(e.target.value)}
+            placeholder="Ex: Nubank · CC"
+            style={inputStyle}
+            autoFocus
+          />
+        </label>
+
+        <label style={labelStyle}>
+          Instituição
+          <input
+            value={institution}
+            onChange={e => setInstitution(e.target.value)}
+            placeholder="Ex: Nubank"
+            style={inputStyle}
+          />
+        </label>
+
+        <label style={labelStyle}>
+          Tipo de conta
+          <select
+            value={accountType}
+            onChange={e => setAccountType(e.target.value as BankAccountType)}
+            style={inputStyle}
+          >
+            {ACCOUNT_TYPE_OPTIONS.map(o => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+        </label>
+
+        {err && (
+          <p style={{ fontSize: 12, color: 'var(--red-400)', margin: 0 }}>{err}</p>
+        )}
+
+        <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+          <button
+            type="button"
+            onClick={handleClose}
+            style={{
+              flex: 1, padding: '11px', borderRadius: 9,
+              border: '1px solid var(--border-default)',
+              background: 'transparent', color: 'var(--text-secondary)',
+              fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+            }}
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            disabled={saving}
+            style={{
+              flex: 2, padding: '11px', borderRadius: 9, border: 'none',
+              background: saving ? 'var(--surface-card)' : 'linear-gradient(135deg, #3182ce 0%, #2c7a7b 100%)',
+              color: saving ? 'var(--text-muted)' : '#fff',
+              fontSize: 14, fontWeight: 600,
+              cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
+            }}
+          >
+            {saving ? 'Criando...' : 'Criar conta'}
+          </button>
+        </div>
+      </form>
+    </ModalOverlay>
   );
 }
 
