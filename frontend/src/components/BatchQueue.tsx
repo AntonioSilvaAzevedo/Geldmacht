@@ -115,7 +115,7 @@ export default function BatchQueue({
           </svg>
           <div style={{ fontSize: 13, fontWeight: 600 }}>Fila vazia</div>
           <div style={{ fontSize: 11, color: 'var(--text-muted)', maxWidth: 200 }}>
-            Use "+ Adicionar à fila" para enfileirar múltiplos lançamentos.
+            Use {'"'}+ Adicionar à fila{'"'} para enfileirar múltiplos lançamentos.
           </div>
         </div>
       ) : (

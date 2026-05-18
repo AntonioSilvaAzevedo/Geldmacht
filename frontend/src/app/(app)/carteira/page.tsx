@@ -270,7 +270,7 @@ export default function CarteiraPage() {
 // ── InstitutionCard ───────────────────────────────────────────────────────────
 
 function InstitutionCard({ institution }: { institution: InstitutionGroup }) {
-  const { name, slug, accounts, cards, dashboards } = institution;
+  const { name, slug, accounts, cards } = institution;
   const [hovered, setHovered] = useState(false);
   const router = useRouter();
   const { openModal } = useLancamentoModal();

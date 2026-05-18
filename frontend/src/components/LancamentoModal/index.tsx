@@ -146,7 +146,7 @@ function BatchQueue({
       </svg>
       <div style={{ fontSize: 13, fontWeight: 500, color: '#fff' }}>Fila vazia</div>
       <div style={{ fontSize: 12, color: 'rgba(255,255,255,.5)', maxWidth: 200, lineHeight: 1.5 }}>
-        Use "+ Outro" para enfileirar múltiplos lançamentos e salvar tudo de uma vez.
+        Use {'"'}+ Outro{'"'} para enfileirar múltiplos lançamentos e salvar tudo de uma vez.
       </div>
     </div>
   );

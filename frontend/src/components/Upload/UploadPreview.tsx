@@ -365,9 +365,7 @@ function TxRow({
 export default function UploadPreview({
   result,
   card,
-  cards: _cards,
   categories = [],
-  uploadType: _uploadType,
   importKind,
   bankAccount,
   onBack,

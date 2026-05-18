@@ -53,10 +53,6 @@ function currentYearMonth(): string {
   return new Date().toISOString().slice(0, 7);
 }
 
-/** Label legível do mês atual: "Maio 2026" */
-function currentMonthLabel(): string {
-  return new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-}
 
 // ── Color palette ─────────────────────────────────────────────────────────────
 // Importado de @/lib/institutionColors — compartilhado com cartao/[cardId]
@@ -922,12 +918,6 @@ const primaryLinkStyle: React.CSSProperties = {
   display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
 };
 
-const ghostLinkStyle: React.CSSProperties = {
-  padding: '9px 16px', borderRadius: 8,
-  border: '1px solid var(--border-default)',
-  color: 'var(--text-secondary)', fontSize: 13, textDecoration: 'none',
-  display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-};
 
 const ghostButtonStyle: React.CSSProperties = {
   display: 'inline-flex', alignItems: 'center', gap: 8,
