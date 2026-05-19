@@ -438,14 +438,32 @@ export default function UploadPreview({
     setImporting(true);
     setError(null);
     try {
+      // Monta metadados da fatura a partir do resultado do upload (quando disponível)
+      const meta = result.invoice_metadata;
+      const invoiceMeta: InvoiceCreate | null =
+        meta && meta.due_month
+          ? {
+              due_month:        meta.due_month,
+              due_date:         meta.due_date ?? null,
+              cycle_start_date: meta.cycle_start_date ?? null,
+              cycle_end_date:   meta.cycle_end_date ?? null,
+              issue_date:       meta.issue_date ?? null,
+              closing_date:     meta.closing_date ?? null,
+              total_amount:     meta.total_amount ?? null,
+              source:           meta.source ?? 'nubank_pdf',
+              raw_reference_month: meta.due_month,
+            }
+          : null;
+
       const payload = {
-        source_file:     result.source_file,
-        parser_used:     result.parser_used,
-        import_kind:     importKind ?? null,
-        card_id:         card?.id ?? null,
-        bank_account_id: bankAccount?.id ?? null,
-        file_hash:       result.file_hash ?? null,
-        invoice:         null as InvoiceCreate | null,
+        source_file:      result.source_file,
+        parser_used:      result.parser_used,
+        import_kind:      importKind ?? result.import_kind ?? null,
+        card_id:          card?.id ?? null,
+        bank_account_id:  bankAccount?.id ?? null,
+        file_hash:        result.file_hash ?? null,
+        reference_month:  result.detected_reference_month ?? result.invoice_metadata?.due_month ?? null,
+        invoice:          invoiceMeta,
         transactions:    selected.map(t => ({
           ...t,
           description:      t.editDesc,
