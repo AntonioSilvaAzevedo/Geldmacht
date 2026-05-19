@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { useLancamentoModal } from '@/components/LancamentoModal';
 import { ModalOverlay } from '@/components/ModalOverlay';
-import ManageProductModal, { type ManagedProduct } from '@/components/Manage/ManageProductModal';
+import ManageProductModal from '@/components/Manage/ManageProductModal';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import {
   api,
@@ -272,8 +272,8 @@ function InstitutionCard({
   onReload:    () => void;
 }) {
   const { name, slug, accounts, cards } = institution;
-  const [hovered,  setHovered]  = useState(false);
-  const [managing, setManaging] = useState<ManagedProduct | null>(null);
+  const [hovered,    setHovered]    = useState(false);
+  const [showManage, setShowManage] = useState(false);
   const router = useRouter();
   const { openModal } = useLancamentoModal();
 
@@ -281,11 +281,6 @@ function InstitutionCard({
 
   const color = getInstitutionColor(name);
   const abbr  = getAbbr(name);
-
-  const tagParts = [
-    accounts.length > 0 && `${accounts.length} conta${accounts.length > 1 ? 's' : ''}`,
-    cards.length > 0    && `${cards.length} cartão`,
-  ].filter(Boolean).join(' · ');
 
   return (
     <div
@@ -302,10 +297,34 @@ function InstitutionCard({
         cursor:      'pointer',
         transition:  'background 0.15s, border-color 0.15s',
         userSelect:  'none',
+        position:    'relative',
       }}
     >
+      {/* ── Botão gerenciar (sliders absoluto) ── */}
+      <button
+        onClick={e => { e.stopPropagation(); setShowManage(true); }}
+        title="Gerenciar"
+        style={{
+          position: 'absolute', top: 14, right: 14,
+          padding: '4px', border: 'none', background: 'transparent',
+          color: 'rgba(255,255,255,0.20)', cursor: 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          transition: 'color .12s',
+        }}
+        onMouseEnter={e => { e.currentTarget.style.color = '#fff'; }}
+        onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.20)'; }}
+      >
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none"
+          stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+          <line x1="2" y1="4.5" x2="14" y2="4.5" />
+          <circle cx="5.5" cy="4.5" r="2" fill="var(--surface-1)" stroke="currentColor" strokeWidth="1.6" />
+          <line x1="2" y1="11.5" x2="14" y2="11.5" />
+          <circle cx="10.5" cy="11.5" r="2" fill="var(--surface-1)" stroke="currentColor" strokeWidth="1.6" />
+        </svg>
+      </button>
+
       {/* ── Header ── */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, paddingRight: 22 }}>
 
         {/* Avatar colorido */}
         <div style={{
@@ -318,17 +337,14 @@ function InstitutionCard({
           {abbr.charAt(0)}
         </div>
 
-        {/* Nome + subtitle */}
-        <div style={{ flex: 1, minWidth: 0, paddingTop: 1 }}>
+        {/* Nome */}
+        <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{
             fontSize: 17, fontWeight: 700, letterSpacing: '-0.015em',
-            lineHeight: 1.15, marginBottom: 4,
+            lineHeight: 1.2,
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           }}>
             {name}
-          </div>
-          <div style={{ fontSize: 12, color: 'var(--text-secondary)', letterSpacing: '-0.005em' }}>
-            {tagParts}
           </div>
         </div>
 
@@ -368,37 +384,6 @@ function InstitutionCard({
               </div>
             </div>
 
-            {/* Botão gerenciar conta */}
-            <button
-              onClick={e => {
-                e.preventDefault();
-                e.stopPropagation();
-                setManaging({ kind: 'conta', data: acc });
-              }}
-              title="Gerenciar conta"
-              style={{
-                marginLeft: 4,
-                width: 26, height: 26, borderRadius: 7, flexShrink: 0,
-                border: '1px solid rgba(255,255,255,0.10)',
-                background: 'rgba(255,255,255,0.04)',
-                color: 'rgba(255,255,255,0.45)',
-                cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 15, letterSpacing: 1,
-                transition: 'background 0.12s, color 0.12s',
-                fontFamily: 'inherit',
-              }}
-              onMouseEnter={e => {
-                e.currentTarget.style.background = 'rgba(255,255,255,0.10)';
-                e.currentTarget.style.color = '#fff';
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
-                e.currentTarget.style.color = 'rgba(255,255,255,0.45)';
-              }}
-            >
-              ···
-            </button>
           </div>
         ))}
 
@@ -435,37 +420,6 @@ function InstitutionCard({
               </div>
             )}
 
-            {/* Botão gerenciar cartão */}
-            <button
-              onClick={e => {
-                e.preventDefault();
-                e.stopPropagation();
-                setManaging({ kind: 'cartao', data: card });
-              }}
-              title="Gerenciar cartão"
-              style={{
-                marginLeft: 4,
-                width: 26, height: 26, borderRadius: 7, flexShrink: 0,
-                border: '1px solid rgba(255,255,255,0.10)',
-                background: 'rgba(255,255,255,0.04)',
-                color: 'rgba(255,255,255,0.45)',
-                cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 15, letterSpacing: 1,
-                transition: 'background 0.12s, color 0.12s',
-                fontFamily: 'inherit',
-              }}
-              onMouseEnter={e => {
-                e.currentTarget.style.background = 'rgba(255,255,255,0.10)';
-                e.currentTarget.style.color = '#fff';
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
-                e.currentTarget.style.color = 'rgba(255,255,255,0.45)';
-              }}
-            >
-              ···
-            </button>
           </div>
         ))}
       </div>
@@ -509,20 +463,11 @@ function InstitutionCard({
       </div>
 
       {/* ── ManageProductModal ── */}
-      {managing && (
+      {showManage && (
         <ManageProductModal
-          inst={{ name, abbr, color }}
-          product={managing}
-          onClose={() => setManaging(null)}
+          inst={{ name, abbr, color, accounts, cards }}
+          onClose={() => setShowManage(false)}
           onDeleted={onReload}
-          onAddNew={
-            managing.kind === 'cartao'
-              ? () => {
-                  setManaging(null);
-                  router.push(`/carteira/${slug}?tab=cartao`);
-                }
-              : undefined
-          }
         />
       )}
     </div>

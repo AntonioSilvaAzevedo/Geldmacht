@@ -1,14 +1,13 @@
 /**
  * ManageProductModal
  *
- * Modal de gerenciamento de conta bancária ou cartão de crédito.
- * Renderizado via portal (position: fixed) sobre qualquer conteúdo.
+ * Modal de gerenciamento de instituição — opera no nível da instituição,
+ * expondo ações sobre a conta bancária e o cartão de crédito vinculados.
  *
  * Uso:
  *   <ManageProductModal
- *     inst={{ name: 'Nubank', abbr: 'N', color: '#820AD1' }}
- *     product={{ kind: 'conta', data: account }}
- *     onClose={() => setManaging(null)}
+ *     inst={{ name: 'Nubank', abbr: 'N', color: '#820AD1', accounts: [...], cards: [...] }}
+ *     onClose={() => setShowManage(false)}
  *     onDeleted={() => void load()}
  *   />
  */
@@ -24,21 +23,23 @@ import {
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
-export type ManagedProduct =
-  | { kind: 'conta';  data: BankAccountConfig }
-  | { kind: 'cartao'; data: CreditCardConfig };
+export interface InstInfo {
+  name:     string;
+  abbr:     string;
+  color:    string;
+  accounts: BankAccountConfig[];
+  cards:    CreditCardConfig[];
+}
 
-type Step = 'main' | 'edit' | 'confirm' | 'loading' | 'done' | 'error';
-type DoneReason = 'deleted' | 'updated';
+type Step        = 'main' | 'edit' | 'confirm' | 'loading' | 'done' | 'error';
+type ConfirmType = 'conta' | 'cartao';
+type DoneReason  = 'deleted' | 'updated';
 
 interface Props {
-  inst:      { name: string; abbr: string; color: string };
-  product:   ManagedProduct;
+  inst:      InstInfo;
   onClose:   () => void;
   /** Chamado após qualquer conclusão bem-sucedida — use para recarregar a lista */
   onDeleted: () => void;
-  /** Se definido e kind === 'cartao', exibe botão "Adicionar novo cartão" no step done */
-  onAddNew?: () => void;
 }
 
 // ── Constantes ────────────────────────────────────────────────────────────────
@@ -56,29 +57,61 @@ const ACCOUNT_TYPE_LABELS: Record<string, string> = Object.fromEntries(
   ACCOUNT_TYPE_OPTIONS.map(o => [o.value, o.label]),
 );
 
+// ── Estilos compartilhados ────────────────────────────────────────────────────
+
+const overlayStyle: React.CSSProperties = {
+  position: 'fixed', inset: 0, zIndex: 9999,
+  background: 'rgba(0,0,0,0.65)',
+  backdropFilter: 'blur(6px)',
+  display: 'flex', alignItems: 'center', justifyContent: 'center',
+  padding: '24px 16px',
+};
+
+const containerStyle: React.CSSProperties = {
+  background:   'var(--surface-1)',
+  border:       '1px solid rgba(255,255,255,0.10)',
+  borderRadius: 24,
+  padding:      22,
+  width:        '100%',
+  maxWidth:     420,
+  boxShadow:    '0 32px 80px rgba(0,0,0,0.75)',
+  animation:    'gm-fade-up 0.18s ease both',
+};
+
 // ── Componente principal ──────────────────────────────────────────────────────
 
-export default function ManageProductModal({
-  inst,
-  product,
-  onClose,
-  onDeleted,
-  onAddNew,
-}: Props) {
-  const [step,       setStep]       = useState<Step>('main');
-  const [errorMsg,   setErrorMsg]   = useState('');
-  const [doneReason, setDoneReason] = useState<DoneReason>('deleted');
+export default function ManageProductModal({ inst, onClose, onDeleted }: Props) {
+  const contas    = inst.accounts;
+  const cartoes   = inst.cards;
+  const hasCartao = cartoes.length > 0;
 
-  const isCartao  = product.kind === 'cartao';
-  const typeLabel = isCartao ? 'cartão' : 'conta';
+  const [step,        setStep]        = useState<Step>('main');
+  const [confirmType, setConfirmType] = useState<ConfirmType | null>(null);
+  const [doneReason,  setDoneReason]  = useState<DoneReason>('deleted');
+  const [errorMsg,    setErrorMsg]    = useState('');
+
+  // Subtítulo do header: nomes dos produtos
+  const subtitleParts = [
+    ...contas.map(c => ACCOUNT_TYPE_LABELS[c.account_type] ?? c.name),
+    ...cartoes.map(c => c.name),
+  ].join(' · ');
 
   // ── Handlers ────────────────────────────────────────────────────────────────
 
+  function askConfirm(type: ConfirmType) {
+    setConfirmType(type);
+    setStep('confirm');
+  }
+
   async function handleDelete() {
+    if (!confirmType) return;
     setStep('loading');
     try {
-      if (isCartao) await api.deleteCard(product.data.id);
-      else          await api.deactivateBankAccount(product.data.id);
+      if (confirmType === 'cartao' && cartoes[0]) {
+        await api.deleteCard(cartoes[0].id);
+      } else if (confirmType === 'conta' && contas[0]) {
+        await api.deactivateBankAccount(contas[0].id);
+      }
       setDoneReason('deleted');
       setStep('done');
     } catch (err) {
@@ -88,13 +121,13 @@ export default function ManageProductModal({
   }
 
   async function handleUpdate(payload: Record<string, unknown>) {
+    if (!contas[0]) return;
     setStep('loading');
     try {
-      if (isCartao) {
-        await api.updateCard(product.data.id, payload as Parameters<typeof api.updateCard>[1]);
-      } else {
-        await api.updateBankAccount(product.data.id, payload as Parameters<typeof api.updateBankAccount>[1]);
-      }
+      await api.updateBankAccount(
+        contas[0].id,
+        payload as Parameters<typeof api.updateBankAccount>[1],
+      );
       setDoneReason('updated');
       setStep('done');
     } catch (err) {
@@ -103,85 +136,59 @@ export default function ManageProductModal({
     }
   }
 
-  // Chamado pelo botão "Fechar" no step done
   function handleClose() {
     onDeleted();
     onClose();
   }
 
-  // Chamado pelo botão "Adicionar novo cartão" no step done
-  function handleAddNew() {
-    onDeleted();
-    onAddNew?.();
-  }
-
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <div
-      onClick={onClose}
-      style={{
-        position: 'fixed', inset: 0, zIndex: 9999,
-        background: 'rgba(0,0,0,0.65)',
-        backdropFilter: 'blur(6px)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: '24px 16px',
-      }}
-    >
-      <div
-        onClick={e => e.stopPropagation()}
-        style={{
-          background:   'var(--surface-1)',
-          border:       '1px solid rgba(255,255,255,0.10)',
-          borderRadius: 24,
-          padding:      22,
-          width:        '100%',
-          maxWidth:     420,
-          boxShadow:    '0 32px 80px rgba(0,0,0,0.75)',
-          animation:    'gm-fade-up 0.18s ease both',
-        }}
-      >
-        {/* ── Header com avatar + nome da instituição ── */}
+    <div onClick={onClose} style={overlayStyle}>
+      <div onClick={e => e.stopPropagation()} style={containerStyle}>
+
+        {/* Header */}
         <ModalHeader
           inst={inst}
-          product={product}
+          subtitle={subtitleParts}
           onClose={onClose}
           hidden={step === 'loading' || step === 'done' || step === 'error'}
         />
 
         {step === 'main' && (
           <StepMain
-            product={product}
-            isCartao={isCartao}
+            contas={contas}
+            cartoes={cartoes}
+            hasCartao={hasCartao}
             onEdit={() => setStep('edit')}
-            onDelete={() => setStep('confirm')}
+            onDeleteConta={() => askConfirm('conta')}
+            onDeleteCartao={() => askConfirm('cartao')}
           />
         )}
-        {step === 'edit' && (
+        {step === 'edit' && contas[0] && (
           <StepEdit
-            product={product}
-            isCartao={isCartao}
+            account={contas[0]}
             onCancel={() => setStep('main')}
             onSave={handleUpdate}
           />
         )}
-        {step === 'confirm' && (
+        {step === 'confirm' && confirmType && (
           <StepConfirm
-            product={product}
-            isCartao={isCartao}
+            confirmType={confirmType}
+            conta={contas[0] ?? null}
+            cartao={cartoes[0] ?? null}
             onCancel={() => setStep('main')}
-            onConfirm={handleDelete}
+            onConfirm={() => void handleDelete()}
           />
         )}
         {step === 'loading' && (
-          <StepLoading typeLabel={typeLabel} />
+          <StepLoading confirmType={confirmType} />
         )}
         {step === 'done' && (
           <StepDone
             reason={doneReason}
-            isCartao={isCartao}
+            confirmType={confirmType}
             onClose={handleClose}
-            onAddNew={isCartao && doneReason === 'deleted' && onAddNew ? handleAddNew : undefined}
           />
         )}
         {step === 'error' && (
@@ -200,23 +207,16 @@ export default function ManageProductModal({
 
 function ModalHeader({
   inst,
-  product,
+  subtitle,
   onClose,
   hidden,
 }: {
-  inst:    { name: string; abbr: string; color: string };
-  product: ManagedProduct;
-  onClose: () => void;
-  hidden:  boolean;
+  inst:     InstInfo;
+  subtitle: string;
+  onClose:  () => void;
+  hidden:   boolean;
 }) {
   if (hidden) return null;
-
-  const isCartao  = product.kind === 'cartao';
-  const typeLabel = isCartao
-    ? 'Cartão de crédito'
-    : product.kind === 'conta'
-      ? (ACCOUNT_TYPE_LABELS[product.data.account_type] ?? 'Conta bancária')
-      : 'Conta bancária';
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
@@ -237,32 +237,37 @@ function ModalHeader({
           lineHeight: 1.2,
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         }}>
-          {product.data.name}
+          {inst.name}
         </div>
-        <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
-          {inst.name} · {typeLabel}
-        </div>
+        {subtitle && (
+          <div style={{
+            fontSize: 11, color: 'var(--text-secondary)', marginTop: 2,
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          }}>
+            {subtitle}
+          </div>
+        )}
       </div>
 
       {/* Botão fechar */}
       <button
         onClick={onClose}
         style={{
-          width: 28, height: 28, borderRadius: 8, flexShrink: 0,
-          border: '1px solid rgba(255,255,255,0.10)',
-          background: 'rgba(255,255,255,0.05)',
+          width: 26, height: 26, borderRadius: 7, flexShrink: 0,
+          border: '1px solid rgba(255,255,255,0.12)',
+          background: 'rgba(255,255,255,0.06)',
           color: 'rgba(255,255,255,0.45)',
           cursor: 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 14, fontFamily: 'inherit',
+          fontSize: 13, fontFamily: 'inherit',
           transition: 'background 0.12s, color 0.12s',
         }}
         onMouseEnter={e => {
-          e.currentTarget.style.background = 'rgba(255,255,255,0.10)';
+          e.currentTarget.style.background = 'rgba(255,255,255,0.12)';
           e.currentTarget.style.color = '#fff';
         }}
         onMouseLeave={e => {
-          e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
+          e.currentTarget.style.background = 'rgba(255,255,255,0.06)';
           e.currentTarget.style.color = 'rgba(255,255,255,0.45)';
         }}
       >
@@ -272,168 +277,138 @@ function ModalHeader({
   );
 }
 
+// ── DangerBtn ─────────────────────────────────────────────────────────────────
+
+function DangerBtn({ icon, title, desc, onClick }: {
+  icon:    string;
+  title:   string;
+  desc:    string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 14, padding: '14px',
+        borderRadius: 12,
+        border: '1px solid rgba(255,59,48,0.22)',
+        background: 'rgba(255,59,48,0.07)',
+        color: 'var(--text-primary)',
+        cursor: 'pointer', width: '100%', textAlign: 'left',
+        fontFamily: 'inherit', transition: 'background 0.12s',
+      }}
+      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,59,48,0.14)'; }}
+      onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,59,48,0.07)'; }}
+    >
+      <span style={{ fontSize: 16, flexShrink: 0, width: 24, textAlign: 'center' }}>{icon}</span>
+      <div style={{ flex: 1 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--red-400, #FF453A)' }}>{title}</div>
+        <div style={{ fontSize: 11, color: 'rgba(255,100,80,0.7)', marginTop: 2 }}>{desc}</div>
+      </div>
+      <span style={{ color: 'rgba(255,100,80,0.5)', fontSize: 15 }}>›</span>
+    </button>
+  );
+}
+
 // ── StepMain ──────────────────────────────────────────────────────────────────
 
-function StepMain({ product, isCartao, onEdit, onDelete }: {
-  product:  ManagedProduct;
-  isCartao: boolean;
-  onEdit:   () => void;
-  onDelete: () => void;
+function StepMain({ contas, cartoes, hasCartao, onEdit, onDeleteConta, onDeleteCartao }: {
+  contas:          BankAccountConfig[];
+  cartoes:         CreditCardConfig[];
+  hasCartao:       boolean;
+  onEdit:          () => void;
+  onDeleteConta:   () => void;
+  onDeleteCartao:  () => void;
 }) {
+  const hasContas = contas.length > 0;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
 
-      {/* Pagar fatura — apenas cartão, em breve */}
-      {isCartao && (
-        <ActionButton
-          icon="💳"
-          label="Pagar fatura"
-          description="Registrar pagamento da fatura atual (em breve)"
-          onClick={() => {/* future */}}
-          variant="disabled"
+      {/* Editar conta — botão neutro */}
+      {hasContas && (
+        <button
+          onClick={onEdit}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 14, padding: '14px',
+            borderRadius: 12,
+            border: '1px solid rgba(255,255,255,0.08)',
+            background: 'var(--surface-2)',
+            color: 'var(--text-primary)',
+            cursor: 'pointer', width: '100%', textAlign: 'left',
+            fontFamily: 'inherit', transition: 'background 0.12s, border-color 0.12s',
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.background = 'rgba(255,255,255,0.10)';
+            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.14)';
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.background = 'var(--surface-2)';
+            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)';
+          }}
+        >
+          <span style={{ fontSize: 16, flexShrink: 0, width: 24, textAlign: 'center' }}>✏️</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 13, fontWeight: 600 }}>Editar conta</div>
+            <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>
+              Renomear ou ajustar dados da conta
+            </div>
+          </div>
+          <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: 15 }}>›</span>
+        </button>
+      )}
+
+      {/* Separador */}
+      {hasContas && (
+        <div style={{ height: 1, background: 'rgba(255,255,255,0.07)', margin: '2px 0' }} />
+      )}
+
+      {/* Excluir conta */}
+      {hasContas && (
+        <DangerBtn
+          icon="🗑"
+          title="Excluir conta"
+          desc="Desativa e oculta a conta"
+          onClick={onDeleteConta}
         />
       )}
 
-      {/* Editar dados */}
-      <ActionButton
-        icon="✏️"
-        label="Editar dados"
-        description={`Renomear ou ajustar informações ${isCartao ? 'do cartão' : 'da conta'}`}
-        onClick={onEdit}
-        variant="default"
-      />
-
-      {/* Excluir / Desativar */}
-      <ActionButton
-        icon="🗑"
-        label={isCartao ? 'Excluir cartão' : 'Desativar conta'}
-        description={isCartao
-          ? 'Remove o cartão e todos os dados vinculados'
-          : 'Oculta a conta da interface (dados preservados)'}
-        onClick={onDelete}
-        variant="danger"
-      />
-
-      {/* Info sobre conta inativa */}
-      {!isCartao && product.kind === 'conta' && !product.data.is_active && (
-        <div style={{
-          marginTop: 4, padding: '8px 12px', borderRadius: 9,
-          background: 'rgba(255,159,10,0.08)',
-          border: '1px solid rgba(255,159,10,0.20)',
-          fontSize: 12, color: 'var(--amber-400, #FF9F0A)',
-        }}>
-          Esta conta já está desativada.
-        </div>
+      {/* Excluir crédito — apenas se houver cartão */}
+      {hasCartao && (
+        <DangerBtn
+          icon="💳"
+          title="Excluir crédito"
+          desc={`Remove ${cartoes[0]?.name ?? 'o cartão'} e dados`}
+          onClick={onDeleteCartao}
+        />
       )}
     </div>
   );
 }
 
-// ── ActionButton ──────────────────────────────────────────────────────────────
-
-function ActionButton({ icon, label, description, onClick, variant }: {
-  icon:        string;
-  label:       string;
-  description: string;
-  onClick:     () => void;
-  variant:     'default' | 'danger' | 'disabled';
-}) {
-  const isDisabled = variant === 'disabled';
-  const isDanger   = variant === 'danger';
-
-  return (
-    <button
-      onClick={isDisabled ? undefined : onClick}
-      disabled={isDisabled}
-      style={{
-        display: 'flex', alignItems: 'center', gap: 12,
-        padding: '12px 14px', borderRadius: 12,
-        border: isDanger
-          ? '1px solid rgba(255,69,58,0.20)'
-          : '1px solid rgba(255,255,255,0.08)',
-        background: isDanger
-          ? 'rgba(255,69,58,0.06)'
-          : 'var(--surface-2)',
-        color: isDanger
-          ? 'var(--red-400, #FF453A)'
-          : isDisabled
-            ? 'rgba(255,255,255,0.25)'
-            : 'var(--text-primary)',
-        textAlign: 'left', cursor: isDisabled ? 'not-allowed' : 'pointer',
-        width: '100%', fontFamily: 'inherit',
-        transition: 'background 0.12s, border-color 0.12s',
-        opacity: isDisabled ? 0.55 : 1,
-      }}
-      onMouseEnter={e => {
-        if (isDisabled) return;
-        e.currentTarget.style.background = isDanger
-          ? 'rgba(255,69,58,0.12)'
-          : 'rgba(255,255,255,0.10)';
-        e.currentTarget.style.borderColor = isDanger
-          ? 'rgba(255,69,58,0.35)'
-          : 'rgba(255,255,255,0.14)';
-      }}
-      onMouseLeave={e => {
-        if (isDisabled) return;
-        e.currentTarget.style.background = isDanger
-          ? 'rgba(255,69,58,0.06)'
-          : 'var(--surface-2)';
-        e.currentTarget.style.borderColor = isDanger
-          ? 'rgba(255,69,58,0.20)'
-          : 'rgba(255,255,255,0.08)';
-      }}
-    >
-      <span style={{ fontSize: 18, lineHeight: 1, flexShrink: 0 }}>{icon}</span>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 14, fontWeight: 600, letterSpacing: '-0.01em' }}>{label}</div>
-        <div style={{
-          fontSize: 12,
-          color: isDanger ? 'rgba(255,69,58,0.7)' : 'var(--text-secondary)',
-          marginTop: 2,
-        }}>
-          {description}
-        </div>
-      </div>
-      {!isDisabled && (
-        <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.25)', flexShrink: 0 }}>›</span>
-      )}
-    </button>
-  );
-}
-
 // ── StepEdit ──────────────────────────────────────────────────────────────────
 
-function StepEdit({ product, isCartao, onCancel, onSave }: {
-  product:  ManagedProduct;
-  isCartao: boolean;
+function StepEdit({ account, onCancel, onSave }: {
+  account:  BankAccountConfig;
   onCancel: () => void;
   onSave:   (payload: Record<string, unknown>) => Promise<void>;
 }) {
-  const acc  = product.kind === 'conta'  ? product.data : null;
-  const card = product.kind === 'cartao' ? product.data : null;
-
-  const [name,        setName]        = useState(product.data.name);
-  const [institution, setInstitution] = useState(product.data.institution ?? '');
-  const [accountType, setAccountType] = useState<BankAccountType>(acc?.account_type ?? 'checking');
-  const [closingDay,  setClosingDay]  = useState(String(card?.closing_day ?? ''));
-  const [dueDay,      setDueDay]      = useState(String(card?.due_day ?? ''));
-  const [creditLimit, setCreditLimit] = useState(
-    card?.credit_limit != null ? String(card.credit_limit) : '',
-  );
-  const [saving, setSaving] = useState(false);
-  const [err,    setErr]    = useState('');
+  const [name,        setName]        = useState(account.name);
+  const [institution, setInstitution] = useState(account.institution ?? '');
+  const [accountType, setAccountType] = useState<BankAccountType>(account.account_type);
+  const [saving,      setSaving]      = useState(false);
+  const [err,         setErr]         = useState('');
 
   const inputStyle: React.CSSProperties = {
     width: '100%', padding: '9px 11px', borderRadius: 8,
-    border: '1px solid var(--border-default)',
-    background: 'var(--surface-panel, var(--surface-2))',
+    border: '1px solid rgba(255,255,255,0.10)',
+    background: 'var(--surface-2)',
     color: 'var(--text-primary)', fontSize: 14,
-    fontFamily: 'inherit', boxSizing: 'border-box',
-    outline: 'none',
+    fontFamily: 'inherit', boxSizing: 'border-box', outline: 'none',
   };
   const labelStyle: React.CSSProperties = {
     display: 'flex', flexDirection: 'column', gap: 5,
-    fontSize: 11, fontWeight: 700, letterSpacing: '0.04em',
+    fontSize: 11, fontWeight: 700, letterSpacing: '0.05em',
     textTransform: 'uppercase', color: 'var(--text-secondary)',
   };
 
@@ -443,24 +418,11 @@ function StepEdit({ product, isCartao, onCancel, onSave }: {
     setSaving(true);
     setErr('');
     try {
-      if (isCartao) {
-        const payload: Record<string, unknown> = {
-          name: name.trim(),
-          institution: institution.trim() || null,
-          closing_day: Number(closingDay),
-          due_day:     Number(dueDay),
-        };
-        if (creditLimit.trim() !== '') {
-          payload.credit_limit = creditLimit.trim() === '0' ? 0 : Number(creditLimit);
-        }
-        await onSave(payload);
-      } else {
-        await onSave({
-          name:         name.trim(),
-          institution:  institution.trim() || null,
-          account_type: accountType,
-        });
-      }
+      await onSave({
+        name:         name.trim(),
+        institution:  institution.trim() || null,
+        account_type: accountType,
+      });
     } catch {
       setErr('Erro ao salvar. Tente novamente.');
       setSaving(false);
@@ -470,7 +432,6 @@ function StepEdit({ product, isCartao, onCancel, onSave }: {
   return (
     <form onSubmit={e => { void handleSubmit(e); }} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
-      {/* Nome */}
       <label style={labelStyle}>
         Nome
         <input
@@ -481,7 +442,6 @@ function StepEdit({ product, isCartao, onCancel, onSave }: {
         />
       </label>
 
-      {/* Instituição */}
       <label style={labelStyle}>
         Instituição
         <input
@@ -492,72 +452,30 @@ function StepEdit({ product, isCartao, onCancel, onSave }: {
         />
       </label>
 
-      {/* Conta: tipo */}
-      {!isCartao && (
-        <label style={labelStyle}>
-          Tipo de conta
-          <select
-            value={accountType}
-            onChange={e => setAccountType(e.target.value as BankAccountType)}
-            style={inputStyle}
-          >
-            {ACCOUNT_TYPE_OPTIONS.map(o => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
-        </label>
-      )}
-
-      {/* Cartão: dias */}
-      {isCartao && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <label style={labelStyle}>
-            Dia fechamento
-            <input
-              type="number" min={1} max={31}
-              value={closingDay}
-              onChange={e => setClosingDay(e.target.value)}
-              style={inputStyle}
-            />
-          </label>
-          <label style={labelStyle}>
-            Dia vencimento
-            <input
-              type="number" min={1} max={31}
-              value={dueDay}
-              onChange={e => setDueDay(e.target.value)}
-              style={inputStyle}
-            />
-          </label>
-        </div>
-      )}
-
-      {/* Cartão: limite */}
-      {isCartao && (
-        <label style={labelStyle}>
-          Limite (R$) <span style={{ fontWeight: 400, letterSpacing: 0 }}>— opcional</span>
-          <input
-            type="number" min={0} step={0.01}
-            value={creditLimit}
-            onChange={e => setCreditLimit(e.target.value)}
-            placeholder="Ex: 5000.00"
-            style={inputStyle}
-          />
-        </label>
-      )}
+      <label style={labelStyle}>
+        Tipo de conta
+        <select
+          value={accountType}
+          onChange={e => setAccountType(e.target.value as BankAccountType)}
+          style={inputStyle}
+        >
+          {ACCOUNT_TYPE_OPTIONS.map(o => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+      </label>
 
       {err && (
-        <p style={{ fontSize: 12, color: 'var(--red-400)', margin: 0 }}>{err}</p>
+        <p style={{ fontSize: 12, color: 'var(--red-400, #FF453A)', margin: 0 }}>{err}</p>
       )}
 
-      {/* Botões */}
       <div style={{ display: 'flex', gap: 8, marginTop: 2 }}>
         <button
           type="button"
           onClick={onCancel}
           style={{
             flex: 1, padding: '10px', borderRadius: 9,
-            border: '1px solid var(--border-default)',
+            border: '1px solid rgba(255,255,255,0.10)',
             background: 'transparent',
             color: 'var(--text-secondary)',
             fontSize: 14, fontWeight: 600,
@@ -571,13 +489,10 @@ function StepEdit({ product, isCartao, onCancel, onSave }: {
           disabled={saving}
           style={{
             flex: 2, padding: '10px', borderRadius: 9, border: 'none',
-            background: saving
-              ? 'var(--surface-2)'
-              : 'linear-gradient(135deg, #3182ce 0%, #2c7a7b 100%)',
-            color: saving ? 'var(--text-muted)' : '#fff',
+            background: saving ? 'var(--surface-2)' : 'var(--blue-400, #0A84FF)',
+            color: saving ? 'var(--text-secondary)' : '#fff',
             fontSize: 14, fontWeight: 600,
-            cursor: saving ? 'not-allowed' : 'pointer',
-            fontFamily: 'inherit',
+            cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
           }}
         >
           {saving ? 'Salvando...' : 'Salvar alterações'}
@@ -589,56 +504,55 @@ function StepEdit({ product, isCartao, onCancel, onSave }: {
 
 // ── StepConfirm ───────────────────────────────────────────────────────────────
 
-function StepConfirm({ product, isCartao, onCancel, onConfirm }: {
-  product:   ManagedProduct;
-  isCartao:  boolean;
-  onCancel:  () => void;
-  onConfirm: () => void;
+function StepConfirm({ confirmType, conta, cartao, onCancel, onConfirm }: {
+  confirmType: ConfirmType;
+  conta:       BankAccountConfig | null;
+  cartao:      CreditCardConfig | null;
+  onCancel:    () => void;
+  onConfirm:   () => void;
 }) {
-  const title         = isCartao ? 'Excluir cartão?' : 'Desativar conta?';
-  const warningHeader = isCartao
+  const isCard = confirmType === 'cartao';
+  const title  = isCard ? 'Excluir crédito?' : 'Excluir conta?';
+  const label  = isCard ? cartao?.name : conta?.name;
+
+  const warningHeader = isCard
     ? 'Todos os dados serão perdidos permanentemente'
     : 'A conta ficará oculta na interface';
 
   type Item = { text: string; positive: boolean };
-  const items: Item[] = isCartao
+  const items: Item[] = isCard
     ? [
-        { text: 'Todo o histórico de transações',          positive: false },
-        { text: 'Faturas e lançamentos do cartão',         positive: false },
-        { text: 'Categorias e notas associadas',           positive: false },
-        { text: 'Esta operação não pode ser desfeita',     positive: false },
+        { text: 'Todo o histórico de transações',      positive: false },
+        { text: 'Faturas e lançamentos do cartão',     positive: false },
+        { text: 'Categorias e notas associadas',       positive: false },
+        { text: 'Esta operação não pode ser desfeita', positive: false },
       ]
     : [
-        { text: 'A conta sumirá da Carteira e de todas as telas',              positive: false },
-        { text: 'Os lançamentos e extratos são preservados',                    positive: true  },
-        { text: 'Pode ser reativada nas configurações a qualquer momento',      positive: true  },
+        { text: 'A conta sumirá da Carteira e de todas as telas',          positive: false },
+        { text: 'Os lançamentos e extratos são preservados',                positive: true  },
+        { text: 'Pode ser reativada nas configurações a qualquer momento',  positive: true  },
       ];
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-      {/* Título */}
       <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: '-0.015em' }}>
         {title}
       </div>
 
-      {/* Aviso */}
       <div style={{
         padding: '14px 16px', borderRadius: 12,
         background: 'rgba(255,69,58,0.08)',
         border: '1px solid rgba(255,69,58,0.25)',
       }}>
         <div style={{
-          fontSize: 12, fontWeight: 700, letterSpacing: '0.04em',
+          fontSize: 11, fontWeight: 700, letterSpacing: '0.05em',
           color: 'var(--red-400, #FF453A)', marginBottom: 10,
           textTransform: 'uppercase',
         }}>
           ⚠️ {warningHeader}
         </div>
-        <ul style={{
-          listStyle: 'none', padding: 0, margin: 0,
-          display: 'flex', flexDirection: 'column', gap: 7,
-        }}>
+        <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 7 }}>
           {items.map(item => (
             <li key={item.text} style={{
               display: 'flex', alignItems: 'flex-start', gap: 8,
@@ -656,17 +570,14 @@ function StepConfirm({ product, isCartao, onCancel, onConfirm }: {
         </ul>
       </div>
 
-      {/* Botões */}
       <div style={{ display: 'flex', gap: 8 }}>
         <button
           onClick={onCancel}
           style={{
             flex: 1, padding: '10px', borderRadius: 9,
-            border: '1px solid var(--border-default)',
-            background: 'transparent',
-            color: 'var(--text-secondary)',
-            fontSize: 14, fontWeight: 600,
-            cursor: 'pointer', fontFamily: 'inherit',
+            border: '1px solid rgba(255,255,255,0.10)',
+            background: 'transparent', color: 'var(--text-secondary)',
+            fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
           }}
         >
           Cancelar
@@ -675,28 +586,27 @@ function StepConfirm({ product, isCartao, onCancel, onConfirm }: {
           onClick={onConfirm}
           style={{
             flex: 2, padding: '10px', borderRadius: 9, border: 'none',
-            background: 'var(--red-400, #FF453A)',
-            color: '#fff',
-            fontSize: 14, fontWeight: 600,
-            cursor: 'pointer', fontFamily: 'inherit',
+            background: 'var(--red-400, #FF453A)', color: '#fff',
+            fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
           }}
         >
-          Sim, {isCartao ? 'excluir' : 'desativar'}
+          Sim, {isCard ? 'excluir' : 'desativar'}
         </button>
       </div>
 
-      <p style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center', margin: 0 }}>
-        {isCartao
-          ? `"${product.data.name}" será excluído permanentemente.`
-          : `"${product.data.name}" será desativada.`}
-      </p>
+      {label && (
+        <p style={{ fontSize: 11, color: 'var(--text-muted, rgba(255,255,255,0.35))', textAlign: 'center', margin: 0 }}>
+          &ldquo;{label}&rdquo; será {isCard ? 'excluído permanentemente' : 'desativada'}.
+        </p>
+      )}
     </div>
   );
 }
 
 // ── StepLoading ───────────────────────────────────────────────────────────────
 
-function StepLoading({ typeLabel }: { typeLabel: string }) {
+function StepLoading({ confirmType }: { confirmType: ConfirmType | null }) {
+  const label = confirmType === 'cartao' ? 'cartão' : 'conta';
   return (
     <div style={{
       display: 'flex', flexDirection: 'column',
@@ -711,7 +621,7 @@ function StepLoading({ typeLabel }: { typeLabel: string }) {
         animation: 'spin 0.8s linear infinite',
       }} />
       <p style={{ fontSize: 14, color: 'var(--text-secondary)', margin: 0 }}>
-        Processando {typeLabel}...
+        Processando {label}...
       </p>
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
@@ -720,23 +630,22 @@ function StepLoading({ typeLabel }: { typeLabel: string }) {
 
 // ── StepDone ──────────────────────────────────────────────────────────────────
 
-function StepDone({ reason, isCartao, onClose, onAddNew }: {
-  reason:    DoneReason;
-  isCartao:  boolean;
-  onClose:   () => void;
-  onAddNew?: () => void;
+function StepDone({ reason, confirmType, onClose }: {
+  reason:      DoneReason;
+  confirmType: ConfirmType | null;
+  onClose:     () => void;
 }) {
+  const isCard = confirmType === 'cartao';
+
   const title = reason === 'updated'
-    ? (isCartao ? 'Cartão atualizado com sucesso' : 'Conta atualizada com sucesso')
-    : isCartao
-      ? 'Cartão excluído com sucesso'
-      : 'Conta desativada';
+    ? 'Conta atualizada com sucesso'
+    : isCard
+      ? 'Crédito excluído'
+      : 'Conta excluída';
 
   const subtitle = reason === 'updated'
     ? 'As alterações foram salvas.'
-    : isCartao
-      ? 'O cartão e suas transações foram removidos.'
-      : 'Os dados foram preservados. A conta foi removida da interface.';
+    : 'Os dados foram removidos com sucesso.';
 
   return (
     <div style={{
@@ -744,7 +653,6 @@ function StepDone({ reason, isCartao, onClose, onAddNew }: {
       alignItems: 'center', textAlign: 'center',
       gap: 12, padding: '24px 0 16px',
     }}>
-      {/* Ícone de sucesso */}
       <div style={{
         width: 60, height: 60, borderRadius: '50%',
         background: 'rgba(48,209,88,0.10)',
@@ -770,35 +678,19 @@ function StepDone({ reason, isCartao, onClose, onAddNew }: {
         </p>
       </div>
 
-      {/* Botões */}
-      <div style={{ width: '100%', marginTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {onAddNew && (
-          <button
-            onClick={onAddNew}
-            style={{
-              width: '100%', padding: '13px', borderRadius: 11, border: 'none',
-              background: 'var(--blue-400, #0A84FF)',
-              color: '#fff', fontSize: 14, fontWeight: 700,
-              cursor: 'pointer', fontFamily: 'inherit',
-            }}
-          >
-            Adicionar novo cartão
-          </button>
-        )}
-        <button
-          onClick={onClose}
-          style={{
-            width: '100%', padding: '11px', borderRadius: 10,
-            border: '1px solid rgba(255,255,255,0.10)',
-            background: 'rgba(255,255,255,0.05)',
-            color: 'rgba(255,255,255,0.6)',
-            fontSize: 13, fontWeight: 600,
-            cursor: 'pointer', fontFamily: 'inherit',
-          }}
-        >
-          Fechar
-        </button>
-      </div>
+      <button
+        onClick={onClose}
+        style={{
+          width: '100%', marginTop: 8, padding: '12px', borderRadius: 10,
+          border: '1px solid rgba(255,255,255,0.10)',
+          background: 'rgba(255,255,255,0.05)',
+          color: 'rgba(255,255,255,0.6)',
+          fontSize: 13, fontWeight: 600,
+          cursor: 'pointer', fontFamily: 'inherit',
+        }}
+      >
+        Fechar
+      </button>
     </div>
   );
 }
@@ -816,7 +708,6 @@ function StepError({ msg, onRetry, onClose }: {
       alignItems: 'center', textAlign: 'center',
       gap: 12, padding: '24px 0 16px',
     }}>
-      {/* Ícone de erro */}
       <div style={{
         width: 52, height: 52, borderRadius: '50%',
         background: 'rgba(255,69,58,0.12)',
@@ -844,11 +735,9 @@ function StepError({ msg, onRetry, onClose }: {
           onClick={onClose}
           style={{
             flex: 1, padding: '10px', borderRadius: 9,
-            border: '1px solid var(--border-default)',
-            background: 'transparent',
-            color: 'var(--text-secondary)',
-            fontSize: 14, fontWeight: 600,
-            cursor: 'pointer', fontFamily: 'inherit',
+            border: '1px solid rgba(255,255,255,0.10)',
+            background: 'transparent', color: 'var(--text-secondary)',
+            fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
           }}
         >
           Cancelar
@@ -857,10 +746,8 @@ function StepError({ msg, onRetry, onClose }: {
           onClick={onRetry}
           style={{
             flex: 2, padding: '10px', borderRadius: 9, border: 'none',
-            background: 'var(--surface-2)',
-            color: 'var(--text-primary)',
-            fontSize: 14, fontWeight: 600,
-            cursor: 'pointer', fontFamily: 'inherit',
+            background: 'var(--surface-2)', color: 'var(--text-primary)',
+            fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
           }}
         >
           Tentar novamente
