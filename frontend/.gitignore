@@ -46,3 +46,6 @@ Apple_Direction.html
 
 # Resumos temporários gerados pela equipa (cópia local; não commitar)
 _TEMP_*.txt
+
+# Instruções locais do Claude Code (nunca commitar)
+CLAUDE.md

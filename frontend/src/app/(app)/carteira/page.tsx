@@ -16,8 +16,8 @@ import {
 } from 'lucide-react';
 import { useLancamentoModal } from '@/components/LancamentoModal';
 import { ModalOverlay } from '@/components/ModalOverlay';
+import ManageProductModal, { type ManagedProduct } from '@/components/Manage/ManageProductModal';
 import LoadingSpinner from '@/components/LoadingSpinner';
-import PageHeader from '@/components/Layout/PageHeader';
 import {
   api,
   type BankAccountConfig,
@@ -197,11 +197,6 @@ export default function CarteiraPage() {
 
   return (
     <>
-      <PageHeader
-        title="Carteira"
-        subtitle="Contas, cartões e investimentos — por instituição"
-        px={isMobile ? 14 : 32}
-      />
       <NewAccountModal
         isOpen={showNewAccount}
         onClose={() => setShowNewAccount(false)}
@@ -235,7 +230,7 @@ export default function CarteiraPage() {
             gap: 12,
           }}>
             {institutions.map(inst => (
-              <InstitutionCard key={inst.name} institution={inst} />
+              <InstitutionCard key={inst.name} institution={inst} onReload={() => void load()} />
             ))}
 
             {/* Add CTA */}
@@ -269,9 +264,16 @@ export default function CarteiraPage() {
 
 // ── InstitutionCard ───────────────────────────────────────────────────────────
 
-function InstitutionCard({ institution }: { institution: InstitutionGroup }) {
+function InstitutionCard({
+  institution,
+  onReload,
+}: {
+  institution: InstitutionGroup;
+  onReload:    () => void;
+}) {
   const { name, slug, accounts, cards } = institution;
-  const [hovered, setHovered] = useState(false);
+  const [hovered,  setHovered]  = useState(false);
+  const [managing, setManaging] = useState<ManagedProduct | null>(null);
   const router = useRouter();
   const { openModal } = useLancamentoModal();
 
@@ -365,6 +367,38 @@ function InstitutionCard({ institution }: { institution: InstitutionGroup }) {
                 )}
               </div>
             </div>
+
+            {/* Botão gerenciar conta */}
+            <button
+              onClick={e => {
+                e.preventDefault();
+                e.stopPropagation();
+                setManaging({ kind: 'conta', data: acc });
+              }}
+              title="Gerenciar conta"
+              style={{
+                marginLeft: 4,
+                width: 26, height: 26, borderRadius: 7, flexShrink: 0,
+                border: '1px solid rgba(255,255,255,0.10)',
+                background: 'rgba(255,255,255,0.04)',
+                color: 'rgba(255,255,255,0.45)',
+                cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 15, letterSpacing: 1,
+                transition: 'background 0.12s, color 0.12s',
+                fontFamily: 'inherit',
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.10)';
+                e.currentTarget.style.color = '#fff';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
+                e.currentTarget.style.color = 'rgba(255,255,255,0.45)';
+              }}
+            >
+              ···
+            </button>
           </div>
         ))}
 
@@ -400,6 +434,38 @@ function InstitutionCard({ institution }: { institution: InstitutionGroup }) {
                 </div>
               </div>
             )}
+
+            {/* Botão gerenciar cartão */}
+            <button
+              onClick={e => {
+                e.preventDefault();
+                e.stopPropagation();
+                setManaging({ kind: 'cartao', data: card });
+              }}
+              title="Gerenciar cartão"
+              style={{
+                marginLeft: 4,
+                width: 26, height: 26, borderRadius: 7, flexShrink: 0,
+                border: '1px solid rgba(255,255,255,0.10)',
+                background: 'rgba(255,255,255,0.04)',
+                color: 'rgba(255,255,255,0.45)',
+                cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 15, letterSpacing: 1,
+                transition: 'background 0.12s, color 0.12s',
+                fontFamily: 'inherit',
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.10)';
+                e.currentTarget.style.color = '#fff';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
+                e.currentTarget.style.color = 'rgba(255,255,255,0.45)';
+              }}
+            >
+              ···
+            </button>
           </div>
         ))}
       </div>
@@ -441,6 +507,24 @@ function InstitutionCard({ institution }: { institution: InstitutionGroup }) {
           Ver detalhes →
         </span>
       </div>
+
+      {/* ── ManageProductModal ── */}
+      {managing && (
+        <ManageProductModal
+          inst={{ name, abbr, color }}
+          product={managing}
+          onClose={() => setManaging(null)}
+          onDeleted={onReload}
+          onAddNew={
+            managing.kind === 'cartao'
+              ? () => {
+                  setManaging(null);
+                  router.push(`/carteira/${slug}?tab=cartao`);
+                }
+              : undefined
+          }
+        />
+      )}
     </div>
   );
 }

@@ -8,7 +8,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Landmark, RefreshCw } from 'lucide-react';
 import LoadingSpinner from '@/components/LoadingSpinner';
@@ -28,6 +28,7 @@ import { formatCurrency } from '@/lib/formatters';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { getInstitutionColor } from '@/lib/institutionColors';
 import ContaEmptyState from '@/components/ContaEmptyState';
+import CartaoEmptyState from '@/components/Cards/CartaoEmptyState';
 import { useLancamentoModal } from '@/components/LancamentoModal';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -681,6 +682,7 @@ function EmptyExtrato({ accountId }: { accountId: number | null }) {
 export default function InstitutionDetailPage() {
   const { slug } = useParams<{ slug: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const institutionName = decodeSlug(slug ?? '');
   const isMobile = useIsMobile();
 
@@ -696,7 +698,7 @@ export default function InstitutionDetailPage() {
 
   const [loading, setLoading]         = useState(true);
   const [error, setError]             = useState<string | null>(null);
-  const [tab, setTab]                 = useState<Tab>('conta');
+  const [tab, setTab]                 = useState<Tab>((searchParams.get('tab') as Tab | null) ?? 'conta');
   const [displayName, setDisplayName] = useState<string>('');
 
   useEffect(() => {
@@ -784,10 +786,10 @@ export default function InstitutionDetailPage() {
   }, [activeAccountId, loadTransactions]);
 
   const tabs = useMemo<{ id: Tab; label: string }[]>(() => [
-    { id: 'conta', label: 'Conta' },
-    ...(cards.length > 0 ? [{ id: 'cartao' as Tab, label: cards.length === 1 ? 'Cartão' : 'Cartões' }] : []),
-    { id: 'resumo', label: 'Resumo' },
-  ], [cards]);
+    { id: 'conta',  label: 'Conta'   },
+    { id: 'cartao', label: 'Cartão'  },
+    { id: 'resumo', label: 'Resumo'  },
+  ], []);
 
   const subtitle = useMemo(() => [
     accounts.length > 0 && `${accounts.length} conta${accounts.length > 1 ? 's' : ''}`,
@@ -881,7 +883,15 @@ export default function InstitutionDetailPage() {
         )}
 
         {/* Tab: Cartão */}
-        {tab === 'cartao' && (
+        {tab === 'cartao' && cards.length === 0 && (
+          <CartaoEmptyState
+            institutionName={displayName || institutionName}
+            institutionColor={institutionColor}
+            institutionAbbr={institutionAbbr(displayName || institutionName)}
+            onCreated={card => setCards(prev => [...prev, card])}
+          />
+        )}
+        {tab === 'cartao' && cards.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {cards.map(card => (
               <CardPanel
