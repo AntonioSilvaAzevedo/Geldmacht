@@ -178,7 +178,6 @@ export default function ManageProductModal({
         )}
         {step === 'done' && (
           <StepDone
-            typeLabel={typeLabel}
             reason={doneReason}
             isCartao={isCartao}
             onClose={handleClose}
@@ -721,8 +720,7 @@ function StepLoading({ typeLabel }: { typeLabel: string }) {
 
 // ── StepDone ──────────────────────────────────────────────────────────────────
 
-function StepDone({ typeLabel, reason, isCartao, onClose, onAddNew }: {
-  typeLabel: string;
+function StepDone({ reason, isCartao, onClose, onAddNew }: {
   reason:    DoneReason;
   isCartao:  boolean;
   onClose:   () => void;
