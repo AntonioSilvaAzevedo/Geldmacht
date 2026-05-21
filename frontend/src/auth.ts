@@ -43,6 +43,13 @@ async function refreshAccessToken(
     };
   } catch (err) {
     console.error('[auth] refresh falhou:', err);
+    // Se o token atual ainda não expirou, a falha é transitória (ex.: backend
+    // reiniciando). Retorna o token sem erro para não derrubar a sessão.
+    const expiry = (oldToken.tokenExpiry as number) ?? 0;
+    if (expiry > Date.now()) {
+      console.warn('[auth] refresh transitório falhou — token ainda válido, sessão mantida.');
+      return { ...oldToken };
+    }
     return { ...oldToken, error: 'RefreshAccessTokenError' as const };
   }
 }
@@ -127,13 +134,18 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         } catch { /* mantém token existente */ }
       }
 
-      // ── Token ainda válido? (renova quando falta ≤1 dia para 7 dias) ─────────
-      const ONE_DAY = 24 * 60 * 60 * 1000;
-      if (Date.now() < ((token.tokenExpiry as number) ?? 0) - ONE_DAY) {
+      // ── Token ainda válido? (renova quando falta ≤1 dia para expirar) ─────────
+      const ONE_DAY   = 24 * 60 * 60 * 1000;
+      const expiry    = (token.tokenExpiry as number) ?? 0;
+
+      // Se o expiry não foi definido (0), significa que decodeJwtPayload falhou
+      // no login. Nesse caso evitamos renovar em toda requisição — aguardamos o
+      // próximo ciclo de update() do AuthRefreshGuard.
+      if (expiry === 0 || Date.now() < expiry - ONE_DAY) {
         return token;
       }
 
-      // ── Token expirado (ou sem tokenExpiry) → renovar ────────────────────────
+      // ── Token expirado ou dentro do janela de renovação → renovar ────────────
       return refreshAccessToken(token as Record<string, unknown>);
     },
 

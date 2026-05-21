@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState, useCallback, useEffect, useRef } from 'react';
+import { Suspense, useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Upload, FileText, FileSpreadsheet, X, AlertCircle, Loader2 } from 'lucide-react';
 import {
@@ -15,6 +15,10 @@ import {
 import UploadPreview from '@/components/Upload/UploadPreview';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import Link from 'next/link';
+import {
+  consumePendingImport,
+  type ImportFileContext,
+} from '@/lib/importStore';
 
 type Stage = 'idle' | 'uploading' | 'preview' | 'error' | 'already_imported';
 
@@ -54,22 +58,43 @@ function UploadPageInner() {
   const isCreditCardType = uploadType === 'credit_card';
   const isBankStatementType = uploadType === 'bank_statement';
 
-  const [stage, setStage] = useState<Stage>('idle');
-  const [dragOver, setDragOver] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  // Lazy-init: consome o importStore de forma síncrona, antes do primeiro render.
+  // Isso evita o flash da tela idle quando vindo de ContaEmptyTransactions.
+  // Em navegações client-side (router.push), o useState initializer roda no cliente
+  // com o store já preenchido. Em SSR/acesso direto, retorna null (store vazio).
+  const [initImport] = useState(() => consumePendingImport());
+
+  const [stage, setStage]               = useState<Stage>(initImport ? 'uploading' : 'idle');
+  const [dragOver, setDragOver]         = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(initImport?.file ?? null);
   const [uploadResult, setUploadResult] = useState<UploadResponse | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
-  const [card, setCard] = useState<CreditCardConfig | null>(null);
-  const [cards, setCards] = useState<CreditCardConfig[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [card, setCard]                 = useState<CreditCardConfig | null>(null);
+  const [cards, setCards]               = useState<CreditCardConfig[]>([]);
+  const [categories, setCategories]     = useState<Category[]>([]);
   const [bankAccounts, setBankAccounts] = useState<BankAccountConfig[]>([]);
   const [selectedBankId, setSelectedBankId] = useState<number | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [instCtx]                       = useState<ImportFileContext | null>(initImport?.ctx ?? null);
+  const inputRef                        = useRef<HTMLInputElement>(null);
+  const autoUploadFired                 = useRef(false);
 
   const selectedBank = bankAccounts.find(b => b.id === selectedBankId) ?? null;
   const isOFXFile    = selectedFile ? ACCEPT_OFX.some(ext => selectedFile.name.toLowerCase().endsWith(ext)) : false;
   // Treat OFX files as bank_statement even on the generic route
   const needsBankSelector = isBankStatementType || isOFXFile;
+
+  // ── Auto-upload quando arquivo vem do importStore ─────────────────────────────
+  // Dispara handleUpload() assim que o arquivo E a conta estiverem prontos,
+  // pulando a tela idle por completo.
+  // handleUpload é omitido dos deps intencionalmente: não é memoizado e o
+  // autoUploadFired.current garante que a função só roda uma única vez.
+  useEffect(() => {
+    if (!instCtx || !selectedFile || autoUploadFired.current) return;
+    if (needsBankSelector && !selectedBankId) return; // aguarda conta carregar
+    autoUploadFired.current = true;
+    void handleUpload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [instCtx, selectedFile, selectedBankId, needsBankSelector]);
 
   useEffect(() => {
     if (!isCreditCardType) return;
@@ -197,7 +222,10 @@ function UploadPageInner() {
   };
 
   const handleImportDone = () => {
-    if (needsBankSelector && selectedBankId) {
+    if (instCtx) {
+      // Volta para a conta de origem com a tab Conta ativa
+      router.push(`/carteira/${instCtx.instSlug}`);
+    } else if (needsBankSelector && selectedBankId) {
       router.push(`/contas/${selectedBankId}`);
     } else if (isCreditCardType && card?.id) {
       router.push(`/cartao/${card.id}`);
@@ -206,11 +234,41 @@ function UploadPageInner() {
     }
   };
 
+  /** Callback Voltar: se veio de uma conta, retorna para ela; senão limpa o arquivo. */
+  const handleBack = useMemo(
+    () => instCtx
+      ? () => router.push(`/carteira/${instCtx.instSlug}`)
+      : clearFile,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [instCtx],
+  );
+
   const fileAccept = isBankStatementType
     ? ACCEPT_BANK_STATEMENT.join(',')
     : isCreditCardType
       ? ACCEPT_CARD.join(',')
       : ACCEPT_GENERIC.join(',');
+
+  // ── Guard: quando vindo do importStore, nunca exibir a tela idle ────────────
+  // O arquivo chega pré-carregado; enquanto o upload não completa (ou falha)
+  // mostramos apenas um spinner para evitar flash da UI idle.
+  if (instCtx && stage !== 'preview' && stage !== 'error' && stage !== 'already_imported') {
+    return (
+      <div style={{
+        display:        'flex',
+        alignItems:     'center',
+        justifyContent: 'center',
+        flex:           1,
+        minHeight:      240,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, color: 'rgba(255,255,255,0.45)' }}>
+          <Loader2 size={20} style={{ animation: 'spin 1s linear infinite', flexShrink: 0 }} />
+          <span style={{ fontSize: 14 }}>Processando extrato…</span>
+        </div>
+        <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
+      </div>
+    );
+  }
 
   if (
     stage === 'already_imported' &&
@@ -288,7 +346,8 @@ function UploadPageInner() {
         uploadType={uploadType}
         importKind={needsBankSelector ? 'bank_statement' : undefined}
         bankAccount={selectedBank}
-        onBack={clearFile}
+        instContext={instCtx ?? undefined}
+        onBack={handleBack}
         onImportDone={handleImportDone}
       />
     );

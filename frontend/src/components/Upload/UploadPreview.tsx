@@ -20,6 +20,7 @@ import {
   type ImportKind,
   type InvoiceCreate,
 } from '@/lib/api';
+import type { ImportFileContext } from '@/lib/importStore';
 import { formatCurrency } from '@/lib/formatters';
 import { useIsMobile } from '@/hooks/useIsMobile';
 
@@ -40,15 +41,17 @@ interface ReviewTx extends PreviewTransaction {
 }
 
 interface Props {
-  result:       UploadResponse;
-  card?:        CreditCardConfig | null;
-  cards?:       CreditCardConfig[];
-  categories?:  Category[];
-  uploadType?:  string | null;
-  importKind?:  ImportKind | null;
-  bankAccount?: BankAccountConfig | null;
-  onBack:       () => void;
-  onImportDone: () => void;
+  result:        UploadResponse;
+  card?:         CreditCardConfig | null;
+  cards?:        CreditCardConfig[];
+  categories?:   Category[];
+  uploadType?:   string | null;
+  importKind?:   ImportKind | null;
+  bankAccount?:  BankAccountConfig | null;
+  /** Contexto de conta quando a importação foi iniciada via ContaEmptyTransactions. */
+  instContext?:  ImportFileContext;
+  onBack:        () => void;
+  onImportDone:  () => void;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -368,6 +371,7 @@ export default function UploadPreview({
   categories = [],
   importKind,
   bankAccount,
+  instContext,
   onBack,
   onImportDone,
 }: Props) {
@@ -511,11 +515,34 @@ export default function UploadPreview({
             fontFamily: 'inherit',
           }}>
             <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
-            Voltar
+            {instContext ? `Voltar para ${instContext.instName}` : 'Voltar'}
           </button>
-          <h1 style={{ fontSize: isMobile ? 18 : 22, fontWeight: 700, letterSpacing: '-0.022em', marginBottom: 4 }}>
-            Revisar lançamentos
-          </h1>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+            {/* Avatar da instituição — só quando temos contexto */}
+            {instContext && (
+              <div style={{
+                width:          28,
+                height:         28,
+                borderRadius:   8,
+                background:     instContext.instColor,
+                display:        'flex',
+                alignItems:     'center',
+                justifyContent: 'center',
+                fontSize:       10,
+                fontWeight:     700,
+                color:          '#fff',
+                flexShrink:     0,
+                letterSpacing:  '0.02em',
+              }}>
+                {instContext.instAbbr}
+              </div>
+            )}
+            <h1 style={{ fontSize: isMobile ? 18 : 22, fontWeight: 700, letterSpacing: '-0.022em', margin: 0 }}>
+              Revisar lançamentos
+            </h1>
+          </div>
+
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <span style={{
               display: 'inline-flex', alignItems: 'center', gap: 5,
@@ -525,10 +552,16 @@ export default function UploadPreview({
             }}>
               {parserLabel}
             </span>
-            {!isMobile && (
-              <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)' }}>
-                {result.source_file}
+            {instContext ? (
+              <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.50)' }}>
+                {instContext.instName} · {instContext.accountLabel}
               </span>
+            ) : (
+              !isMobile && (
+                <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)' }}>
+                  {result.source_file}
+                </span>
+              )
             )}
             <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
               {txs.length} lançamentos

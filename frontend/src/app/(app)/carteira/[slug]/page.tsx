@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Landmark, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import PageHeader from '@/components/Layout/PageHeader';
 import AccountCard from '@/components/Cards/AccountCard';
@@ -28,6 +28,8 @@ import { formatCurrency } from '@/lib/formatters';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { getInstitutionColor } from '@/lib/institutionColors';
 import ContaEmptyState from '@/components/ContaEmptyState';
+import ContaEmptyTransactions from '@/components/Conta/ContaEmptyTransactions';
+import type { ImportFileContext } from '@/lib/importStore';
 import CartaoEmptyState from '@/components/Cards/CartaoEmptyState';
 import { useLancamentoModal } from '@/components/LancamentoModal';
 
@@ -90,6 +92,7 @@ function ContaTab({
   monthStats,
   displayName,
   institutionColor,
+  instSlug,
   onVerTodas,
   onAccountCreated,
   onImportOFX,
@@ -103,6 +106,7 @@ function ContaTab({
   monthStats: MonthStats;
   displayName: string;
   institutionColor: string;
+  instSlug: string;
   onVerTodas: () => void;
   onAccountCreated: (account: BankAccountConfig) => void;
   onImportOFX: () => void;
@@ -117,6 +121,18 @@ function ContaTab({
     abbr:  institutionAbbr(displayName),
     color: institutionColor,
   };
+
+  // Contexto para o file picker de importação — passado via importStore
+  const importCtx: Omit<ImportFileContext, 'accountId'> | undefined =
+    activeAccountId != null
+      ? {
+          accountLabel: activeAccount?.name ?? displayName,
+          instName:     displayName,
+          instAbbr:     institutionAbbr(displayName),
+          instColor:    institutionColor,
+          instSlug,
+        }
+      : undefined;
 
   const conta = {
     label:   activeAccount?.name ?? 'Conta',
@@ -188,10 +204,13 @@ function ContaTab({
         />
       )}
 
-      {/* ④ TransactionList */}
+      {/* ④ TransactionList ou empty state */}
       {!txLoading && (
         transactions.length === 0 ? (
-          <EmptyExtrato accountId={activeAccountId} />
+          <ContaEmptyTransactions
+            accountId={activeAccountId}
+            importCtx={importCtx}
+          />
         ) : (
           <TransactionList
             title="Lançamentos recentes"
@@ -655,28 +674,6 @@ function ResumoTab({ accounts, cards, dashboards, displayName }: {
   );
 }
 
-// ── EmptyExtrato ──────────────────────────────────────────────────────────────
-
-function EmptyExtrato({ accountId }: { accountId: number | null }) {
-  const { openModal } = useLancamentoModal();
-  return (
-    <div style={{ padding: '40px 24px', textAlign: 'center' }}>
-      <Landmark size={32} color="var(--text-muted)" style={{ margin: '0 auto 12px', display: 'block' }} />
-      <p style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 16, lineHeight: 1.5 }}>
-        Nenhum lançamento nesta conta ainda.
-      </p>
-      <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
-        <button
-          onClick={() => openModal({ bankAccountId: accountId ?? undefined })}
-          style={{ ...primaryLinkStyle, border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
-        >
-          Adicionar lançamento
-        </button>
-      </div>
-    </div>
-  );
-}
-
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function InstitutionDetailPage() {
@@ -871,6 +868,7 @@ export default function InstitutionDetailPage() {
             monthStats={monthStats}
             displayName={displayName || institutionName}
             institutionColor={institutionColor}
+            instSlug={slug ?? ''}
             onVerTodas={() => {
               if (activeAccountId) router.push(`/contas/${activeAccountId}`);
             }}
@@ -920,14 +918,6 @@ export default function InstitutionDetailPage() {
 }
 
 // ── Styles ────────────────────────────────────────────────────────────────────
-
-const primaryLinkStyle: React.CSSProperties = {
-  padding: '9px 16px', borderRadius: 8,
-  background: 'linear-gradient(135deg, #3182ce 0%, #2c7a7b 100%)',
-  color: '#fff', fontWeight: 600, fontSize: 13, textDecoration: 'none',
-  display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-};
-
 
 const ghostButtonStyle: React.CSSProperties = {
   display: 'inline-flex', alignItems: 'center', gap: 8,
