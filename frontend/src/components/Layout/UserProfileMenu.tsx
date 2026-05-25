@@ -5,6 +5,8 @@ import { useSession, signOut } from 'next-auth/react';
 import { LogOut, Settings, User } from 'lucide-react';
 import Link from 'next/link';
 import { clearStoredAuthVersion } from '@/lib/authVersion';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 
 /**
  * Avatar do usuário com popover contendo: Perfil, Configurações e Sair.
@@ -49,32 +51,23 @@ export default function UserProfileMenu() {
 
   return (
     <div ref={containerRef} style={{ position: 'relative' }}>
-      <button
+      <Button
         type="button"
+        variant="ghost"
         onClick={() => setOpen(o => !o)}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label="Abrir menu do perfil"
         title={display || 'Perfil'}
-        style={{
-          width: 32,
-          height: 32,
-          borderRadius: '50%',
-          background: 'linear-gradient(135deg, #3182ce 0%, #2c7a7b 100%)',
-          color: '#fff',
-          fontSize: 13,
-          fontWeight: 700,
-          border: 'none',
-          cursor: 'pointer',
-          display: 'inline-flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          boxShadow: open ? '0 0 0 2px var(--blue-400)' : 'none',
-          transition: 'box-shadow 0.15s',
-        }}
+        size="icon"
+        className={cn(
+          'size-8 min-h-8 min-w-8 shrink-0 rounded-full border-none bg-[var(--primary-gradient)] p-0 text-[13px] font-bold text-white',
+          'shadow-none hover:!bg-[var(--primary-gradient)] hover:!opacity-[0.88]',
+          open && 'ring-2 ring-[var(--blue-400)] ring-offset-0',
+        )}
       >
         {initials || <User size={15} />}
-      </button>
+      </Button>
 
       {open && (
         <div
@@ -126,36 +119,29 @@ export default function UserProfileMenu() {
             </div>
           )}
 
-          <MenuLink href="/perfil" icon={<User size={14} />} onClick={() => setOpen(false)}>
+          <MenuLink href="/home/perfil" icon={<User size={14} />} onClick={() => setOpen(false)}>
             Perfil
           </MenuLink>
-          <MenuLink href="/configuracoes" icon={<Settings size={14} />} onClick={() => setOpen(false)}>
+          <MenuLink href="/home/configuracoes" icon={<Settings size={14} />} onClick={() => setOpen(false)}>
             Configurações
           </MenuLink>
 
           <div style={{ height: 1, background: 'var(--border-subtle)', margin: '4px 0' }} />
 
-          <button
+          <Button
             type="button"
             role="menuitem"
+            variant="ghost"
+            className="h-auto min-h-9 w-full justify-start gap-2.5 rounded-[7px] px-2.5 py-2 text-[12.5px] font-normal text-[var(--red)] hover:bg-[rgba(252,129,129,0.10)] hover:!text-[var(--red)]"
             onClick={() => {
               setOpen(false);
               clearStoredAuthVersion();
               void signOut({ callbackUrl: '/login' });
             }}
-            style={menuButtonStyle}
-            onMouseEnter={e => {
-              e.currentTarget.style.background = 'rgba(252,129,129,0.10)';
-              e.currentTarget.style.color = 'var(--red-400)';
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.background = 'transparent';
-              e.currentTarget.style.color = 'var(--text-secondary)';
-            }}
           >
             <LogOut size={14} />
             Sair
-          </button>
+          </Button>
         </div>
       )}
 

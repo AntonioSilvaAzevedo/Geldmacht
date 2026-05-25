@@ -8,7 +8,8 @@
 import { useState, FormEvent, Suspense, type CSSProperties } from 'react';
 import { signIn } from 'next-auth/react';
 import Link from 'next/link';
-import { Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input, InputGroup, InputGroupRow } from '@/components/ui/input';
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 function EyeIcon({ open }: { open: boolean }) {
@@ -97,7 +98,7 @@ function RegisterForm() {
         setError('Conta criada. Entre manualmente na página de login.');
         return;
       }
-      window.location.href = '/';
+      window.location.href = '/home';
     } catch {
       setError('Erro de conexão. Tente novamente.');
     } finally {
@@ -106,7 +107,7 @@ function RegisterForm() {
   }
 
   async function handleGoogle() {
-    await signIn('google', { callbackUrl: '/' });
+    await signIn('google', { callbackUrl: '/home' });
   }
 
   return (
@@ -123,96 +124,99 @@ function RegisterForm() {
 
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
-        <div style={styles.inputGroup}>
-          <div style={styles.inputRow}>
-            <input
+        <InputGroup className="rounded-[14px]">
+          <InputGroupRow>
+            <Input
               id="name"
               name="name"
               type="text"
+              variant="group"
+              size="lg"
               value={name}
               onChange={e => setName(e.target.value)}
               required
               placeholder="Nome completo"
               autoComplete="name"
-              style={styles.input}
             />
-          </div>
+          </InputGroupRow>
 
-          <div style={styles.inputDivider} />
-
-          <div style={styles.inputRow}>
-            <input
+          <InputGroupRow>
+            <Input
               id="email"
               name="email"
               type="email"
+              variant="group"
+              size="lg"
               value={email}
               onChange={e => setEmail(e.target.value)}
               required
               placeholder="E-mail"
               autoComplete="email"
-              style={styles.input}
             />
-          </div>
+          </InputGroupRow>
 
-          <div style={styles.inputDivider} />
-
-          <div style={{ ...styles.inputRow, gap: 8 }}>
-            <input
+          <InputGroupRow className="gap-2">
+            <Input
               id="password"
               name="password"
               type={showPwd ? 'text' : 'password'}
+              variant="group"
+              size="lg"
               value={password}
               onChange={e => setPassword(e.target.value)}
               required
               placeholder="Senha (mín. 8 caracteres)"
               autoComplete="new-password"
-              style={styles.input}
             />
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon-sm"
               onClick={() => setShowPwd(v => !v)}
               tabIndex={-1}
-              style={styles.eyeBtn}
+              className="h-auto w-auto shrink-0 border-none bg-transparent p-1 text-white/35 hover:bg-transparent hover:text-white/35"
               aria-label={showPwd ? 'Ocultar senha' : 'Mostrar senha'}
             >
               <EyeIcon open={showPwd} />
-            </button>
-          </div>
+            </Button>
+          </InputGroupRow>
 
-          <div style={styles.inputDivider} />
-
-          <div style={{ ...styles.inputRow, gap: 8 }}>
-            <input
+          <InputGroupRow className="gap-2">
+            <Input
               id="confirm"
               name="confirm"
               type={showPwd2 ? 'text' : 'password'}
+              variant="group"
+              size="lg"
               value={confirm}
               onChange={e => setConfirm(e.target.value)}
               required
               placeholder="Confirmar senha"
               autoComplete="new-password"
-              style={styles.input}
             />
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon-sm"
               onClick={() => setShowPwd2(v => !v)}
               tabIndex={-1}
-              style={styles.eyeBtn}
+              className="h-auto w-auto shrink-0 border-none bg-transparent p-1 text-white/35 hover:bg-transparent hover:text-white/35"
               aria-label={showPwd2 ? 'Ocultar confirmação de senha' : 'Mostrar confirmação de senha'}
             >
               <EyeIcon open={showPwd2} />
-            </button>
-          </div>
-        </div>
+            </Button>
+          </InputGroupRow>
+        </InputGroup>
 
-        <button type="submit" disabled={loading} style={styles.btnPrimary(loading)}>
-          {loading
-            ? <>
-                <Loader2 size={17} style={{ animation: 'spin 0.75s linear infinite' }} />
-                Criando conta…
-              </>
-            : 'Criar conta'}
-        </button>
+        <Button
+          type="submit"
+          variant="default"
+          size="lg"
+          className="w-full rounded-[14px]"
+          loading={loading}
+        >
+          {loading ? 'Criando conta…' : 'Criar conta'}
+        </Button>
       </form>
 
       <div style={styles.divider}>
@@ -221,32 +225,24 @@ function RegisterForm() {
         <div style={styles.dividerLine} />
       </div>
 
-      <button type="button" onClick={handleGoogle} style={styles.btnGoogle}>
+      <Button
+        type="button"
+        variant="secondary"
+        size="lg"
+        className="w-full rounded-[14px] font-medium"
+        onClick={handleGoogle}
+      >
         <GoogleIcon />
         Continuar com Google
-      </button>
+      </Button>
 
       <div style={styles.links}>
         <p style={styles.linksText}>
           Já tem conta?{' '}
           <Link href="/login" style={styles.link}>Entrar</Link>
         </p>
-        <p style={styles.footnote}>
-          Ao criar sua conta você concorda com os{' '}
-          <Link href="/terms" style={styles.footnoteLink}>
-            Termos de Uso
-          </Link>
-          {' '}e a{' '}
-          <Link href="/privacy" style={styles.footnoteLink}>
-            Política de Privacidade
-          </Link>
-          .
-        </p>
       </div>
 
-      <style>{`
-        @keyframes spin { to { transform: rotate(360deg); } }
-      `}</style>
     </div>
   );
 }
@@ -283,67 +279,6 @@ const styles = {
     color: 'var(--red)',
   } as CSSProperties,
 
-  inputGroup: {
-    background: 'var(--surface-2)',
-    borderRadius: 14,
-    overflow: 'hidden',
-  } as CSSProperties,
-
-  inputRow: {
-    display: 'flex',
-    alignItems: 'center',
-    padding: '0 16px',
-    height: 54,
-  } as CSSProperties,
-
-  inputDivider: {
-    height: 1,
-    flexShrink: 0,
-    margin: 0,
-    alignSelf: 'stretch',
-    background: 'rgba(255,255,255,0.08)',
-  } as CSSProperties,
-
-  input: {
-    flex: 1,
-    background: 'none',
-    border: 'none',
-    outline: 'none',
-    fontFamily: 'var(--font-sans)',
-    fontSize: 15,
-    color: 'var(--text-primary)',
-  } as CSSProperties,
-
-  eyeBtn: {
-    background: 'none',
-    border: 'none',
-    cursor: 'pointer',
-    padding: 4,
-    flexShrink: 0,
-    display: 'flex',
-    alignItems: 'center',
-    color: 'rgba(255,255,255,0.35)',
-    transition: 'color 0.15s',
-  } as CSSProperties,
-
-  btnPrimary: (loading: boolean): CSSProperties => ({
-    width: '100%',
-    height: 54,
-    border: 'none',
-    borderRadius: 14,
-    background: loading ? 'rgba(255,255,255,0.55)' : '#fff',
-    color: '#000',
-    fontFamily: 'var(--font-sans)',
-    fontSize: 17,
-    fontWeight: 600,
-    cursor: loading ? 'not-allowed' : 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    transition: 'opacity 0.15s',
-  }),
-
   divider: {
     display: 'flex',
     alignItems: 'center',
@@ -361,24 +296,6 @@ const styles = {
     color: 'var(--text-tertiary)',
   } as CSSProperties,
 
-  btnGoogle: {
-    width: '100%',
-    height: 54,
-    border: 'none',
-    borderRadius: 14,
-    background: 'var(--surface-2)',
-    color: 'var(--text-primary)',
-    fontFamily: 'var(--font-sans)',
-    fontSize: 15,
-    fontWeight: 500,
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    transition: 'opacity 0.15s',
-  } as CSSProperties,
-
   links: {
     display: 'flex',
     flexDirection: 'column',
@@ -392,20 +309,6 @@ const styles = {
     color: 'rgba(255,255,255,0.60)',
     whiteSpace: 'nowrap',
     margin: 0,
-  } as CSSProperties,
-
-  footnote: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.25)',
-    textAlign: 'center',
-    lineHeight: 1.5,
-    maxWidth: 280,
-    margin: 0,
-  } as CSSProperties,
-
-  footnoteLink: {
-    color: 'rgba(255,255,255,0.35)',
-    textDecoration: 'underline',
   } as CSSProperties,
 
   link: {

@@ -14,6 +14,7 @@
 import { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import CategoryIcon from '@/components/CategoryIcon';
+import { Button } from '@/components/ui/button';
 import { formatCurrency, formatDate } from '@/lib/formatters';
 import type { Transaction } from '@/types/financial';
 
@@ -231,17 +232,15 @@ function CategoryTransactionList({
             −{formatCurrency(Math.abs(tx.amount))}
           </span>
           {onRecategorize && (
-            <button
+            <Button
               type="button"
+              variant="link"
+              size="sm"
               onClick={e => { e.stopPropagation(); onRecategorize(tx.id); }}
-              style={{
-                fontSize: 11, color: 'var(--blue-400)', background: 'none',
-                border: 'none', cursor: 'pointer', padding: 0, flexShrink: 0,
-                fontFamily: 'inherit',
-              }}
+              className="shrink-0 !px-0 !py-0"
             >
               alterar
-            </button>
+            </Button>
           )}
         </div>
       ))}

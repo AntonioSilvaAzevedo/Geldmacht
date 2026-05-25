@@ -16,7 +16,7 @@ import { useRouter } from 'next/navigation';
 import {
   CheckSquare, Square, ArrowLeft, Download,
   AlertTriangle, TrendingUp, TrendingDown,
-  Search, Filter, Loader2, CheckCircle2,
+  Search, Filter, CheckCircle2,
 } from 'lucide-react';
 import EditableDescription from '@/components/EditableDescription';
 import { CategoryChoiceSelect } from '@/components/category-choice-select';
@@ -34,6 +34,8 @@ import {
 } from '@/lib/api';
 import { formatCurrency, formatDate } from '@/lib/formatters';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 // ── Labels amigáveis por parser ───────────────────────────────────────────────
 const PARSER_LABELS: Record<string, string> = {
@@ -438,15 +440,15 @@ export default function UploadPreview({ result, card, cards = [], categories = [
             }),
       });
       if (isBankStatement && bankAccount) {
-        router.push(`/contas/${bankAccount.id}`);
+        router.push('/home/carteira');
         return;
       }
       setImportResult(res);
       if (isCreditCardImport && selectedCard) {
         if (res.invoice_id) {
-          router.push(`/cartao/${selectedCard.id}/fatura/${res.invoice_id}`);
+          router.push(`/home/cartao/${selectedCard.id}/fatura/${res.invoice_id}`);
         } else if (res.due_month) {
-          router.push(`/cartao/${selectedCard.id}/${res.due_month}`);
+          router.push(`/home/cartao/${selectedCard.id}/${res.due_month}`);
         }
       }
     } catch (err) {
@@ -487,35 +489,24 @@ export default function UploadPreview({ result, card, cards = [], categories = [
           </div>
         )}
         <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 28 }}>
-          <button
-            onClick={onImportDone}
-            style={{
-              padding: '10px 20px',
-              borderRadius: 8,
-              border: '1px solid var(--border-default)',
-              background: 'transparent',
-              color: 'var(--text-secondary)',
-              fontSize: 14,
-              cursor: 'pointer',
-            }}
-          >
+          <Button type="button" variant="outline" onClick={onImportDone}>
             Importar outro arquivo
-          </button>
+          </Button>
           <Link
             href={
               importResult.bank_account_id
-                ? `/contas/${importResult.bank_account_id}`
+                ? '/home/carteira'
                 : importResult.card_id && importResult.invoice_id
-                  ? `/cartao/${importResult.card_id}/fatura/${importResult.invoice_id}`
+                  ? `/home/cartao/${importResult.card_id}/fatura/${importResult.invoice_id}`
                   : importResult.card_id && importResult.due_month
-                    ? `/cartao/${importResult.card_id}/${importResult.due_month}`
+                    ? `/home/cartao/${importResult.card_id}/${importResult.due_month}`
                     : '/'
             }
             style={{
               padding: '10px 20px',
               borderRadius: 8,
               border: 'none',
-              background: 'linear-gradient(135deg, #3182ce 0%, #2c7a7b 100%)',
+              background: 'var(--primary-gradient)',
               color: '#fff',
               fontSize: 14,
               fontWeight: 600,
@@ -551,23 +542,15 @@ export default function UploadPreview({ result, card, cards = [], categories = [
 
       {/* Header */}
       <div style={{ marginBottom: isMobile ? 14 : 20, flexShrink: 0 }}>
-        <button
+        <Button
+          type="button"
+          variant="link"
+          size="sm"
+          className="mb-2 h-auto p-0"
           onClick={onBack}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            background: 'none',
-            border: 'none',
-            color: 'var(--text-muted)',
-            fontSize: 13,
-            cursor: 'pointer',
-            marginBottom: 8,
-            padding: 0,
-          }}
         >
-          <ArrowLeft size={14} /> Trocar arquivo
-        </button>
+          <ArrowLeft className="size-3.5 shrink-0" aria-hidden /> Trocar arquivo
+        </Button>
         <h1 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 }}>
           Revisar lançamentos
         </h1>
@@ -647,61 +630,61 @@ export default function UploadPreview({ result, card, cards = [], categories = [
             {/* Vencimento */}
             <label style={{ display: 'grid', gap: 4, fontSize: 12 }}>
               <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Vencimento</span>
-              <input
+              <Input
                 type="date"
+                size="sm"
                 value={invoiceData.due_date ?? ''}
                 onChange={e => {
                   const v = e.target.value;
                   updateInvoice({ due_date: v || null, due_month: v ? v.slice(0, 7) : invoiceData.due_month });
                 }}
-                style={{ padding: '6px 9px', borderRadius: 6, border: '1px solid var(--border-default)', background: 'var(--surface-panel)', color: 'var(--text-primary)', fontSize: 12 }}
               />
             </label>
 
             {/* Mês de pagamento */}
             <label style={{ display: 'grid', gap: 4, fontSize: 12 }}>
               <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Mês de pagamento</span>
-              <input
+              <Input
                 type="month"
+                size="sm"
                 value={invoiceData.due_month ?? ''}
                 onChange={e => updateInvoice({ due_month: e.target.value })}
-                style={{ padding: '6px 9px', borderRadius: 6, border: '1px solid var(--border-default)', background: 'var(--surface-panel)', color: 'var(--text-primary)', fontSize: 12 }}
               />
             </label>
 
             {/* Período — início */}
             <label style={{ display: 'grid', gap: 4, fontSize: 12 }}>
               <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Início do período</span>
-              <input
+              <Input
                 type="date"
+                size="sm"
                 value={invoiceData.cycle_start_date ?? ''}
                 onChange={e => updateInvoice({ cycle_start_date: e.target.value || null })}
-                style={{ padding: '6px 9px', borderRadius: 6, border: '1px solid var(--border-default)', background: 'var(--surface-panel)', color: 'var(--text-primary)', fontSize: 12 }}
               />
             </label>
 
             {/* Período — fim */}
             <label style={{ display: 'grid', gap: 4, fontSize: 12 }}>
               <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Fim do período</span>
-              <input
+              <Input
                 type="date"
+                size="sm"
                 value={invoiceData.cycle_end_date ?? ''}
                 onChange={e => updateInvoice({ cycle_end_date: e.target.value || null })}
-                style={{ padding: '6px 9px', borderRadius: 6, border: '1px solid var(--border-default)', background: 'var(--surface-panel)', color: 'var(--text-primary)', fontSize: 12 }}
               />
             </label>
 
             {/* Total da fatura */}
             <label style={{ display: 'grid', gap: 4, fontSize: 12 }}>
               <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Total da fatura</span>
-              <input
+              <Input
                 type="number"
+                size="sm"
                 min={0}
                 step={0.01}
                 placeholder="0,00"
                 value={invoiceData.total_amount ?? ''}
                 onChange={e => updateInvoice({ total_amount: e.target.value ? Number(e.target.value) : null })}
-                style={{ padding: '6px 9px', borderRadius: 6, border: '1px solid var(--border-default)', background: 'var(--surface-panel)', color: 'var(--text-primary)', fontSize: 12 }}
               />
             </label>
           </div>
@@ -788,7 +771,7 @@ export default function UploadPreview({ result, card, cards = [], categories = [
           lineHeight: 1.5,
         }}>
           Você ainda não tem categorias para conta bancária. Você pode importar sem categoria ou{' '}
-          <Link href="/categorias" style={{ color: 'var(--blue-400)', fontWeight: 600 }}>criar categorias</Link>
+          <Link href="/home/categorias" style={{ color: 'var(--blue-400)', fontWeight: 600 }}>criar categorias</Link>
           {' '}depois.
         </div>
       )}
@@ -801,20 +784,13 @@ export default function UploadPreview({ result, card, cards = [], categories = [
             ? ['todos', 'entradas', 'saidas']
             : ['todos', 'entradas', 'saidas', 'transferencias']
           ).map(f => (
-            <button
+            <Button
+              type="button"
               key={f}
+              variant={activeFilter === f ? 'primary' : 'outline'}
+              size="sm"
+              className="rounded-[7px] capitalize"
               onClick={() => setActiveFilter(f as Filter)}
-              style={{
-                padding: '6px 12px',
-                borderRadius: 7,
-                border: `1px solid ${activeFilter === f ? 'var(--blue-500)' : 'var(--border-default)'}`,
-                background: activeFilter === f ? 'rgba(49,130,206,0.15)' : 'var(--surface-card)',
-                color: activeFilter === f ? 'var(--blue-400)' : 'var(--text-secondary)',
-                fontSize: 12,
-                fontWeight: activeFilter === f ? 600 : 400,
-                cursor: 'pointer',
-                textTransform: 'capitalize',
-              }}
             >
               {f === 'todos'
                 ? `Todos (${transactions.length})`
@@ -823,28 +799,20 @@ export default function UploadPreview({ result, card, cards = [], categories = [
                   : f === 'saidas'
                     ? 'Saídas'
                     : 'Transferências'}
-            </button>
+            </Button>
           ))}
         </div>
 
         {/* Busca */}
         <div style={{ flex: 1, minWidth: 200, position: 'relative' }}>
           <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-          <input
+          <Input
             type="text"
+            variant="search"
+            size="sm"
             placeholder="Buscar por descrição..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            style={{
-              width: '100%',
-              padding: '7px 12px 7px 30px',
-              borderRadius: 7,
-              border: '1px solid var(--border-default)',
-              background: 'var(--surface-card)',
-              color: 'var(--text-primary)',
-              fontSize: 13,
-              outline: 'none',
-            }}
           />
         </div>
       </div>
@@ -991,16 +959,19 @@ export default function UploadPreview({ result, card, cards = [], categories = [
           <thead>
             <tr style={{ background: 'var(--surface-panel)', borderBottom: '1px solid var(--border-subtle)' }}>
               <th style={{ padding: '10px 12px', width: 40, textAlign: 'center' }}>
-                <button
-                  onClick={toggleAllFiltered}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: allFilteredSelected ? 'var(--blue-400)' : 'var(--text-muted)', display: 'flex', alignItems: 'center' }}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  className={`h-auto w-auto border-none bg-transparent p-0 hover:bg-transparent ${allFilteredSelected ? 'text-[var(--blue-400)]' : 'text-[var(--text-muted)]'}`}
+                  aria-label={allFilteredSelected ? 'Desmarcar todos' : 'Selecionar todos'}
                   title={allFilteredSelected ? 'Desmarcar todos' : 'Selecionar todos'}
+                  onClick={toggleAllFiltered}
                 >
                   {allFilteredSelected
-                    ? <CheckSquare size={16} />
-                    : <Square size={16} />
-                  }
-                </button>
+                    ? <CheckSquare className="size-4" aria-hidden />
+                    : <Square className="size-4" aria-hidden />}
+                </Button>
               </th>
               <th style={{ padding: '10px 12px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 500 }}>Data</th>
               <th style={{ padding: '10px 12px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 500 }}>Descrição</th>
@@ -1209,111 +1180,52 @@ export default function UploadPreview({ result, card, cards = [], categories = [
         {/* Ações */}
         <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
           {/* Cancelar */}
-          <button
-            onClick={onBack}
-            style={{
-              padding: '10px 20px',
-              borderRadius: 9,
-              border: '1px solid var(--border-default)',
-              background: 'transparent',
-              color: 'var(--text-secondary)',
-              fontSize: 14,
-              fontWeight: 500,
-              cursor: 'pointer',
-              transition: 'border-color 0.15s, color 0.15s',
-            }}
-            onMouseEnter={e => {
-              e.currentTarget.style.borderColor = 'var(--border-strong)';
-              e.currentTarget.style.color = 'var(--text-primary)';
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.borderColor = 'var(--border-default)';
-              e.currentTarget.style.color = 'var(--text-secondary)';
-            }}
-          >
+          <Button type="button" variant="outline" onClick={onBack}>
             Cancelar
-          </button>
+          </Button>
 
           {/* Importar */}
           {isBankStatement && !bankAccount ? (
-            <button
+            <Button
+              type="button"
+              variant="outline"
               disabled
               title="Volte e selecione uma conta bancária."
-              style={{
-                padding: '10px 24px',
-                borderRadius: 9,
-                border: '1px solid rgba(229,62,62,0.3)',
-                background: 'var(--surface-card)',
-                color: 'var(--red-400)',
-                fontSize: 14,
-                fontWeight: 600,
-                cursor: 'not-allowed',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                opacity: 0.75,
-              }}
+              className="border-[rgba(229,62,62,0.3)] text-[var(--red-400)] opacity-75"
             >
-              <Download size={15} />
+              <Download className="size-[15px]" aria-hidden />
               Conta obrigatória
-            </button>
+            </Button>
           ) : isCreditCardType && !isBankStatement && !selectedCard ? (
-            <button
+            <Button
+              type="button"
+              variant="outline"
               disabled
               title="Selecione o cartão desta fatura antes de importar."
-              style={{
-                padding: '10px 24px',
-                borderRadius: 9,
-                border: '1px solid rgba(229,62,62,0.3)',
-                background: 'var(--surface-card)',
-                color: 'var(--red-400)',
-                fontSize: 14,
-                fontWeight: 600,
-                cursor: 'not-allowed',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                opacity: 0.75,
-              }}
+              className="border-[rgba(229,62,62,0.3)] text-[var(--red-400)] opacity-75"
             >
-              <Download size={15} />
+              <Download className="size-[15px]" aria-hidden />
               Selecione um cartão
-            </button>
+            </Button>
           ) : (
-            <button
+            <Button
+              type="button"
+              variant="primary"
               onClick={handleImport}
-              disabled={selectedCount === 0 || importing}
-              style={{
-                padding: '10px 24px',
-                borderRadius: 9,
-                border: 'none',
-                background: selectedCount === 0 ? 'var(--surface-card)' : 'linear-gradient(135deg, #3182ce 0%, #2c7a7b 100%)',
-                color: selectedCount === 0 ? 'var(--text-muted)' : '#fff',
-                fontSize: 14,
-                fontWeight: 600,
-                cursor: selectedCount === 0 ? 'not-allowed' : 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                transition: 'opacity 0.15s',
-              }}
-              onMouseEnter={e => { if (selectedCount > 0) e.currentTarget.style.opacity = '0.9'; }}
-              onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
+              disabled={selectedCount === 0}
+              loading={importing}
             >
-              {importing ? <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} /> : <Download size={15} />}
+              {!importing && <Download className="size-[15px]" aria-hidden />}
               {importing
                 ? 'Importando...'
                 : isMobile
                   ? `Importar (${selectedCount})`
                   : `Importar ${selectedCount} selecionados`}
-            </button>
+            </Button>
           )}
         </div>
       </div>
 
-      <style>{`
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-      `}</style>
     </div>
   );
 }

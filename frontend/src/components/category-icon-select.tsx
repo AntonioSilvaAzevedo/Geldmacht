@@ -4,6 +4,9 @@ import { useMemo, useState } from 'react';
 import { Search } from 'lucide-react';
 
 import CategoryIcon from '@/components/CategoryIcon';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 import {
   CATEGORY_ICON_GROUPS,
   ICON_LABELS,
@@ -72,23 +75,15 @@ export function CategoryIconSelect({ value, onChange, disabled }: CategoryIconSe
             pointerEvents: 'none',
           }}
         />
-        <input
+        <Input
           type="search"
+          variant="search"
+          size="sm"
           value={query}
           onChange={e => setQuery(e.target.value)}
           placeholder="Buscar ícone..."
           disabled={disabled}
           aria-label="Buscar ícone"
-          style={{
-            width: '100%',
-            padding: '9px 10px 9px 32px',
-            borderRadius: 8,
-            border: '1px solid var(--border-default)',
-            background: 'var(--surface-panel)',
-            color: 'var(--text-primary)',
-            fontSize: 13,
-            outline: 'none',
-          }}
         />
       </div>
 
@@ -127,33 +122,24 @@ export function CategoryIconSelect({ value, onChange, disabled }: CategoryIconSe
                 const selected = resolved === current;
                 const label = ICON_LABELS[key] ?? ICON_LABELS[resolved] ?? key;
                 return (
-                  <button
+                  <Button
                     key={key}
                     type="button"
+                    variant="outline"
+                    size="sm"
                     disabled={disabled}
                     title={label}
                     aria-label={label}
                     onClick={() => onChange(resolved)}
-                    style={{
-                      minWidth: 44,
-                      minHeight: 44,
-                      borderRadius: 10,
-                      border: selected
-                        ? '2px solid var(--blue-400)'
-                        : '1px solid var(--border-subtle)',
-                      background: selected
-                        ? 'rgba(49,130,206,0.12)'
-                        : 'rgba(255,255,255,0.03)',
-                      cursor: disabled ? 'not-allowed' : 'pointer',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      padding: 0,
-                      opacity: disabled ? 0.5 : 1,
-                    }}
+                    className={cn(
+                      'size-11 min-h-11 min-w-11 shrink-0 rounded-[10px] p-0 [&_svg]:pointer-events-none',
+                      selected
+                        ? 'border-2 border-[var(--blue-400)] bg-[rgba(49,130,206,0.12)]'
+                        : '!border-[var(--border-subtle)] bg-[rgba(255,255,255,0.03)]',
+                    )}
                   >
                     <CategoryIcon icon={resolved} size={18} color={selected ? 'var(--blue-400)' : 'var(--text-secondary)'} />
-                  </button>
+                  </Button>
                 );
               })}
             </div>

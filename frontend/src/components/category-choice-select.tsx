@@ -4,6 +4,9 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { ChevronDown, Search } from 'lucide-react';
 
 import CategoryIcon from '@/components/CategoryIcon';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 
 export interface CategoryChoiceOption {
   id: number;
@@ -67,33 +70,24 @@ export function CategoryChoiceSelect({
       data-slot="category-choice-select"
       style={{ position: 'relative', width: '100%', maxWidth }}
     >
-      <button
+      <Button
         type="button"
+        variant="outline"
+        size="sm"
         disabled={disabled}
         onClick={() => !disabled && setOpen(o => !o)}
         aria-expanded={open}
         aria-haspopup="listbox"
         aria-controls={listId}
-        style={{
-          width: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          padding: '7px 10px',
-          borderRadius: 7,
-          border: '1px solid var(--border-default)',
-          background: 'var(--surface-panel)',
-          color: selected ? 'var(--text-primary)' : 'var(--text-muted)',
-          fontSize: 12,
-          cursor: disabled ? 'not-allowed' : 'pointer',
-          textAlign: 'left',
-          minHeight: 36,
-        }}
+        className={cn(
+          'min-h-9 h-auto w-full justify-start gap-2 px-2.5 py-[7px] text-left font-normal text-[length:var(--text-footnote)] [&_svg]:shrink-0',
+          disabled ? '!cursor-not-allowed' : 'cursor-pointer',
+        )}
       >
         <span style={{ flexShrink: 0, display: 'inline-flex' }}>
           <CategoryIcon icon={selected?.icon} size={15} color="var(--blue-400)" />
         </span>
-        <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <span className={cn('min-w-0 flex-1 truncate', selected ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]')}>
           {selected ? selected.label : emptyLabel}
         </span>
         <ChevronDown
@@ -101,7 +95,7 @@ export function CategoryChoiceSelect({
           color="var(--text-muted)"
           style={{ flexShrink: 0, transform: open ? 'rotate(180deg)' : undefined, transition: 'transform 0.15s' }}
         />
-      </button>
+      </Button>
 
       {open && (
         <div
@@ -128,73 +122,50 @@ export function CategoryChoiceSelect({
             <div style={{ padding: 8, borderBottom: '1px solid var(--border-subtle)', position: 'sticky', top: 0, background: 'var(--surface-card)', zIndex: 1 }}>
               <div style={{ position: 'relative' }}>
                 <Search size={13} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                <input
+                <Input
+                  variant="search"
+                  size="sm"
                   value={q}
                   onChange={e => setQ(e.target.value)}
                   placeholder="Filtrar..."
                   aria-label="Filtrar categorias"
-                  style={{
-                    width: '100%',
-                    padding: '6px 8px 6px 28px',
-                    fontSize: 12,
-                    borderRadius: 6,
-                    border: '1px solid var(--border-subtle)',
-                    background: 'var(--surface-panel)',
-                    color: 'var(--text-primary)',
-                  }}
+                  className="pl-7 text-xs"
                 />
               </div>
             </div>
           )}
 
-          <button
+          <Button
             type="button"
             role="option"
+            variant="ghost"
             aria-selected={value == null}
             onClick={() => { onChange(null); setOpen(false); }}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '10px 12px',
-              border: 'none',
-              background: value == null ? 'rgba(49,130,206,0.08)' : 'transparent',
-              color: 'var(--text-muted)',
-              fontSize: 12,
-              cursor: 'pointer',
-              textAlign: 'left',
-              minHeight: 44,
-            }}
+            className={cn(
+              'min-h-11 h-auto w-full justify-start gap-2 rounded-none px-3 py-2.5 text-left font-normal text-xs',
+              value == null ? 'bg-[rgba(49,130,206,0.08)]' : 'bg-transparent',
+            )}
           >
             <CategoryIcon icon={null} size={15} color="var(--text-muted)" />
             {emptyLabel}
-          </button>
+          </Button>
 
           {filtered.map(opt => (
-            <button
+            <Button
               key={opt.id}
               type="button"
               role="option"
+              variant="ghost"
               aria-selected={value === opt.id}
               onClick={() => { onChange(opt.id); setOpen(false); }}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                padding: '10px 12px',
-                border: 'none',
-                borderTop: '1px solid var(--border-subtle)',
-                background: value === opt.id ? 'rgba(49,130,206,0.08)' : 'transparent',
-                color: 'var(--text-primary)',
-                fontSize: 12,
-                cursor: 'pointer',
-                textAlign: 'left',
-                minHeight: 44,
-              }}
+              className={cn(
+                'min-h-11 h-auto w-full justify-start gap-2 rounded-none border-0 border-t border-[var(--border-subtle)] px-3 py-2.5 text-left font-normal text-xs text-[var(--text-primary)]',
+                value === opt.id ? 'bg-[rgba(49,130,206,0.08)]' : 'bg-transparent',
+              )}
             >
               <CategoryIcon icon={opt.icon} size={15} color="var(--blue-400)" />
               <span style={{ flex: 1, wordBreak: 'break-word' }}>{opt.label}</span>
-            </button>
+            </Button>
           ))}
 
           {filtered.length === 0 && (

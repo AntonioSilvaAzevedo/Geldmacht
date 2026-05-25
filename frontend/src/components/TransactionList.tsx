@@ -15,6 +15,7 @@
 import { useState, useMemo } from 'react';
 import { TrendingUp, TrendingDown, ChevronDown } from 'lucide-react';
 import CategoryIcon from '@/components/CategoryIcon';
+import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/formatters';
 import type { Transaction } from '@/types/financial';
 
@@ -190,17 +191,15 @@ function TransactionRow({
           </div>
           {onRecategorize && (
             <div style={{ marginTop: 9 }}>
-              <button
+              <Button
                 type="button"
-                style={{
-                  fontSize: 11, color: 'var(--blue-400)', background: 'none',
-                  border: 'none', cursor: 'pointer', padding: 0,
-                  textDecoration: 'underline', textUnderlineOffset: 2, fontFamily: 'inherit',
-                }}
+                variant="link"
+                size="sm"
+                className="!px-0 !py-0"
                 onClick={e => { e.stopPropagation(); onRecategorize(tx.id); }}
               >
                 Alterar categoria
-              </button>
+              </Button>
             </div>
           )}
         </div>

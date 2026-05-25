@@ -14,7 +14,7 @@
  *   <>
  *     <PageHeader
  *       title="Cartão Roxinho"
- *       crumbs={[{ href: '/carteira', label: 'Carteira' }, { href: '/carteira/nubank', label: 'Nubank' }]}
+ *       crumbs={[{ href: '/home/carteira', label: 'Carteira' }, { href: '/home/carteira/nubank', label: 'Nubank' }]}
  *       right={<Button>Importar</Button>}
  *     />
  *     <main style={{ flex: 1 }}>...</main>
@@ -24,7 +24,7 @@
  *   <>
  *     <PageHeader
  *       title="Maio 2026"
- *       crumbs={[{ href: `/cartao/${id}`, label: card.name }]}
+ *       crumbs={[{ href: `/home/cartao/${id}`, label: card.name }]}
  *       nav={<InvoiceNavBar ... />}
  *     />
  *     <main style={{ flex: 1 }}>...</main>

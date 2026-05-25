@@ -2,7 +2,7 @@
 
 Painel financeiro pessoal de **Antonio Carlos**, construído com Next.js. Replica visualmente a planilha Excel de controle financeiro (CLT + PJ + Investimentos B3 + Cartão + Caixinhas), com dados mockados em JSON que serão substituídos por chamadas de API na Fase 3.
 
-> **"Geldmacht"** — poder financeiro (alemão). O objetivo é transformar dados complexos em clareza visual.
+> **"Geldmacht"** — poder financeiro. O objetivo é transformar dados complexos em clareza visual.
 
 ---
 
@@ -77,9 +77,11 @@ npm install
 # 3. Rodar em desenvolvimento
 npm run dev
 
-# 4. Abrir no navegador
-open http://localhost:3000
+# 4. Abrir no navegador (porta padrão 3010; backend em 8010)
+open http://localhost:3010
 ```
+
+Copie `.env.example` para `.env.local` e ajuste se necessário. O backend local deve expor a API em `http://localhost:8010` (ex.: `uvicorn app.main:app --reload --port 8010` no repo `geldmacht-api`), com CORS permitindo `http://localhost:3010`.
 
 **Build de produção:**
 

@@ -9,11 +9,11 @@ import { usePathname } from 'next/navigation';
 
 // ── Tabs config ───────────────────────────────────────────────────────────────
 const TABS = [
-  { href: '/',            label: 'Início'      },
-  { href: '/carteira',    label: 'Carteira'    },
-  { href: '/lancamentos', label: 'Lançamentos' },
-  { href: '/categorias',  label: 'Categorias'  },
-  { href: '/mais',        label: 'Mais'        },
+  { href: '/home',        label: 'Início'      },
+  { href: '/home/carteira',    label: 'Carteira'    },
+  { href: '/home/lancamentos/novo', label: 'Lançamentos' },
+  { href: '/home/categorias',  label: 'Categorias'  },
+  { href: '/home/mais',        label: 'Mais'        },
 ];
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
@@ -27,26 +27,26 @@ function TabIcon({ href, active }: { href: string; active: boolean }) {
   };
 
   const icons: Record<string, React.ReactNode> = {
-    '/': (
+    '/home': (
       <svg {...props}>
         <path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z"/>
         <path d="M9 21V12h6v9"/>
       </svg>
     ),
-    '/carteira': (
+    '/home/carteira': (
       <svg {...props}>
         <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
         <line x1="1" y1="10" x2="23" y2="10"/>
       </svg>
     ),
-    '/lancamentos': (
+    '/home/lancamentos/novo': (
       <svg {...props}>
         <line x1="3" y1="6" x2="21" y2="6"/>
         <line x1="3" y1="12" x2="21" y2="12"/>
         <line x1="3" y1="18" x2="21" y2="18"/>
       </svg>
     ),
-    '/categorias': (
+    '/home/categorias': (
       <svg {...props}>
         <rect x="3" y="3" width="7" height="7" rx="1"/>
         <rect x="14" y="3" width="7" height="7" rx="1"/>
@@ -54,7 +54,7 @@ function TabIcon({ href, active }: { href: string; active: boolean }) {
         <rect x="14" y="14" width="7" height="7" rx="1"/>
       </svg>
     ),
-    '/mais': (
+    '/home/mais': (
       <svg {...props}>
         <circle cx="5" cy="12" r="1.5"/>
         <circle cx="12" cy="12" r="1.5"/>
@@ -70,11 +70,11 @@ export default function BottomTabBar() {
   const pathname = usePathname();
 
   function isActive(href: string) {
-    if (href === '/') return pathname === '/';
-    if (href === '/carteira') return (
-      pathname.startsWith('/carteira') ||
-      pathname.startsWith('/contas') ||
-      pathname.startsWith('/cartao')
+    if (href === '/home') return pathname === '/home';
+    if (href === '/home/lancamentos/novo') return pathname.startsWith('/home/lancamentos');
+    if (href === '/home/carteira') return (
+      pathname.startsWith('/home/carteira') ||
+      pathname.startsWith('/home/cartao')
     );
     return pathname.startsWith(href);
   }

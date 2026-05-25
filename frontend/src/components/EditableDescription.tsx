@@ -13,6 +13,9 @@
 import { useState, useRef, type KeyboardEvent, type CSSProperties } from 'react';
 import { Pencil, Loader2 } from 'lucide-react';
 
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+
 interface Props {
   value: string;
   /** Chamado quando o usuário confirma uma nova descrição.
@@ -24,7 +27,6 @@ interface Props {
 
 export default function EditableDescription({ value, onSave, textStyle }: Props) {
   const [editing, setEditing] = useState(false);
-  const [hovered, setHovered] = useState(false);
   const [draft,   setDraft]   = useState('');
   const [saving,  setSaving]  = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -73,26 +75,16 @@ export default function EditableDescription({ value, onSave, textStyle }: Props)
         style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%' }}
         onClick={e => e.stopPropagation()}
       >
-        <input
+        <Input
           ref={inputRef}
           autoFocus
+          size="sm"
           value={draft}
           onChange={e => setDraft(e.target.value)}
           onBlur={save}
           onKeyDown={handleKeyDown}
-          style={{
-            flex: 1,
-            minWidth: 0,
-            fontSize: 13,
-            color: 'var(--text-primary)',
-            background: 'var(--navy-800)',
-            border: '1px solid var(--blue-500)',
-            borderRadius: 5,
-            padding: '2px 7px',
-            outline: 'none',
-            fontFamily: 'inherit',
-            ...textStyle,
-          }}
+          className="min-w-0 flex-1 rounded-[5px] px-[7px] py-0.5 font-[inherit] text-[13px]"
+          style={textStyle}
         />
         {saving && (
           <Loader2
@@ -112,9 +104,8 @@ export default function EditableDescription({ value, onSave, textStyle }: Props)
   // ── Modo visualização ─────────────────────────────────────────────────────
   return (
     <div
+      className="group"
       style={{ display: 'flex', alignItems: 'center', gap: 5, width: '100%', cursor: 'default' }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
     >
       <span
         style={{
@@ -127,26 +118,18 @@ export default function EditableDescription({ value, onSave, textStyle }: Props)
       >
         {value}
       </span>
-      <button
-        onClick={startEdit}
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
         title="Editar descrição"
+        aria-label="Editar descrição"
         tabIndex={-1}
-        style={{
-          background: 'none',
-          border: 'none',
-          cursor: 'pointer',
-          color: 'var(--text-muted)',
-          padding: '2px 3px',
-          display: 'flex',
-          alignItems: 'center',
-          flexShrink: 0,
-          opacity: hovered ? 1 : 0,
-          transition: 'opacity 0.12s',
-          borderRadius: 4,
-        }}
+        onClick={startEdit}
+        className="-mr-px min-h-[26px] min-w-[26px] shrink-0 gap-0 !p-[2px_3px] opacity-0 transition-opacity duration-[120ms] group-hover:opacity-100"
       >
-        <Pencil size={11} />
-      </button>
+        <Pencil className="size-[11px]" />
+      </Button>
     </div>
   );
 }

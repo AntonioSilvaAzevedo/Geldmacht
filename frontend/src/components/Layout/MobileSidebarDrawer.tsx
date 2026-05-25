@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Menu, X } from 'lucide-react';
 import Sidebar from './Sidebar';
+import { Button } from '@/components/ui/button';
 
 /**
  * Drawer/menu lateral exibido APENAS em viewport mobile (≤ 768px).
@@ -40,25 +41,16 @@ export default function MobileSidebarDrawer() {
   return (
     <>
       {/* Hamburger — só em mobile */}
-      <button
+      <Button
         type="button"
+        variant="outline"
+        size="icon-sm"
         aria-label="Abrir menu"
         onClick={() => setOpen(true)}
         className="is-mobile-only"
-        style={{
-          width: 36,
-          height: 36,
-          borderRadius: 8,
-          border: '1px solid var(--border-default)',
-          background: 'transparent',
-          color: 'var(--text-secondary)',
-          cursor: 'pointer',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
       >
-        <Menu size={16} />
-      </button>
+        <Menu className="size-4" />
+      </Button>
 
       {/* Overlay + drawer */}
       {open && (
@@ -82,28 +74,22 @@ export default function MobileSidebarDrawer() {
             }}
           >
             <Sidebar />
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="icon-sm"
               aria-label="Fechar menu"
               onClick={() => setOpen(false)}
               style={{
                 position: 'absolute',
                 top: 12,
                 right: -42,
-                width: 34,
-                height: 34,
-                borderRadius: 8,
-                border: '1px solid var(--border-default)',
                 background: 'var(--surface-card)',
-                color: 'var(--text-secondary)',
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
               }}
+              className="size-[34px] min-h-0 min-w-0 rounded-[8px]"
             >
-              <X size={15} />
-            </button>
+              <X className="size-[15px]" />
+            </Button>
           </div>
         </div>
       )}

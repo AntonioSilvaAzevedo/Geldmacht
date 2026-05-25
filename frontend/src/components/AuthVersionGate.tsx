@@ -13,7 +13,7 @@ import {
  * Verifica, após a sessão ficar autenticada, se a versão local da sessão
  * está abaixo do mínimo exigido pelo build atual. Se sim, força logout.
  *
- * Inserido no layout `(app)` para rodar em qualquer página autenticada.
+ * Inserido no layout de `/home` para rodar em qualquer página autenticada.
  * Não renderiza nada visualmente.
  *
  * Comportamento:

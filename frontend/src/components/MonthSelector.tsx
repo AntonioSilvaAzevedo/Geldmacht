@@ -15,7 +15,7 @@ interface MonthSelectorProps {
   basePath?: string;
 }
 
-export default function MonthSelector({ currentMonth, basePath = '/mes' }: MonthSelectorProps) {
+export default function MonthSelector({ currentMonth, basePath = '/home/mes' }: MonthSelectorProps) {
   const idx = AVAILABLE_MONTHS.findIndex((m) => m.key === currentMonth);
   const prev = idx > 0 ? AVAILABLE_MONTHS[idx - 1] : null;
   const next = idx < AVAILABLE_MONTHS.length - 1 ? AVAILABLE_MONTHS[idx + 1] : null;
