@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Plus, Trash2, Pencil, Search, Tags, AlertTriangle, RefreshCw } from 'lucide-react';
 import LoadingSpinner from '@/components/LoadingSpinner';
-import PageHeader from '@/components/Layout/PageHeader';
 import { api, type Category, type CreditCardConfig, type CategoryPayload, type CategoryUpdatePayload } from '@/lib/api';
 import { formatCurrency } from '@/lib/formatters';
 import { useIsMobile } from '@/hooks/useIsMobile';
@@ -67,7 +66,7 @@ function BudgetBar({ spent, limit }: { spent: number; limit: number }) {
 
 // ─── Category Card ─────────────────────────────────────────────────────────────
 function CategoryCard({
-  cat, idx, subs, domain, cards, onEdit, onDelete, onAddSub, onDeleteSub,
+  cat, idx, subs, domain, cards, onEdit, onAddSub, isEditing,
 }: {
   cat: Category;
   idx: number;
@@ -75,9 +74,8 @@ function CategoryCard({
   domain: Scope;
   cards: CreditCardConfig[];
   onEdit: (c: Category) => void;
-  onDelete: (c: Category) => void;
   onAddSub: (c: Category) => void;
-  onDeleteSub: (sub: Category) => void;
+  isEditing?: boolean;
 }) {
   const [subsOpen, setSubsOpen] = useState(false);
   const [hov, setHov] = useState(false);
@@ -145,8 +143,7 @@ function CategoryCard({
             </IconBtn>
           )}
           <IconBtn title="Subcategoria" onClick={() => onAddSub(cat)}><Plus size={13} /></IconBtn>
-          <IconBtn title="Editar" onClick={() => onEdit(cat)}><Pencil size={13} /></IconBtn>
-          <IconBtn title="Excluir" onClick={() => onDelete(cat)} danger><Trash2 size={13} /></IconBtn>
+          <IconBtn title="Editar" onClick={() => onEdit(cat)} style={{ color: isEditing ? 'var(--blue-400)' : undefined }}><Pencil size={13} /></IconBtn>
         </div>
       </div>
 
@@ -169,7 +166,6 @@ function CategoryCard({
               <span style={{ fontSize: 14, marginRight: 4 }}>{sub.icon || ''}</span>
               <span style={{ fontSize: 13, fontWeight: 500, flex: 1 }}>{sub.name}</span>
               <IconBtn title="Editar" onClick={() => onEdit(sub)} small><Pencil size={11} /></IconBtn>
-              <IconBtn title="Excluir" onClick={() => onDeleteSub(sub)} danger small><Trash2 size={11} /></IconBtn>
             </div>
           ))}
           <div style={{ padding: '8px 16px 10px 58px' }}>
@@ -194,7 +190,7 @@ function CategoryCard({
 
 // ─── Inline form ───────────────────────────────────────────────────────────────
 function CategoryForm({
-  mode, target, parentCat, domain, cards, onSave, onCancel,
+  mode, target, parentCat, domain, cards, onSave, onCancel, onDeleteRequest,
 }: {
   mode: FormMode;
   target: Category | null;
@@ -203,6 +199,7 @@ function CategoryForm({
   cards: CreditCardConfig[];
   onSave: (form: FormState) => Promise<void>;
   onCancel: () => void;
+  onDeleteRequest?: () => void;
 }) {
   const [form, setForm] = useState<FormState>(() => {
     if (mode === 'edit' && target) {
@@ -376,48 +373,34 @@ function CategoryForm({
 
         {err && <p style={{ fontSize: 12, color: 'var(--red-400)', margin: 0 }}>{err}</p>}
 
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <button type="button" onClick={onCancel} style={ghostBtnStyle}>Cancelar</button>
-          <button type="submit" disabled={saving} style={primaryBtnStyle}>
-            {saving ? 'Salvando…' : mode === 'edit' ? 'Salvar' : 'Criar categoria'}
-          </button>
+        <div style={{ display: 'flex', alignItems: 'center', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 12, marginTop: 4 }}>
+          {/* Excluir — só no modo edição */}
+          {mode === 'edit' && onDeleteRequest && (
+            <button
+              type="button"
+              onClick={onDeleteRequest}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                padding: '6px 11px', borderRadius: 8,
+                border: '1px solid rgba(255,69,58,.25)',
+                background: 'rgba(255,69,58,.08)',
+                color: 'var(--red, #FF453A)',
+                fontSize: 12, fontWeight: 500, cursor: 'pointer',
+                fontFamily: 'inherit',
+              }}
+            >
+              <Trash2 size={12} /> Excluir
+            </button>
+          )}
+          {/* Cancelar + Salvar — sempre à direita */}
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+            <button type="button" onClick={onCancel} style={ghostBtnStyle}>Cancelar</button>
+            <button type="submit" disabled={saving} style={primaryBtnStyle}>
+              {saving ? 'Salvando…' : mode === 'edit' ? 'Salvar' : 'Criar categoria'}
+            </button>
+          </div>
         </div>
       </form>
-    </div>
-  );
-}
-
-// ─── Summary Strip ─────────────────────────────────────────────────────────────
-function SummaryStrip({ cats, domain }: { cats: Category[]; domain: Scope }) {
-  const parents     = cats.filter(c => c.parent_id == null);
-  const subs        = cats.filter(c => c.parent_id != null);
-  const withLimit   = parents.filter(c => c.invoice_budget_limit != null && c.invoice_budget_limit > 0).length;
-  const withSubcats = parents.filter(c => subs.some(s => s.parent_id === c.id)).length;
-
-  const items = domain === 'credit_card'
-    ? [
-        { label: 'Categorias',   value: parents.length, color: 'var(--text-primary)' },
-        { label: 'Subcategorias',value: subs.length,    color: 'var(--purple-400,#BF5AF2)' },
-        { label: 'Com limite',   value: withLimit,      color: withLimit > 0 ? 'var(--blue-400)' : 'var(--text-muted)' },
-        { label: 'Com subcats',  value: withSubcats,    color: withSubcats > 0 ? 'var(--teal-400,#5AC8FA)' : 'var(--text-muted)' },
-      ]
-    : [
-        { label: 'Categorias',   value: parents.length, color: 'var(--text-primary)' },
-        { label: 'Subcategorias',value: subs.length,    color: 'var(--purple-400,#BF5AF2)' },
-      ];
-
-  return (
-    <div style={{
-      display: 'grid', gridTemplateColumns: `repeat(${items.length},1fr)`,
-      background: 'var(--surface-card)', border: '1px solid rgba(255,255,255,0.06)',
-      borderRadius: 14, overflow: 'hidden', marginBottom: 14,
-    }}>
-      {items.map((s, i) => (
-        <div key={i} style={{ padding: '12px 14px', borderRight: i < items.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none', textAlign: 'center' }}>
-          <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 5 }}>{s.label}</div>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 18, fontWeight: 700, color: s.color }}>{s.value}</div>
-        </div>
-      ))}
     </div>
   );
 }
@@ -479,10 +462,11 @@ export default function CategoriesPage() {
   const [cards, setCards]               = useState<CreditCardConfig[]>([]);
   const [loading, setLoading]           = useState(true);
   const [error, setError]               = useState<string | null>(null);
-  const [search, setSearch]             = useState('');
   const [formMode, setFormMode]         = useState<FormMode>(null);
   const [editTarget, setEditTarget]     = useState<Category | null>(null);
   const [parentTarget, setParentTarget] = useState<Category | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: number; name: string } | null>(null);
+  const [deleting, setDeleting]           = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
@@ -507,14 +491,7 @@ export default function CategoriesPage() {
     return m;
   }, [categories]);
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return parents;
-    return parents.filter(c =>
-      c.name.toLowerCase().includes(q) ||
-      (subsByParent.get(c.id) ?? []).some(s => s.name.toLowerCase().includes(q))
-    );
-  }, [parents, subsByParent, search]);
+  const filtered = parents;
 
   async function handleSave(form: FormState) {
     const payload: CategoryPayload = {
@@ -539,14 +516,22 @@ export default function CategoriesPage() {
     setFormMode(null); setEditTarget(null); setParentTarget(null);
   }
 
-  async function handleDelete(cat: Category) {
-    const subs = subsByParent.get(cat.id) ?? [];
-    if (!window.confirm(subs.length > 0
-      ? `Excluir "${cat.name}" e suas ${subs.length} subcategoria(s)?`
-      : `Excluir "${cat.name}"?`
-    )) return;
-    await api.deleteCategory(cat.id);
-    setCategories(prev => prev.filter(c => c.id !== cat.id && c.parent_id !== cat.id));
+  async function executeDelete() {
+    if (!deleteConfirm) return;
+    setDeleting(true);
+    try {
+      await api.deleteCategory(deleteConfirm.id);
+      setCategories(prev => prev.filter(c => c.id !== deleteConfirm.id && c.parent_id !== deleteConfirm.id));
+      setDeleteConfirm(null);
+      setFormMode(null);
+      setEditTarget(null);
+      setParentTarget(null);
+    } catch (e) {
+      // keep modal open, show nothing — the form error state handles this gracefully
+      console.error('[cat] delete failed:', e);
+    } finally {
+      setDeleting(false);
+    }
   }
 
   function openEdit(cat: Category) { setEditTarget(cat); setParentTarget(null); setFormMode('edit'); }
@@ -556,89 +541,159 @@ export default function CategoriesPage() {
 
   return (
     <>
-      <PageHeader title="Categorias" subtitle="Organize e defina limites de orçamento" />
+    <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
 
-      <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
-        {/* Page header row */}
-        <div style={{
-          padding: `13px ${px}px 12px`,
-          borderBottom: '1px solid rgba(255,255,255,0.06)',
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12,
-        }}>
-          <div style={{ position: 'relative', flex: 1, maxWidth: 280 }}>
-            <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
-            <input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Buscar categoria..."
-              style={{ ...inp, paddingLeft: 30, width: '100%', fontSize: 12 }}
-            />
+      {/* Header row — controls only */}
+      <div style={{
+        padding: `13px ${px}px 12px`,
+        borderBottom: '1px solid rgba(255,255,255,0.06)',
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12,
+      }}>
+        <DomainToggle domain={domain} onChange={d => { setDomain(d); setFormMode(null); }} />
+        <button
+          onClick={() => { setFormMode('new-parent'); setEditTarget(null); setParentTarget(null); }}
+          style={primaryBtnStyle}
+        >
+          <Plus size={13} /> Nova categoria
+        </button>
+      </div>
+
+      <div style={{ padding: `16px ${px}px 40px` }}>
+        {loading ? (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: 48 }}>
+            <LoadingSpinner />
           </div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
-            <DomainToggle domain={domain} onChange={d => { setDomain(d); setFormMode(null); }} />
+        ) : error ? (
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '16px 0' }}>
+            <AlertTriangle size={16} color="var(--red-400)" />
+            <p style={{ fontSize: 14, color: 'var(--red-400)', margin: 0 }}>{error}</p>
+            <button onClick={() => void load()} style={ghostBtnStyle}><RefreshCw size={14} /> Tentar novamente</button>
+          </div>
+        ) : (
+          <>
+            {formMode && (
+              <CategoryForm
+                mode={formMode} target={editTarget} parentCat={parentTarget}
+                domain={domain} cards={cards}
+                onSave={handleSave}
+                onCancel={() => { setFormMode(null); setEditTarget(null); setParentTarget(null); }}
+                onDeleteRequest={formMode === 'edit' && editTarget
+                  ? () => setDeleteConfirm({ id: editTarget.id, name: editTarget.name })
+                  : undefined}
+              />
+            )}
+
+            {filtered.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px 24px', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: 16 }}>
+                <Tags size={28} style={{ margin: '0 auto 12px', display: 'block', opacity: 0.3 }} />
+                <div style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 16 }}>
+                  {`Nenhuma categoria de ${domain === 'credit_card' ? 'cartão' : 'conta'} ainda.`}
+                </div>
+                <button onClick={() => { setFormMode('new-parent'); setEditTarget(null); setParentTarget(null); }} style={primaryBtnStyle}>
+                  <Plus size={13} /> Criar primeira categoria
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gap: 10 }}>
+                {filtered.map((cat, i) => (
+                  <CategoryCard
+                    key={cat.id} cat={cat} idx={i} domain={domain} cards={cards}
+                    subs={subsByParent.get(cat.id) ?? []}
+                    onEdit={openEdit}
+                    onAddSub={openNewSub}
+                    isEditing={formMode === 'edit' && editTarget?.id === cat.id}
+                  />
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+    </div>
+
+    {/* ── Modal de confirmação de exclusão ───────────────────────────────────── */}
+    {deleteConfirm && (
+      <div
+        style={{
+          position: 'fixed', inset: 0, zIndex: 400,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'rgba(0,0,0,.65)', backdropFilter: 'blur(6px)',
+        }}
+        onClick={() => setDeleteConfirm(null)}
+      >
+        <div
+          style={{
+            background: 'var(--surface-1, #1C1C1E)',
+            borderRadius: 20,
+            padding: '28px 28px 24px',
+            maxWidth: 380, width: '100%',
+            boxShadow: '0 32px 80px rgba(0,0,0,.75)',
+            animation: 'fadeUp 0.18s ease both',
+            textAlign: 'center',
+          }}
+          onClick={e => e.stopPropagation()}
+        >
+          {/* Ícone */}
+          <div style={{
+            width: 52, height: 52, borderRadius: '50%',
+            background: 'rgba(255,69,58,.1)', border: '2px solid rgba(255,69,58,.28)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            margin: '0 auto 16px',
+          }}>
+            <svg width={22} height={22} viewBox="0 0 24 24" fill="none"
+              stroke="var(--red, #FF453A)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="3 6 5 6 21 6" />
+              <path d="M19 6l-1 14H6L5 6" />
+              <path d="M10 11v6M14 11v6" />
+              <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+            </svg>
+          </div>
+
+          {/* Título */}
+          <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: '-0.01em', marginBottom: 6 }}>
+            Excluir categoria?
+          </div>
+
+          {/* Descrição */}
+          <p style={{
+            fontSize: 13, color: 'var(--text-secondary, rgba(255,255,255,.55))',
+            lineHeight: 1.6, margin: '0 0 22px',
+          }}>
+            <strong style={{ color: 'var(--text-primary)' }}>"{deleteConfirm.name}"</strong>{' '}
+            será removida permanentemente. Lançamentos vinculados não serão apagados.
+          </p>
+
+          {/* Botões */}
+          <div style={{ display: 'flex', gap: 10 }}>
             <button
-              onClick={() => { setFormMode('new-parent'); setEditTarget(null); setParentTarget(null); }}
-              style={primaryBtnStyle}
+              onClick={() => setDeleteConfirm(null)}
+              style={{
+                flex: 1, padding: '9px', borderRadius: 9,
+                border: '1px solid rgba(255,255,255,.12)',
+                background: 'transparent', color: 'var(--text-secondary)',
+                fontSize: 13, cursor: 'pointer', fontFamily: 'inherit',
+              }}
             >
-              <Plus size={13} /> Nova categoria
+              Cancelar
+            </button>
+            <button
+              onClick={() => void executeDelete()}
+              disabled={deleting}
+              style={{
+                flex: 1, padding: '9px', borderRadius: 9,
+                border: 'none',
+                background: 'var(--red, #FF453A)', color: '#fff',
+                fontSize: 13, fontWeight: 600, cursor: deleting ? 'default' : 'pointer',
+                fontFamily: 'inherit', opacity: deleting ? 0.7 : 1,
+              }}
+            >
+              {deleting ? 'Excluindo…' : 'Excluir'}
             </button>
           </div>
         </div>
-
-        <div style={{ padding: `16px ${px}px 40px` }}>
-          {loading ? (
-            <div style={{ display: 'flex', justifyContent: 'center', padding: 48 }}>
-              <LoadingSpinner />
-            </div>
-          ) : error ? (
-            <div style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '16px 0' }}>
-              <AlertTriangle size={16} color="var(--red-400)" />
-              <p style={{ fontSize: 14, color: 'var(--red-400)', margin: 0 }}>{error}</p>
-              <button onClick={() => void load()} style={ghostBtnStyle}><RefreshCw size={14} /> Tentar novamente</button>
-            </div>
-          ) : (
-            <>
-              <SummaryStrip cats={categories} domain={domain} />
-
-              {formMode && (
-                <CategoryForm
-                  mode={formMode} target={editTarget} parentCat={parentTarget}
-                  domain={domain} cards={cards}
-                  onSave={handleSave}
-                  onCancel={() => { setFormMode(null); setEditTarget(null); setParentTarget(null); }}
-                />
-              )}
-
-              {filtered.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '40px 24px', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: 16 }}>
-                  <Tags size={28} style={{ margin: '0 auto 12px', display: 'block', opacity: 0.3 }} />
-                  <div style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 16 }}>
-                    {search ? 'Nenhuma categoria encontrada.' : `Nenhuma categoria de ${domain === 'credit_card' ? 'cartão' : 'conta'} ainda.`}
-                  </div>
-                  {!search && (
-                    <button onClick={() => { setFormMode('new-parent'); setEditTarget(null); setParentTarget(null); }} style={primaryBtnStyle}>
-                      <Plus size={13} /> Criar primeira categoria
-                    </button>
-                  )}
-                </div>
-              ) : (
-                <div style={{ display: 'grid', gap: 10 }}>
-                  {filtered.map((cat, i) => (
-                    <CategoryCard
-                      key={cat.id} cat={cat} idx={i} domain={domain} cards={cards}
-                      subs={subsByParent.get(cat.id) ?? []}
-                      onEdit={openEdit}
-                      onDelete={handleDelete}
-                      onAddSub={openNewSub}
-                      onDeleteSub={handleDelete}
-                    />
-                  ))}
-                </div>
-              )}
-            </>
-          )}
-        </div>
       </div>
+    )}
     </>
   );
 }

@@ -15,7 +15,7 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import PageHeader from '@/components/Layout/PageHeader';
 import AccountCard from '@/components/Cards/AccountCard';
 import KPIStrip from '@/components/KPIStrip';
-import { TransactionList } from '@/components/TransactionList';
+import FitnessGridSection from '@/components/Conta/FitnessGridSection';
 import {
   api,
   type BankAccountConfig,
@@ -204,7 +204,7 @@ function ContaTab({
         />
       )}
 
-      {/* ④ TransactionList ou empty state */}
+      {/* ④ FitnessGridSection ou empty state */}
       {!txLoading && (
         transactions.length === 0 ? (
           <ContaEmptyTransactions
@@ -212,22 +212,11 @@ function ContaTab({
             importCtx={importCtx}
           />
         ) : (
-          <TransactionList
-            title="Lançamentos recentes"
-            subtitle={monthLabelCap}
+          <FitnessGridSection
             transactions={transactions}
-            limit={5}
-            headerRight={
-              <button
-                onClick={onVerTodas}
-                style={{
-                  background: 'none', border: 'none', color: 'var(--blue)',
-                  fontSize: 12, cursor: 'pointer', fontFamily: 'var(--font-sans)',
-                }}
-              >
-                Ver todas as movimentações →
-              </button>
-            }
+            monthYM={monthStats.monthYM}
+            monthLabel={monthLabelCap}
+            onVerTodas={onVerTodas}
           />
         )
       )}

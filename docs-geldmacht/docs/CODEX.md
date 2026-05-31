@@ -2,6 +2,7 @@
 
 > Referência técnica viva do sistema Geldmacht.
 > Atualizar sempre que uma decisão de arquitetura mudar ou um novo módulo for criado.
+> **Última atualização:** 2026-05-16
 
 ---
 
@@ -10,14 +11,14 @@
 | Camada | Tecnologia | Versão | Porta |
 |---|---|---|---|
 | Frontend | Next.js 15 (App Router) + TypeScript | 15.2.x | 3000 |
-| Estilo | TailwindCSS 4 + CSS Variables | 4.x | — |
+| Estilo | CSS Variables (design system Apple Direction) | — | — |
+| Auth Frontend | NextAuth v5 (beta) — JWT strategy | 5.x | — |
 | Backend | FastAPI + Uvicorn | 0.111+ | 8000 |
 | ORM | SQLAlchemy 2 | 2.0+ | — |
 | Banco | SQLite | — | — |
 | Migrations | Alembic | 1.13+ | — |
 | PDF parsing | pdfplumber | 0.11+ | — |
 | Excel parsing | openpyxl | 3.1+ | — |
-| Testes | pytest | 8.0+ | — |
 
 ---
 
@@ -25,448 +26,397 @@
 
 ```
 geldmacht/
-├── backend/
-│   ├── app/
-│   │   ├── main.py                  # Entry point FastAPI + CORS + routers
-│   │   ├── config.py                # Settings via pydantic-settings (.env)
-│   │   ├── database.py              # Engine SQLite + SessionLocal + Base
-│   │   ├── api/
-│   │   │   ├── upload.py            # POST /api/upload
-│   │   │   ├── import_transactions.py  # POST /api/import
-│   │   │   └── transactions.py      # GET /api/transactions
-│   │   ├── parsers/
-│   │   │   ├── __init__.py          # ALL_PARSERS + detect_parser()
-│   │   │   ├── base.py              # BaseParser (classe abstrata)
-│   │   │   ├── nubank_pf.py         # Extrato Nubank PF
-│   │   │   ├── nubank_pj.py         # Extrato Nubank PJ (herda NubankPF)
-│   │   │   ├── itau.py              # Extrato Itaú Uniclass
-│   │   │   ├── fatura_nubank.py     # Fatura Cartão Nubank
-│   │   │   └── mercadopago.py       # Extrato Mercado Pago
-│   │   ├── categorization/
-│   │   │   ├── rules.py             # OWN_ACCOUNTS + INTERNAL_ACCOUNT_HINTS
-│   │   │   └── categorizer.py       # classify_transaction() → is_internal_transfer
-│   │   ├── models/
-│   │   │   ├── account.py           # Model Account
-│   │   │   └── transaction.py       # Model Transaction
-│   │   └── schemas/
-│   │       └── transaction.py       # Pydantic schemas (ParsedTransaction, ImportRequest...)
-│   ├── tests/
-│   │   ├── fixtures/                # PDFs sintéticos para testes
-│   │   └── test_nubank_pf.py        # 26 testes
-│   ├── alembic/                     # Migrations
-│   ├── geldmacht.db                 # SQLite (gitignored)
-│   ├── .env                         # Variáveis locais (gitignored)
-│   └── requirements.txt
-│
-├── frontend/
+├── frontend/                        # Next.js 15
 │   └── src/
-│       ├── app/                     # Next.js App Router
-│       │   ├── page.tsx             # Dashboard Anual (/)
-│       │   ├── layout.tsx           # Layout raiz (Sidebar + Header)
-│       │   ├── mes/[mes]/page.tsx   # Visão Mensal
-│       │   ├── cartao/page.tsx       # Cartões cadastrados
-│       │   ├── cartao/[cardId]/page.tsx # Detalhe do cartão
-│       │   ├── cartao/[cardId]/[anoMes]/page.tsx # Fatura por cartão/mês
-│       │   ├── categorias/page.tsx   # Categorias manuais
-│       │   ├── carteira/page.tsx    # Carteira B3
-│       │   ├── proventos/page.tsx   # Proventos B3
-│       │   └── upload/page.tsx      # Importar Extrato
+│       ├── app/
+│       │   ├── (auth)/
+│       │   │   ├── login/page.tsx   # Login email+senha / Google
+│       │   │   └── register/page.tsx
+│       │   ├── (app)/               # Rotas protegidas (requer autenticação)
+│       │   │   ├── layout.tsx       # Layout app: Sidebar + BottomTabBar + AuthRefreshGuard
+│       │   │   ├── page.tsx         # Dashboard Anual (/)
+│       │   │   ├── mes/[mes]/page.tsx
+│       │   │   ├── cartao/
+│       │   │   │   ├── page.tsx
+│       │   │   │   ├── [cardId]/page.tsx
+│       │   │   │   ├── [cardId]/[anoMes]/page.tsx
+│       │   │   │   ├── [cardId]/fatura/[invoiceId]/page.tsx
+│       │   │   │   └── [cardId]/faturas/page.tsx
+│       │   │   ├── carteira/
+│       │   │   │   ├── page.tsx          # Lista de instituições
+│       │   │   │   └── [slug]/page.tsx   # Detalhe: tabs Conta / Cartão / Resumo
+│       │   │   ├── categorias/page.tsx
+│       │   │   ├── contas/[id]/page.tsx  # Extrato de conta bancária
+│       │   │   ├── lancamentos/novo/page.tsx  # Lançamento manual + fila batch
+│       │   │   ├── upload/page.tsx
+│       │   │   ├── perfil/page.tsx
+│       │   │   ├── configuracoes/page.tsx
+│       │   │   └── proventos/page.tsx
+│       │   └── layout.tsx           # Root layout (SessionProvider, Providers)
 │       ├── components/
 │       │   ├── Layout/
-│       │   │   ├── Sidebar.tsx      # Navegação lateral
-│       │   │   └── Header.tsx       # Cabeçalho
-│       │   ├── MonthSelector.tsx    # Chips de mês reutilizável
-│       │   └── Upload/
-│       │       └── UploadPreview.tsx # Tabela de preview + seleção
+│       │   │   ├── Sidebar.tsx          # Navegação lateral (desktop)
+│       │   │   ├── BottomTabBar.tsx     # Navegação inferior (mobile)
+│       │   │   └── PageHeader.tsx       # Cabeçalho fixo reutilizável (título + breadcrumb + nav slot)
+│       │   ├── Cards/
+│       │   │   └── AccountCard.tsx      # Card de conta bancária
+│       │   ├── Upload/
+│       │   │   └── UploadPreview.tsx    # Tabela de preview + seleção
+│       │   ├── AmountInput.tsx          # Campo de valor hero (cents-based, auto-formatação BRL)
+│       │   ├── TypeToggle.tsx           # Toggle Saída / Entrada (sizes sm/md/lg)
+│       │   ├── CategorySelector.tsx     # Seleção de categoria (variant grid ou chips)
+│       │   ├── BatchQueue.tsx           # Fila de lançamentos em lote (variant web ou mobile)
+│       │   ├── ContaEmptyState.tsx      # Empty state da aba Conta (idle/form/success)
+│       │   ├── AuthRefreshGuard.tsx     # Renova token JWT a cada 24h; redireciona se expirado
+│       │   ├── TransactionList.tsx      # Lista de transações reutilizável
+│       │   ├── TransactionEditForm.tsx  # Form inline de edição de transação
+│       │   ├── CategoryGrid.tsx         # Grade de categorias (legado)
+│       │   ├── KPIStrip.tsx             # Faixa de indicadores (entradas/saídas/saldo)
+│       │   ├── MonthNav.tsx             # Navegação de mês (anterior / próximo)
+│       │   ├── MonthSelector.tsx        # Chips de seleção de mês
+│       │   ├── EmptyState.tsx           # Estado vazio genérico
+│       │   ├── ErrorState.tsx           # Estado de erro genérico
+│       │   ├── LoadingSpinner.tsx
+│       │   └── Providers.tsx            # SessionProvider + tema
 │       ├── hooks/
-│       │   └── useFinancialData.ts  # ⚠️ ainda usa import() estático — migrar na Etapa 3.1
+│       │   └── useIsMobile.ts
 │       ├── lib/
-│       │   ├── api.ts               # Funções fetch para o backend
-│       │   └── formatters.ts        # formatCurrency, formatDate, etc.
+│       │   ├── api.ts                   # Cliente tipado para a API REST
+│       │   ├── formatters.ts            # formatCurrency, formatCurrencyInput, parseCurrencyDigits, formatDate…
+│       │   └── institutionColors.ts     # Cores por instituição financeira
 │       ├── types/
-│       │   └── financial.ts         # Tipos TypeScript dos datasets
-│       └── data/
-│           └── archive/             # JSONs mockados (referência de estrutura)
-│               ├── monthlyData.json
-│               ├── transactions.json
-│               ├── creditCard.json
-│               ├── investments.json
-│               └── dividends.json
+│       │   ├── financial.ts             # Tipos de dados financeiros
+│       │   └── next-auth.d.ts           # Augment NextAuth: accessToken, error, tokenExpiry
+│       └── auth.ts                      # Config NextAuth v5 (Credentials + Google + refresh)
 │
-├── data/                            # PDFs reais (gitignored)
-│   ├── teste-1.pdf                  # Nubank PF — mar/2026
-│   ├── PJ.pdf                       # Nubank PJ — mar/2026
-│   ├── MercadoPago.pdf              # Mercado Pago — mar/2026
-│   ├── fatura.pdf                   # Fatura Cartão Nubank — mar/2026
-│   └── Itau.pdf                     # Itaú Uniclass — jan-abr/2026
-│
-└── docs/
-    ├── CODEX.md                     # este arquivo
-    ├── ROADMAP.md
-    ├── FASE-1-FRONTEND.md
-    ├── FASE-2-BACKEND.md
-    ├── FASE-3-INTEGRACAO.md
-    ├── PROGRESSO-FASE-2.md
-    └── PROGRESSO-FASE-3.md
+└── geldmacht-api/                   # FastAPI
+    └── app/
+        ├── main.py                  # Entry point + CORS + routers
+        ├── config.py                # Settings via pydantic-settings (.env)
+        ├── database.py              # Engine SQLite + SessionLocal + Base
+        ├── middleware/
+        │   └── auth.py              # get_current_user (JWT Bearer)
+        ├── api/
+        │   ├── auth.py              # POST /auth/login, /auth/google, /auth/refresh
+        │   ├── upload.py            # POST /api/upload (preview sem salvar)
+        │   ├── import_transactions.py
+        │   ├── transactions.py      # CRUD transações + POST /transactions/batch
+        │   ├── bank_accounts.py     # CRUD contas bancárias
+        │   ├── cards.py             # CRUD cartões + invoices
+        │   ├── categories.py        # CRUD categorias
+        │   └── dashboard.py         # Agregações
+        ├── models/
+        │   ├── user.py
+        │   ├── transaction.py
+        │   ├── bank_account.py
+        │   ├── credit_card.py
+        │   ├── invoice.py
+        │   ├── category.py
+        │   ├── import_batch.py
+        │   └── account.py           # legado (Account → BankAccount)
+        ├── schemas/
+        │   └── transaction.py       # ManualTransactionCreate, TransactionOut, etc.
+        ├── parsers/                 # Parsers de PDF/OFX
+        │   ├── nubank_pf.py
+        │   ├── nubank_pj.py (herda PF)
+        │   ├── fatura_nubank.py
+        │   ├── mercadopago.py
+        │   ├── itau.py
+        │   └── ofx_bank_statement.py
+        ├── categorization/
+        │   └── categorizer.py
+        └── services/
+            ├── bank_statement_import.py
+            ├── summary_service.py
+            └── transaction_serialization.py
 ```
 
 ---
 
-## Backend — Fluxo de Dados
+## Autenticação
 
-### Upload (preview sem persistência)
-
-```
-POST /api/upload (multipart/form-data)
-  │
-  ├── Valida extensão (.pdf / .xlsx)
-  ├── detect_parser(bytes) → percorre ALL_PARSERS, chama can_parse()
-  ├── parser.parse(bytes) → list[dict]
-  └── Retorna UploadResponse { parser_used, source_file, total, transactions[], summary?, detected_reference_month?, invoice_metadata? }
-      └── transactions[].is_internal_transfer / is_payment já calculados
-      └── fatura Nubank retorna invoice_metadata { due_date, due_month, cycle_start_date, cycle_end_date, issue_date, total_amount, source }
-```
-
-### Import (persistência confirmada)
+### Fluxo
 
 ```
-POST /api/import (JSON)
-  │
-  ├── Para cada transação:
-  │   ├── _get_or_create_account(account_key) → Account (cria se não existe)
-  │   ├── Verifica duplicata: date + amount + raw_description + account_id
-  │   └── Se não duplicata → insere Transaction
-  └── Retorna ImportResponse { imported: N, skipped: M, card_id?, invoice_id?, due_month?, reference_month?, summary? }
+Login (email+senha ou Google)
+  └── POST /auth/login → { access_token, user }
+      └── NextAuth jwt callback → armazena { accessToken, tokenExpiry }
+          └── session callback → expõe session.accessToken
+              └── AuthRefreshGuard (client) → update() a cada 24h
+                  └── jwt callback detecta tokenExpiry - 1d → POST /auth/refresh
+                      └── Falha → session.error = 'RefreshAccessTokenError'
+                          └── AuthRefreshGuard → signOut → /login?reason=expired
 ```
 
-### Deduplicação
+### Tokens
 
-Critério: `(user_id, date, amount, raw_description, account_id)` todos iguais → duplicata.
-Reimportar o mesmo arquivo resulta em `imported: 0, skipped: N`.
+- **Duração:** 7 dias (`access_token_expire_minutes = 7 * 24 * 60`)
+- **Renovação automática:** quando falta ≤ 1 dia para expirar
+- **NextAuth session:** `maxAge: 30 * 24 * 60 * 60` (30 dias de cookie)
+- **Estratégia:** JWT (sem sessão no servidor)
 
-### Cartões, faturas e categorias
+### Endpoints de auth
 
-- Cartões ficam em `credit_cards` (`user_id`, `name`, `institution`, `closing_day`, `due_day`).
-- Faturas ficam em `invoices` (`user_id`, `card_id`, `due_month`, `due_date`, `cycle_start_date`, `cycle_end_date`, `total_amount`, …).
-- Transactions de cartão têm `invoice_id` (âncora principal) + `card_id` + `reference_month` (legado).
-- `date` continua sendo a data real da compra. Nunca usar `date` como fonte primária da fatura.
-- `invoice_id` decide em qual fatura a transação aparece. `reference_month` mantido para compat.
-- Categorias manuais ficam em `categories` com `scope = credit_card`.
-- Transações podem salvar `category_id` e preservam `category` string para compatibilidade.
-- Não há categorização automática neste fluxo.
-
----
-
-## Backend — Parsers
-
-### Arquitetura
-
-Todos herdam de `BaseParser` (abstract):
-
-```python
-class BaseParser:
-    ACCOUNT_KEY: str          # identificador da conta ("nubank_pf", "itau", etc.)
-
-    def can_parse(self, file_content: bytes) -> bool: ...
-    def parse(self, file_content: bytes) -> list[dict]: ...
-```
-
-### Registro e auto-detecção
-
-```python
-# app/parsers/__init__.py
-ALL_PARSERS = [
-    NubankPJParser(),           # DEVE vir antes do PF (mais específico)
-    NubankPFParser(),
-    FaturaCartaoNubankParser(),
-    MercadoPagoParser(),
-    ItauParser(),
-]
-
-def detect_parser(content: bytes) -> BaseParser | None:
-    for parser in ALL_PARSERS:
-        if parser.can_parse(content):
-            return parser
-    return None
-```
-
-**Ordem importa:** `NubankPJParser` antes de `NubankPFParser` porque ambos têm `"agência 0001"` no texto.
-
-### Identificadores por parser
-
-| Parser | `ACCOUNT_KEY` | Fingerprint do `can_parse` |
+| Método | Rota | Descrição |
 |---|---|---|
-| `NubankPFParser` | `nubank_pf` | `"4365066-8"` + `"agência 0001"` |
-| `NubankPJParser` | `nubank_pj` | `"43185640-8"` + `"agência 0001"` |
-| `FaturaCartaoNubankParser` | `nubank_cartao` | `r"fatura \d{2} [a-z]{3} \d{4} emissão"` |
-| `MercadoPagoParser` | `mercado_pago` | `"83623266135"` + `"extrato de conta"` |
-| `ItauParser` | `itau` | `"079787-1"` + `"agência: 0502"` |
-
-### Formato de saída de cada parser
-
-```python
-{
-    "date": "YYYY-MM-DD",
-    "description": str,           # descrição limpa
-    "raw_description": str,       # linha original do PDF
-    "amount": float,              # positivo = entrada, negativo = saída
-    "account": str,               # ACCOUNT_KEY
-    "is_internal_transfer": bool,
-    "category": None,             # MVP: sempre null
-    "category_group": None,       # MVP: sempre null
-}
-```
-
-### Estratégias de parsing por banco
-
-**Nubank PF/PJ** — máquina de estados linha a linha:
-- Detecta linha de cabeçalho de dia (`"05 MAR"`)
-- Lê descrição (pode ter continuação na linha seguinte)
-- Regex no final da linha para extrair valor: `r"(-?\d{1,3}(?:\.\d{3})*,\d{2})$"`
-
-**Itaú** — regex direto por linha:
-- Formato: `DD/MM/YYYY descrição valor`
-- `r"^(\d{2}/\d{2}/\d{4})\s+(.+?)\s+([-+]?\d{1,3}(?:\.\d{3})*,\d{2})$"`
-
-**Fatura Nubank Cartão** — regex por linha:
-- Formato: `DD MMM Descrição R$ X,XX`
-- Ano extraído do cabeçalho `"FATURA DD MMM YYYY"`
-- `−R$` (U+2212) = crédito (positivo); `R$` sem sinal = débito (negativo)
-
-**Mercado Pago** — máquina de estados complexa:
-- pdfplumber mescla 5 colunas, descrição particionada em 3 partes
-- `pending_pre[]` acumula linhas antes da linha de dados
-- `expect_suffix` = True só quando não há descrição inline
-- Linha de dados: `DD-MM-YYYY [desc_inline] ID R$ valor R$ saldo`
-
-### Detecção de transferências internas
-
-```python
-# app/categorization/rules.py
-INTERNAL_ACCOUNT_HINTS = [
-    "43185640-8",   # nubank pj
-    "079787-1",     # itaú
-    "mercado pago",
-    "nuinvest",
-    "9084085",
-]
-
-INTERNAL_TRANSFER_PATTERNS = [
-    r"resgate\s+rdb",
-    r"aplica[çc][aã]o\s+rdb",
-    r"dinheiro\s+reservado",
-    r"dinheiro\s+retirado",
-    r"transfer[eê]ncia\s+entre\s+contas",
-    r"poupan[çc]a\s+programada",
-]
-```
-
-**Por que não inclui o nome do titular nem `"4365066-8"`:**
-- Nome do titular aparece como remetente em TODOS os Pix enviados → falso positivo massivo
-- `"4365066-8"` aparece em linhas de continuação de saídas da própria conta → FIIs comprados via NuInvest seriam marcados como internos
+| POST | `/auth/login` | Email + senha → JWT |
+| POST | `/auth/google` | Google OAuth token → JWT |
+| POST | `/auth/refresh` | Bearer token atual → novo JWT |
 
 ---
 
-## Backend — Banco de Dados
+## Componentes UI — Referência
 
-### Schema
+### AmountInput
 
-```sql
--- accounts
-id          INTEGER PRIMARY KEY
-name        TEXT        -- "Nubank PF", "Itaú Uniclass", etc.
-type        TEXT        -- "nubank_pf", "itau", etc. (chave de busca)
-bank        TEXT        -- "Nubank", "Itaú", etc.
-account_number TEXT
+Campo de valor hero com **auto-formatação BRL cents-based**.
 
--- transactions
-id                  INTEGER PRIMARY KEY
-date                DATE
-description         TEXT(500)
-raw_description     TEXT(500)   -- texto original do extrato
-amount              FLOAT       -- negativo = saída
-account_id          INTEGER FK → accounts.id
-category            TEXT(100)   -- null no MVP
-category_group      TEXT(50)    -- null no MVP
-source_file         TEXT(255)   -- nome do PDF importado
-imported_at         DATETIME    -- timestamp da importação
-is_internal_transfer BOOLEAN
+```tsx
+// Estado no pai: apenas dígitos brutos
+const [digits, setDigits] = useState('');
+
+<AmountInput
+  value={digits}          // "123456" → exibe "1.234,56"
+  onChange={setDigits}    // recebe dígitos, não string formatada
+  type="saida"            // 'saida' | 'entrada' — muda cor
+  autoFocus
+  onEnter={handleSave}
+/>
+
+// Para enviar à API:
+import { parseCurrencyDigits } from '@/lib/formatters';
+const amount = parseCurrencyDigits(digits); // → 1234.56
 ```
 
-### Estado atual do banco (após Etapa 3.0)
+**Como funciona:**
+- `onKeyDown` intercepta: dígitos acumulam à direita, Backspace remove último
+- Nunca aceita letras, vírgulas ou pontos digitados — formatação é automática
+- `formatCurrencyInput("123456")` → `"1.234,56"` (via `Intl.NumberFormat pt-BR`)
 
-| Conta (`type`) | Transações |
-|---|---|
-| `nubank_cartao` | 104 |
-| `nubank_pf` | 71 |
-| `mercado_pago` | 22 |
-| `itau` | 20 |
-| `nubank_pj` | 4 |
-| **Total** | **221** |
+### TypeToggle
 
-Range de datas: **2026-02-04 a 2026-04-29**
-
----
-
-## Frontend — Arquitetura de Dados
-
-### Estado atual (⚠️ quebrado — Etapa 3.1 pendente)
-
-```
-Tela → useFinancialData(dataset) → import('@/data/*.json') → ARQUIVO NÃO EXISTE
+```tsx
+<TypeToggle
+  value={tipo}           // 'saida' | 'entrada'
+  onChange={setTipo}
+  size="md"              // 'sm' | 'md' | 'lg'
+  showEmoji={true}
+/>
 ```
 
-Os JSONs foram movidos para `src/data/archive/`. O hook `useFinancialData` ainda
-faz `import()` estático que o webpack tenta resolver em tempo de build/dev.
+### CategorySelector
 
-### Estado alvo (Etapa 3.1)
-
+```tsx
+<CategorySelector
+  categories={catItems}   // { id: string, label, icon, color }[]
+  selected={catId}        // string | null
+  onSelect={setCatId}
+  variant="grid"          // 'grid' (3-col, web) | 'chips' (inline + expand, mobile)
+  visibleCount={4}        // chips: quantas antes do "+N mais"
+/>
 ```
-Tela → useFinancialData(dataset) → fetch('http://localhost:8000/api/...') → SQLite
-```
 
-**O ponto de extensão já está preparado** — só o conteúdo de `datasetLoaders` muda:
-
+Mapear `Category` da API para `CategoryItem`:
 ```ts
-// src/hooks/useFinancialData.ts
-// ANTES (Fase 1):
-const datasetLoaders = {
-  monthly: () => import('@/data/monthlyData.json').then(m => m.default),
-  ...
-}
-
-// DEPOIS (Fase 3):
-const datasetLoaders = {
-  monthly: () => fetch(`${API_BASE}/api/dashboard/monthly`).then(r => r.json()),
-  ...
-}
+const catItems = categories.map(c => ({
+  id:    String(c.id),
+  label: c.name,
+  icon:  c.icon  ?? '···',
+  color: c.color ?? 'rgba(255,255,255,.3)',
+}));
 ```
 
-Nenhuma tela precisa mudar — apenas o hook.
+### BatchQueue
 
-### Camada de API (`src/lib/api.ts`)
+```tsx
+<BatchQueue
+  entries={queue}          // QueueEntry[]
+  onRemove={id => ...}
+  onCommit={handleCommit}
+  committing={committing}
+  variant="web"            // 'web' (sidebar) | 'mobile' (barra compacta)
+/>
+```
 
-Funções disponíveis:
+`QueueEntry` contém tanto campos de exibição (`desc`, `catLabel`, `accLabel`, `dateLabel`) quanto os dados brutos para a API (`bankAccountId`, `categoryId`, `transactionDate`, `transactionType`).
 
-| Função | Método | Rota | Descrição |
-|---|---|---|---|
-| `uploadFile(file)` | POST | `/api/upload` | Preview sem salvar |
-| `importTransactions(payload)` | POST | `/api/import` | Salva selecionados |
-| `getTransactions(filters)` | GET | `/api/transactions` | Lista com filtros |
-| `checkHealth()` | GET | `/health` | Verifica conectividade |
+### ContaEmptyState
 
-### Tipos TypeScript (`src/types/financial.ts`)
+Renderizado na aba **Conta** de `carteira/[slug]` quando a instituição não tem conta bancária.
 
-Tipos dos datasets mockados — servem como contrato para os endpoints da Etapa 3.1:
+```tsx
+<ContaEmptyState
+  inst={{ name, abbr, color }}
+  reason="card_only"        // 'card_only' | 'new'
+  onSave={account => ...}   // recebe BankAccountConfig criada
+  onImportOFX={() => ...}
+/>
+```
 
-- `MonthlyData` → `Record<string, MonthData>` — Dashboard Anual
-- `Transactions` → `Transaction[]` — lista de transações
-- `CreditCardData` → `Record<string, CreditCardMonth>` — fatura por mês
-- `InvestmentsData` → assets + totals + aportesMensais
-- `DividendsData` → `Record<string, DividendMonth>` — proventos por mês
+Estados internos: `idle` → `form` → `success`. Chama `api.createBankAccount()` + `api.createManualTransaction()` (saldo inicial opcional).
+
+### PageHeader
+
+```tsx
+<PageHeader
+  title="Carteira"
+  subtitle="3 contas · 2 cartões"
+  crumbs={[{ href: '/carteira', label: 'Carteira' }]}
+  right={<SomeAction />}
+  nav={<TabBar />}          // fica dentro do header fixo
+  px={32}                   // padding horizontal (usar o mesmo do <main>)
+/>
+```
+
+`nav` slot: fica dentro do header e não rola. Usar para InvoiceNavBar, SegmentedControl, etc.
 
 ---
 
-## Variáveis de Ambiente
+## Formatters (`src/lib/formatters.ts`)
 
-### Backend (`backend/.env`)
-
-```env
-DATABASE_URL=sqlite:///./geldmacht.db
-CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
-APP_NAME=Geldmacht API
-DEBUG=true
-```
-
-Em produção (Railway), `DATABASE_URL` aponta para Supabase PostgreSQL e `CORS_ORIGINS` para `https://geldmacht.com`.
-Ver `backend/.env.example` para referência completa.
-
-### Frontend (`frontend/.env.local`)
-
-```env
-NEXT_PUBLIC_API_URL=http://localhost:8000
-```
-
-Em produção (Vercel), `NEXT_PUBLIC_API_URL` não é necessário — o `vercel.json` reescreve `/api/*` diretamente para o Railway.
-Ver `frontend/.env.example` para referência completa.
+| Função | Entrada | Saída | Uso |
+|---|---|---|---|
+| `formatCurrency(n)` | `number` | `"R$ 1.234,56"` | Exibição geral |
+| `formatCurrency(n, true)` | `number` | `"R$ 1,2K"` | Valores compactos |
+| `formatCurrencyInput(digits)` | `"123456"` | `"1.234,56"` | AmountInput — display |
+| `parseCurrencyDigits(digits)` | `"123456"` | `1234.56` | AmountInput → API |
+| `formatDate(str)` | `"2026-05-16"` | `"16/05/2026"` | Datas em tabelas |
+| `formatPercent(n)` | `0.856` | `"0.9%"` | Percentuais |
 
 ---
 
-## Endpoints da API
+## API REST — Endpoints
 
-| Método | Rota | Status | Descrição |
-|---|---|---|---|
-| GET | `/` | ✅ | Health check com versão |
-| GET | `/health` | ✅ | Health check simples |
-| POST | `/api/upload` | ✅ | Extrai transações do PDF (sem salvar) |
-| POST | `/api/import` | ✅ | Salva transações selecionadas no banco |
-| GET | `/api/transactions` | ✅ | Lista transações (filtros: month, category, account) |
-| GET | `/api/transactions/invoice?invoice_id=ID` | ✅ | Fatura por invoice_id (preferencial) |
-| GET | `/api/transactions/invoice?card_id=ID&month=YYYY-MM` | ✅ | Fatura por mês (legado) |
-| GET | `/api/cards` | ✅ | Lista cartões do usuário |
-| GET | `/api/cards/{id}` | ✅ | Retorna cartão do usuário |
-| POST | `/api/cards` | ✅ | Cria cartão |
-| PATCH | `/api/cards/{id}` | ✅ | Edita cartão |
-| DELETE | `/api/cards/{id}` | ✅ | Remove cartão + invoices + transactions em cascata |
-| GET | `/api/cards/{id}/invoices` | ✅ | Lista invoices reais da tabela Invoice |
-| GET | `/api/cards/{id}/invoices/{invoice_id}` | ✅ | Detalhe da fatura + transactions + summary |
-| GET | `/api/cards/{id}/invoices-by-month/{due_month}` | ✅ | Busca invoice por due_month (compat.) |
-| GET | `/api/categories?scope=credit_card` | ✅ | Lista categorias manuais de cartão |
-| POST | `/api/categories` | ✅ | Cria categoria manual |
-| PATCH | `/api/categories/{id}` | ✅ | Edita categoria manual |
-| DELETE | `/api/categories/{id}` | ✅ | Remove categoria manual |
-| GET | `/api/dashboard/monthly` | ⚫ | Agregação mensal para Dashboard (Etapa 3.1) |
+### Auth
+
+| Método | Rota | Descrição |
+|---|---|---|
+| POST | `/auth/login` | Email + senha → JWT |
+| POST | `/auth/google` | Google OAuth → JWT |
+| POST | `/auth/refresh` | Renovar token |
+
+### Transações
+
+| Método | Rota | Descrição |
+|---|---|---|
+| GET | `/api/transactions` | Lista (filtros: bank_account_id, card_id, month, …) |
+| POST | `/api/transactions` | Criar lançamento manual (único) |
+| POST | `/api/transactions/batch` | Criar múltiplos lançamentos em lote |
+| PATCH | `/api/transactions/{id}` | Editar descrição/categoria |
+| GET | `/api/transactions/invoice` | Transações de uma fatura |
+
+### Contas bancárias
+
+| Método | Rota | Descrição |
+|---|---|---|
+| GET | `/api/bank-accounts` | Lista contas |
+| POST | `/api/bank-accounts` | Criar conta |
+| GET | `/api/bank-accounts/{id}` | Detalhe |
+| PATCH | `/api/bank-accounts/{id}` | Editar |
+| DELETE | `/api/bank-accounts/{id}` | Desativar |
+| GET | `/api/bank-accounts/{id}/import-batches` | Histórico de importações |
+
+### Cartões e faturas
+
+| Método | Rota | Descrição |
+|---|---|---|
+| GET | `/api/cards` | Lista cartões |
+| POST | `/api/cards` | Criar cartão |
+| GET/PATCH/DELETE | `/api/cards/{id}` | CRUD |
+| GET | `/api/cards/{id}/dashboard` | KPIs do cartão (fatura atual, média mensal) |
+| GET | `/api/cards/{id}/invoices` | Lista faturas |
+| GET | `/api/cards/{id}/invoices/{inv_id}` | Detalhe + transações + summary |
+
+### Categorias
+
+| Método | Rota | Descrição |
+|---|---|---|
+| GET | `/api/categories?scope=bank` | Categorias de conta bancária |
+| GET | `/api/categories?scope=credit_card` | Categorias de cartão |
+| POST | `/api/categories` | Criar |
+| PATCH | `/api/categories/{id}` | Editar |
+| DELETE | `/api/categories/{id}` | Remover |
+
+### Upload / Import
+
+| Método | Rota | Descrição |
+|---|---|---|
+| POST | `/api/upload` | Preview sem salvar (detecta parser) |
+| POST | `/api/import` | Salva transações confirmadas |
 
 Docs interativas: http://localhost:8000/docs
 
 ---
 
-## Decisões de Arquitetura
+## Fluxo de Lançamento Manual
 
-### Categorização no frontend (não no backend)
-MVP: `category` e `category_group` sempre `null` na API. O frontend aplicará regras de
-categorização configuráveis pelo usuário (Etapa 3.2). Evita acoplamento de preferências
-pessoais no servidor.
-
-### `is_internal_transfer` no backend
-Detecção estrutural (baseada em números de conta e padrões como "Dinheiro reservado") —
-não é preferência do usuário, não muda. Correto ficar no backend.
-
-### Preview separado do import
-`POST /api/upload` retorna dados sem persistir. `POST /api/import` persiste o que o
-usuário confirmou. Permite seleção individual, edição de categoria e descarte de
-transferências internas antes de salvar.
-
-### NubankPJParser herda NubankPFParser
-Formato dos PDFs é idêntico — só muda `ACCOUNT_KEY` e `_IDENTIFIERS`. Herança evita
-duplicação de ~200 linhas de código.
-
-### `INTERNAL_ACCOUNT_HINTS` ≠ `OWN_ACCOUNTS`
-`OWN_ACCOUNTS` inclui o nome do titular e o número da própria conta corrente.
-`INTERNAL_ACCOUNT_HINTS` inclui apenas os identificadores das **outras** contas
-(contrapartes reais de uma transferência interna). Ver detalhes na seção de parsers.
-
----
-
-## Como Adicionar um Novo Parser
-
-1. Criar `backend/app/parsers/meu_banco.py` herdando `BaseParser`
-2. Implementar `can_parse()` com fingerprint único do PDF
-3. Implementar `parse()` retornando `list[dict]` no formato padrão
-4. Registrar em `ALL_PARSERS` (mais específico → menos específico)
-5. Criar testes em `tests/test_meu_banco.py`
-
----
-
-## Testes
-
-```bash
-cd backend
-source venv/bin/activate
-pytest tests/ -v          # 26 testes passando
+```
+Página /lancamentos/novo
+  ├── TypeToggle → tipo (saida/entrada)
+  ├── AmountInput → digits brutos → parseCurrencyDigits() → amount float
+  ├── CategorySelector → catId (string → Number para API)
+  ├── Conta (select) → bankId
+  │
+  ├── "Salvar direto" → POST /api/transactions (single)
+  └── "+ Adicionar à fila" → acumula QueueEntry[]
+        └── "Confirmar todos" → POST /api/transactions/batch
 ```
 
-Testes isolam o pdfplumber via `unittest.mock.patch` — não dependem de PDFs reais para rodar em CI.
+`_build_manual_tx()` no backend valida conta + categoria e cria o objeto sem commit.
+O endpoint `/batch` faz um único `db.commit()` para todo o lote.
+
+---
+
+## Design System — Apple Direction
+
+Tokens em `src/app/globals.css`. Referência completa em `frontend/CLAUDE.md`.
+
+Resumo das variáveis mais usadas:
+
+| Token | Valor | Uso |
+|---|---|---|
+| `--surface-0` / `--surface-bg` | `#000` | Fundo de página |
+| `--surface-1` / `--surface-card` | `#1C1C1E` | Card principal |
+| `--surface-2` | `#2C2C2E` | Painel aninhado, inputs |
+| `--green` | `#30D158` | Entradas, positivo |
+| `--red` | `#FF453A` | Saídas, negativo |
+| `--blue` | `#0A84FF` | Ações primárias |
+| `--orange` | `#FF9F0A` | Alertas |
+| `--font-mono` | DM Mono | Valores numéricos |
+| `--separator` | `rgba(255,255,255,.08)` | Divisores |
+
+---
+
+## Navegação
+
+- **Desktop (≥ 768px):** `Sidebar.tsx` — menu lateral fixo com ícones + labels
+- **Mobile (< 768px):** `BottomTabBar.tsx` — barra inferior com 5 tabs
+
+Ambos controlados por `usePathname()` para highlight ativo.
+
+---
+
+## Decisões de Arquitetura
+
+### AmountInput: cents-based
+
+Valor armazenado como string de dígitos brutos ("123456"). Formatação ocorre apenas no display. Isso evita bugs de cursor e parsing ambíguo — o modelo é identical ao dos apps bancários móveis.
+
+### BatchQueue: commit único
+
+O endpoint `/transactions/batch` valida todos os itens e faz um único `db.commit()`. Se qualquer item falhar na validação, nenhum é salvo (consistência).
+
+### ContaEmptyState: sem limpeza de banco
+
+O componente permite criar uma conta bancária mesmo depois de faturas já importadas. A conta é vinculada ao histórico existente sem apagar dados — o banner explica isso explicitamente ao usuário.
+
+### PageHeader: fora do `<main>`
+
+`PageHeader` fica como sibling antes de `<main>`. O `<main>` tem `flex: 1` e `overflow: auto` — rola sob o header fixo. `paddingTop: 24px` no `<main>` cria o respiro entre o border-bottom do header e o conteúdo.
+
+### Token JWT: 7 dias + refresh proativo
+
+Tokens duram 7 dias. `AuthRefreshGuard` dispara `update()` uma vez por dia (24h timer). O `jwt` callback renova quando falta ≤ 1 dia. Se o refresh falhar, `session.error = 'RefreshAccessTokenError'` e o guard redireciona para `/login?reason=expired`.
 
 ---
 
@@ -474,19 +424,18 @@ Testes isolam o pdfplumber via `unittest.mock.patch` — não dependem de PDFs r
 
 ```bash
 # Backend
-cd backend && source venv/bin/activate
+cd geldmacht-api
+source .venv/bin/activate
 uvicorn app.main:app --reload --port 8000   # dev
-alembic upgrade head                         # criar/migrar banco
-alembic revision --autogenerate -m "desc"   # nova migration
-pytest tests/ -v                             # testes
-sqlite3 geldmacht.db "SELECT COUNT(*) FROM transactions;"  # checar banco
-
-# ⚠️ ZERAR O BANCO (apaga todos os dados e recria o schema)
-rm backend/geldmacht.db && cd backend && source venv/bin/activate && alembic upgrade head
+alembic upgrade head                         # migrar banco
+pytest tests/ -v
 
 # Frontend
 cd frontend
-npm run dev       # dev (porta 3000)
-npm run build     # build de produção
-npx tsc --noEmit  # checar TypeScript sem build
+npm run dev            # dev (porta 3000)
+npm run build          # build de produção
+npx tsc --noEmit       # checar TypeScript
+
+# Matar e reiniciar ambos
+lsof -ti :3000 -ti :8000 | xargs kill -9
 ```

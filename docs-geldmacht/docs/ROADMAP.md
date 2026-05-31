@@ -1,77 +1,79 @@
 # 🗺️ Roadmap do Projeto
 
-O projeto é dividido em **3 fases sequenciais**. Cada fase deve estar funcional e validada antes de partir para a próxima.
+> **Última atualização:** 2026-05-16
 
 ---
 
 ## ✅ Fase 1 — Frontend com Dados Mockados (CONCLUÍDA — 27/04/2026)
 
-**Objetivo:** ter retorno visual rápido — replicar a planilha como uma interface web bonita e funcional, mas usando dados em arquivos JSON locais.
-
-**Por que começar pelo frontend?**
-- Ver o resultado visual em poucos dias motiva a continuar
-- Permite refinar a UX antes de complicar com backend
-- Os dados mockados servirão como referência da estrutura final
-
-**Entregáveis — todos concluídos ✅:**
-- Next.js 15 + TypeScript + Tailwind 4 rodando localmente
-- 5 telas: Dashboard Anual, Visão Mensal, Cartão de Crédito, Carteira B3, Proventos
-- Dados em JSON (Jan-Abr/2026) com valores reais da planilha
-- Gráficos interativos: barra, linha, pizza, barras empilhadas
-- Hook `useFinancialData` com dynamic imports (pronto para Fase 3)
-- Tipos TypeScript centralizados em `src/types/financial.ts`
-- Design dark navy fintech, responsivo, build limpo
-- Tema: `#0f1b2d` background + DM Sans/Mono
-
-**Detalhes:** `docs/FASE-1-FRONTEND.md` | Histórico: `docs/PROGRESSO-FASE-1.md`
+Design dark fintech, 5 telas, dados JSON. Tema navy original (substituído pelo Apple Direction na Fase 3).
 
 ---
 
 ## ✅ Fase 2 — Backend e Parsers de Extratos (CONCLUÍDA — 29/04/2026)
 
-**Objetivo:** o sistema deve ser capaz de **ler e entender extratos** automaticamente.
-
-**Entregáveis — todos concluídos ✅:**
-- API REST em FastAPI rodando em `localhost:8000`
-- 5 parsers funcionando: Nubank PF, Nubank PJ, Itaú, Mercado Pago, Fatura Nubank
-- Banco SQLite com schema via Alembic + 221 transações reais importadas
-- Endpoint `POST /api/upload` — extrai sem salvar (preview)
-- Endpoint `POST /api/import` — salva confirmados com deduplicação
-- Tela `/upload` no frontend com drag-and-drop, preview, checkboxes, edição de categoria
-- `frontend/src/lib/api.ts` — camada tipada de comunicação frontend↔backend
-- 26 testes passando
-
-**Detalhes:** `docs/FASE-2-BACKEND.md` | Histórico: `docs/PROGRESSO-FASE-2.md`
+FastAPI + SQLite + 5 parsers (Nubank PF/PJ, Itaú, Mercado Pago, Fatura Nubank) + OFX. 26 testes passando.
 
 ---
 
-## 🔴 Fase 3 — Integração Frontend + Backend (EM ANDAMENTO)
+## ✅ Fase 3 — Integração Frontend + Backend (CONCLUÍDA — Mai/2026)
 
-**Objetivo:** conectar tudo. Frontend consome a API real, dados mockados são removidos.
+### ✅ Etapa 3.0 — Banco zerado e dados reais importados
+- Alembic migrations, dados reais de produção importados, mocks arquivados.
 
-**Etapas:**
-- ✅ **Etapa 3.0 (CONCLUÍDA):** Banco zerado, dados reais importados, mocks arquivados
-- 🔴 **Etapa 3.1 (ATUAL):** Dashboard e telas consumindo API real (substituir imports JSON por fetch)
-- ⚫ **Etapa 3.2:** Categorização no frontend (motor de regras configurável)
-- ⚫ **Etapa 3.3:** Carteira B3 e Proventos com dados reais (aguarda xlsx B3)
+### ✅ Etapa 3.1 — Frontend conectado à API real
+- `src/lib/api.ts` como camada tipada de comunicação.
+- Dashboard, mes, cartão, upload, categorias consumindo API real.
 
-**Detalhes:** `docs/FASE-3-INTEGRACAO.md` | Histórico: `docs/PROGRESSO-FASE-3.md`
+### ✅ Etapa 3.2 — Autenticação completa
+- NextAuth v5 com Credentials + Google OAuth.
+- JWT 7 dias, refresh automático (proativo + reativo).
+- `AuthRefreshGuard` para renovação silenciosa e logout amigável.
+- Proteção de rotas pelo `(app)` route group.
+
+### ✅ Etapa 3.3 — Navegação Apple Direction
+- `Sidebar` desktop + `BottomTabBar` mobile.
+- `PageHeader` reutilizável (título + breadcrumb + slot de navegação).
+- Design system: tokens CSS Apple, fundo preto, DM Mono para valores.
+
+### ✅ Etapa 3.4 — Carteira e detalhe de instituição
+- `carteira/page.tsx` — lista de instituições agrupadas.
+- `carteira/[slug]/page.tsx` — tabs Conta / Cartão / Resumo.
+- `ContaEmptyState` — fluxo de vincular conta bancária sem limpar banco.
+
+### ✅ Etapa 3.5 — Lançamento manual com fila batch
+- Tela `/lancamentos/novo` redesenhada com novos componentes:
+  - `TypeToggle` — toggle Saída/Entrada (sizes sm/md/lg)
+  - `AmountInput` — campo hero com auto-formatação BRL cents-based
+  - `CategorySelector` — grid (web) ou chips + expand (mobile)
+  - `BatchQueue` — fila de lançamentos, sidebar (web) ou barra compacta (mobile)
+- Endpoint `POST /api/transactions/batch` — lote num único commit.
+- `formatCurrencyInput()` / `parseCurrencyDigits()` em `formatters.ts`.
 
 ---
 
-## 🔮 Fases Futuras (depois do MVP)
+## 🔮 Fases Futuras
 
-- **Fase 4** — IA para categorização inteligente (Claude API ou similar)
-- **Fase 5** — App mobile (React Native)
-- **Fase 6** — Notificações (DAS vencendo, fatura alta, dividendo recebido)
-- **Fase 7** — Projeções e metas financeiras
-- **Fase 8** — Multi-usuário (virar SaaS, se desejado)
+### Fase 4 — IA para categorização inteligente
+Usar Claude API para sugerir categorias automaticamente ao importar.
+
+### Fase 5 — Carteira B3 com dados reais
+Integrar xlsx de posição/movimentação/negociação B3. Tela de proventos com dados reais.
+
+### Fase 6 — Notificações
+DAS vencendo, fatura alta, dividendo recebido.
+
+### Fase 7 — Projeções e metas financeiras
+Dashboard prospectivo: projeção de renda, metas de aporte, reserva de emergência.
+
+### Fase 8 — Multi-usuário / SaaS (se desejado)
 
 ---
 
 ## 🚦 Status Atual
 
-- [x] Planilha Excel funcional como referência
-- [x] **Fase 1 — ✅ CONCLUÍDA (27/04/2026) — 13/13 itens**
-- [x] **Fase 2 — ✅ CONCLUÍDA (29/04/2026) — 5 parsers, 221 transações importadas**
-- [ ] **Fase 3 — 🔴 Em andamento (Etapa 3.1 — Dashboard consumindo API real)**
+- [x] **Fase 1** — ✅ Concluída (27/04/2026)
+- [x] **Fase 2** — ✅ Concluída (29/04/2026)
+- [x] **Fase 3** — ✅ Concluída (Mai/2026) — app funcional end-to-end
+- [ ] **Fase 4** — IA para categorização (próxima)
+- [ ] **Fase 5** — Carteira B3 real
