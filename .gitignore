@@ -27,6 +27,7 @@ ENV/
 *.swo
 .DS_Store
 .claude/
+CLAUDE.md
 
 # Dados sensíveis (extratos reais)
 data/*.pdf
