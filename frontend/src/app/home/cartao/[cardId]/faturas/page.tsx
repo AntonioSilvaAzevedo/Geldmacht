@@ -1,12 +1,21 @@
 'use client';
 
-import { use, useCallback, useEffect, useState } from 'react';
-import Link from 'next/link';
-import { Upload } from 'lucide-react';
-import StatePanel from '@/components/StatePanel';
+import { use, useCallback, useEffect, useMemo, useState } from 'react';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import StatePanel from '@/components/StatePanel';
+import { PageBreadcrumb } from '@/components/ui/breadcrumb';
+import { CreditCardInvoiceCard } from '@/components/Cards/CreditCardInvoiceCard';
 import { api, type CardInvoice, type CreditCardConfig } from '@/lib/api';
-import { formatCurrency, formatDate } from '@/lib/formatters';
+import { useIsMobile } from '@/hooks/useIsMobile';
+
+const MONTHS = [
+  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
+];
+
+function toSlug(name: string): string {
+  return encodeURIComponent(name.trim().toLowerCase());
+}
 
 interface PageProps {
   params: Promise<{ cardId: string }>;
@@ -15,6 +24,8 @@ interface PageProps {
 export default function CardInvoicesListPage({ params }: PageProps) {
   const { cardId } = use(params);
   const id = Number(cardId);
+  const isMobile = useIsMobile();
+
   const [card, setCard] = useState<CreditCardConfig | null>(null);
   const [invoices, setInvoices] = useState<CardInvoice[]>([]);
   const [loading, setLoading] = useState(true);
@@ -29,12 +40,7 @@ export default function CardInvoicesListPage({ params }: PageProps) {
         api.getCardInvoices(id),
       ]);
       setCard(cardData);
-      // Ordena por due_date desc; fallback para due_month
-      setInvoices([...invoiceData].sort((a, b) => {
-        const da = a.due_date ?? a.due_month;
-        const db = b.due_date ?? b.due_month;
-        return db.localeCompare(da);
-      }));
+      setInvoices(invoiceData);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao carregar faturas.');
     } finally {
@@ -44,122 +50,67 @@ export default function CardInvoicesListPage({ params }: PageProps) {
 
   useEffect(() => { void load(); }, [load]);
 
+  const year = useMemo(() => {
+    const months = invoices.map(i => i.due_month).filter(Boolean).sort();
+    const latest = months[months.length - 1];
+    return latest ? Number(latest.slice(0, 4)) : new Date().getFullYear();
+  }, [invoices]);
+
+  const monthCards = useMemo(() => MONTHS.map((label, idx) => {
+    const key = `${year}-${String(idx + 1).padStart(2, '0')}`;
+    const invoice = invoices.find(i => i.due_month === key);
+    const amount = invoice ? (invoice.total_amount ?? invoice.computed_total) : 0;
+    const href = invoice ? `/home/cartao/${id}/fatura/${invoice.id}` : undefined;
+    return { label, amount, href };
+  }), [invoices, year, id]);
+
   if (loading) {
     return (
-      <>
-<main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <LoadingSpinner />
-        </main>
-      </>
+      <main className="flex flex-1 items-center justify-center">
+        <LoadingSpinner />
+      </main>
     );
   }
   if (error) return <StatePanel variant="error" message={error} />;
   if (!card) return <StatePanel variant="error" message="Cartão não encontrado." />;
 
+  const institutionSlug = card.institution ? toSlug(card.institution) : null;
+
   return (
     <>
-<main style={{ padding: 24, flex: 1 }}>
+      <PageBreadcrumb
+        items={[
+          { href: '/home/carteira', label: 'Carteira' },
+          ...(card.institution && institutionSlug
+            ? [{ href: `/home/carteira/${institutionSlug}/resumo`, label: card.institution }]
+            : []),
+          { href: `/home/cartao/${card.id}`, label: card.name },
+        ]}
+        currentPage="Faturas"
+        px={isMobile ? 14 : 28}
+      />
 
-        {/* Navegação */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18, flexWrap: 'wrap', gap: 10 }}>
-          <Link href={`/home/cartao/${card.id}`} style={{ color: 'var(--blue-400)', fontSize: 13, textDecoration: 'none' }}>
-            ← Voltar à visão geral
-          </Link>
-          <Link href={`/home/upload?type=credit_card&cardId=${card.id}`} style={primaryLinkStyle}>
-            <Upload size={14} /> Importar nova fatura
-          </Link>
+      <main className="mx-auto w-full max-w-[860px] flex-1 px-3.5 pb-8 pt-5 sm:px-7">
+        <header className="mb-5">
+          <h1 className="text-[28px] font-bold tracking-[-0.02em] text-[var(--text-primary)]">
+            Faturas
+          </h1>
+          <p className="mt-1 font-[family-name:var(--font-mono)] text-[15px] text-[var(--text-secondary)]">
+            {year}
+          </p>
+        </header>
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {monthCards.map(m => (
+            <CreditCardInvoiceCard
+              key={m.label}
+              month={m.label}
+              amount={m.amount}
+              href={m.href}
+            />
+          ))}
         </div>
-
-        {invoices.length === 0 ? (
-          <StatePanel variant="empty"
-            title="Nenhuma fatura importada para este cartão."
-            message="Importe uma fatura para começar a visualizar os lançamentos."
-            actionHref={`/home/upload?type=credit_card&cardId=${card.id}`}
-            actionLabel="Importar fatura"
-          />
-        ) : (
-          <div style={{ display: 'grid', gap: 10 }}>
-            {invoices.map(invoice => (
-              <Link
-                key={invoice.id}
-                href={`/home/cartao/${card.id}/fatura/${invoice.id}`}
-                style={{
-                  background: 'var(--surface-card)',
-                  border: '1px solid var(--border-subtle)',
-                  borderRadius: 10,
-                  padding: '14px 16px',
-                  color: 'var(--text-primary)',
-                  textDecoration: 'none',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'flex-start',
-                  gap: 12,
-                  transition: 'border-color 0.15s',
-                }}
-              >
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontWeight: 600, fontSize: 14 }}>{invoice.label}</div>
-                  {invoice.due_date && (
-                    <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 2 }}>
-                      Vence em {formatDate(invoice.due_date)}
-                    </div>
-                  )}
-                  {invoice.cycle_start_date && invoice.cycle_end_date && (
-                    <div style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 2 }}>
-                      Período: {formatDate(invoice.cycle_start_date)} a {formatDate(invoice.cycle_end_date)}
-                    </div>
-                  )}
-                  <div style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 3 }}>
-                    {invoice.transactions_count} lançamentos
-                  </div>
-                </div>
-                <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                  {invoice.total_amount != null ? (
-                    <>
-                      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 4 }}>
-                        Total da fatura (PDF)
-                      </div>
-                      <div style={{ fontFamily: 'var(--font-mono)', color: 'var(--red-400)', fontWeight: 700, fontSize: 15 }}>
-                        {formatCurrency(invoice.total_amount)}
-                      </div>
-                      {Math.abs(invoice.total_amount - invoice.computed_total) > 0.01 && (
-                        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
-                          Soma dos gastos (lanç.): {formatCurrency(invoice.computed_total)}
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 4 }}>
-                        Soma dos gastos
-                      </div>
-                      <div style={{ fontFamily: 'var(--font-mono)', color: 'var(--red-400)', fontWeight: 700, fontSize: 15 }}>
-                        {formatCurrency(invoice.computed_total)}
-                      </div>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
-                        Total do PDF não identificado nesta importação.
-                      </div>
-                    </>
-                  )}
-                </div>
-              </Link>
-            ))}
-          </div>
-        )}
       </main>
     </>
   );
 }
-
-const primaryLinkStyle: React.CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: 7,
-  padding: '9px 12px',
-  borderRadius: 8,
-  background: 'var(--primary-gradient)',
-  color: '#fff',
-  textDecoration: 'none',
-  fontSize: 13,
-  fontWeight: 600,
-};
