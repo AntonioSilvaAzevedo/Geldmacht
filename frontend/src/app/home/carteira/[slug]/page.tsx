@@ -1,12 +1,22 @@
-import { redirect } from 'next/navigation'
+'use client'
 
-interface InstitutionIndexPageProps {
-  params: Promise<{ slug: string }>
-}
+import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 
-export default async function InstitutionIndexPage({
-  params,
-}: InstitutionIndexPageProps) {
-  const { slug } = await params
-  redirect(`/home/carteira/${slug}/resumo`)
+import { useInstitution } from '@/components/carteira/institution-context'
+
+export default function InstitutionIndexPage() {
+  const router = useRouter()
+  const { slug, accounts, cards, loading } = useInstitution()
+
+  useEffect(() => {
+    if (loading) return
+    if (accounts.length > 0) {
+      router.replace(`/home/carteira/${slug}/extrato`)
+    } else if (cards.length > 0) {
+      router.replace(`/home/carteira/${slug}/cartao/faturas`)
+    }
+  }, [loading, accounts, cards, slug, router])
+
+  return null
 }
