@@ -84,9 +84,9 @@ Museu: `Button Component.html` (variants `default`, `primary`, `secondary`, `des
 **Descrição:** controle de abas — ativo com superfície + sombra; inativo ghost/secondary com peso normal.
 
 **Onde hoje:**
-- `app/(app)/carteira/[slug]/page.tsx` — tabs principais
+- `src/components/carteira/institution-nav.tsx` — tabs Resumo / Extrato (links)
 - `app/(app)/categorias/page.tsx` — toggle Cartão / Conta bancária
-- `app/(app)/carteira/[slug]/page.tsx` — chips de conta no extrato
+- `src/components/carteira/extrato/extrato-panel.tsx` — chips de conta no extrato
 
 **Sugestão de API:**
 ```tsx

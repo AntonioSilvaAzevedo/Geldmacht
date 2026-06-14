@@ -124,7 +124,7 @@ function Textarea({
   )
 }
 
-export interface InputGroupProps extends ComponentProps<'div'> {}
+export type InputGroupProps = ComponentProps<'div'>
 
 function InputGroup({ className, ...props }: InputGroupProps) {
   return (
@@ -139,7 +139,7 @@ function InputGroup({ className, ...props }: InputGroupProps) {
   )
 }
 
-export interface InputGroupRowProps extends ComponentProps<'div'> {}
+export type InputGroupRowProps = ComponentProps<'div'>
 
 function InputGroupRow({ className, ...props }: InputGroupRowProps) {
   return (

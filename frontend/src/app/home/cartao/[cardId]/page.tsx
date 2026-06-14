@@ -18,12 +18,13 @@ import { Edit3, Upload } from 'lucide-react';
 import StatePanel from '@/components/StatePanel';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import CreditCardForm from '@/components/Cards/CreditCardForm';
-import PageHeader from '@/components/Layout/PageHeader';
+import { PageBreadcrumb } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { api, type CardDashboard, type CreditCardConfig, type InvoiceMini } from '@/lib/api';
 import { formatCurrency, formatDate } from '@/lib/formatters';
 import { getOpeningDay }  from '@/lib/cardDates';
 import { useIsMobile }    from '@/hooks/useIsMobile';
+import { toSlug } from '@/lib/carteira/institution-helpers';
 import { getInstitutionColor } from '@/lib/institutionColors';
 
 interface PageProps { params: Promise<{ cardId: string }> }
@@ -291,44 +292,43 @@ export default function CardDetailPage({ params }: PageProps) {
 
   const hasInvoices = dashboard.invoice_count > 0;
   const padding = isMobile ? '16px 14px 32px' : '24px 28px 40px';
-  const institutionSlug = card.institution ? encodeURIComponent(card.institution.toLowerCase()) : null;
+  const institutionSlug = card.institution ? toSlug(card.institution) : null;
 
   return (
     <>
-      <PageHeader
-        title={card.name}
-        subtitle={card.institution ?? undefined}
-        crumbs={[
+      <PageBreadcrumb
+        items={[
           { href: '/home/carteira', label: 'Carteira' },
-          ...(card.institution && institutionSlug ? [{ href: `/home/carteira/${institutionSlug}`, label: card.institution }] : []),
+          ...(card.institution && institutionSlug
+            ? [{ href: `/home/carteira/${institutionSlug}/resumo`, label: card.institution }]
+            : []),
         ]}
-        right={
-          <>
-            <Button
-              variant="primary"
-              size="sm"
-              className="inline-flex shrink-0 items-center gap-1.5"
-              type="button"
-              onClick={() => router.push(`/home/upload?type=credit_card&cardId=${card.id}`)}
-            >
-              <Upload className="size-[13px] shrink-0" />
-              Importar fatura
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="inline-flex shrink-0 items-center gap-1.5"
-              type="button"
-              onClick={() => setEditing(v => !v)}
-            >
-              <Edit3 className="size-[13px] shrink-0" />
-              Editar
-            </Button>
-          </>
-        }
         px={isMobile ? 14 : 28}
       />
     <main style={{ flex:1, padding, maxWidth:860, margin:'0 auto', width:'100%' }}>
+
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 16 }}>
+        <Button
+          variant="primary"
+          size="sm"
+          className="inline-flex shrink-0 items-center gap-1.5"
+          type="button"
+          onClick={() => router.push(`/home/upload?type=credit_card&cardId=${card.id}`)}
+        >
+          <Upload className="size-[13px] shrink-0" />
+          Importar fatura
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="inline-flex shrink-0 items-center gap-1.5"
+          type="button"
+          onClick={() => setEditing(v => !v)}
+        >
+          <Edit3 className="size-[13px] shrink-0" />
+          Editar
+        </Button>
+      </div>
 
       <CardHero
         card={card} dashboard={dashboard} isMobile={isMobile}

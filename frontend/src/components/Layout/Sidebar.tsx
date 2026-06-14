@@ -92,6 +92,7 @@ function NavItem({
   return (
     <Link
       href={href}
+      aria-current={active ? "page" : undefined}
       style={{
         display: "flex",
         alignItems: "center",
@@ -146,6 +147,7 @@ export default function Sidebar() {
   return (
     <nav
       className="sidebar-desktop"
+      aria-label="Navegação principal"
       style={{
         width: 220,
         flexShrink: 0,

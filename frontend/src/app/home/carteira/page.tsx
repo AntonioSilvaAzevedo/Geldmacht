@@ -11,7 +11,6 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Landmark } from 'lucide-react';
 import LoadingSpinner from '@/components/LoadingSpinner';
-import PageHeader from '@/components/Layout/PageHeader';
 import { Button } from '@/components/ui/button';
 import {
   api,
@@ -20,6 +19,8 @@ import {
   type CardDashboard,
 } from '@/lib/api';
 import { formatCurrency } from '@/lib/formatters';
+import { ACCOUNT_TYPE_LABELS } from '@/lib/carteira/account-type-labels';
+import { toSlug } from '@/lib/carteira/institution-helpers';
 import { useIsMobile } from '@/hooks/useIsMobile';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -32,22 +33,7 @@ interface InstitutionGroup {
   dashboards: Map<number, CardDashboard>;
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function toSlug(name: string): string {
-  return encodeURIComponent(name.trim().toLowerCase());
-}
-
-const ACCOUNT_TYPE_LABELS: Record<string, string> = {
-  checking:   'Conta corrente',
-  savings:    'Conta poupança',
-  payment:    'Conta pagamento',
-  business:   'Conta PJ',
-  investment: 'Conta investimento',
-  other:      'Outra',
-};
-
-// Paleta de cores por instituição
+// ── Institution colors ──────────────────────────────────────────────────────
 const INSTITUTION_COLORS: Record<string, string> = {
   nubank:              '#820AD1',
   'nu invest':         '#820AD1',
@@ -129,7 +115,7 @@ export default function CarteiraPage() {
     }
   };
 
-  useEffect(() => { void load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { void load(); }, []);
 
   // Agrupa por campo `institution` (string livre em ambos os tipos)
   const institutions = useMemo<InstitutionGroup[]>(() => {
@@ -189,11 +175,6 @@ export default function CarteiraPage() {
 
   return (
     <>
-      <PageHeader
-        title="Carteira"
-        subtitle="Contas, cartões e investimentos — por instituição"
-        px={isMobile ? 14 : 32}
-      />
 <main style={{ padding, flex: 1, maxWidth: 860, margin: '0 auto', width: '100%' }}>
 
         {/* Summary strip */}

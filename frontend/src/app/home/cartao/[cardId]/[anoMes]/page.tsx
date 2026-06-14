@@ -20,7 +20,6 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import { Button } from '@/components/ui/button';
 import { api, type CardInvoiceDetail, type CreditCardConfig, type InvoiceSummary } from '@/lib/api';
 import { formatCurrency, formatDate } from '@/lib/formatters';
-import { formatReferenceMonth } from '@/lib/cardDates';
 import type { Transaction } from '@/types/financial';
 
 interface PageProps {
@@ -106,16 +105,6 @@ export default function CardInvoicePage({ params }: PageProps) {
     });
   }
 
-  // Título: prioriza due_date da invoice; fallback para formatReferenceMonth
-  function buildTitle(): string {
-    if (invoice?.due_date) {
-      const d = new Date(invoice.due_date + 'T12:00:00');
-      const month = d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-      return `Fatura com vencimento em ${month.charAt(0).toUpperCase() + month.slice(1)}`;
-    }
-    return `Fatura ${formatReferenceMonth(anoMes)}`;
-  }
-
   if (loading) {
     return (
       <>
@@ -143,7 +132,6 @@ export default function CardInvoicePage({ params }: PageProps) {
     );
   }
 
-  const title = buildTitle();
   const hasPdfTotal = invoice?.total_amount != null;
   const ledgerGrossExpenses = summary?.total_invoice ?? 0;
   const pdfVsLedgerDiff =

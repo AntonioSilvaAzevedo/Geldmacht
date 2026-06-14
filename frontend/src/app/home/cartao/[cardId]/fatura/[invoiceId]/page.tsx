@@ -13,14 +13,13 @@
 'use client';
 
 import { use, useCallback, useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight, TrendingUp } from 'lucide-react';
 import { CategoryChoiceSelect } from '@/components/category-choice-select';
 import StatePanel from '@/components/StatePanel';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import CategoryIcon  from '@/components/CategoryIcon';
-import PageHeader from '@/components/Layout/PageHeader';
+import { PageBreadcrumb } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import {
   api, type CardInvoice, type CardInvoiceDetail,
@@ -533,21 +532,22 @@ export default function InvoiceDetailPage({ params }: PageProps) {
 
   return (
     <>
-      <PageHeader
-        title={fullLabel(invoice.due_month)}
-        subtitle={invoice.due_date ? `Vence ${formatDate(invoice.due_date)}` : undefined}
-        crumbs={[{ href: `/home/cartao/${cid}`, label: card.name }]}
-        nav={sorted.length > 1 && current ? (
+      <PageBreadcrumb
+        items={[{ href: `/home/cartao/${cid}`, label: card.name }]}
+        px={isMobile ? 14 : 32}
+      />
+    <main style={{ flex:1, padding, maxWidth:860, margin:'0 auto', width:'100%' }}>
+
+      {sorted.length > 1 && current ? (
+        <div style={{ marginBottom: 14 }}>
           <InvoiceNavBar
             prev={prev} current={current} next={next}
             onPrev={() => prev && navigate(prev)}
             onNext={() => next && navigate(next)}
             isMobile={isMobile}
           />
-        ) : undefined}
-        px={isMobile ? 14 : 32}
-      />
-    <main style={{ flex:1, padding, maxWidth:860, margin:'0 auto', width:'100%' }}>
+        </div>
+      ) : null}
 
       {/* Hero */}
       <InvoiceHero invoice={invoice} summary={summary} />

@@ -156,10 +156,12 @@
   --sidebar-ring:       oklch(0.708 0 0);
 }
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+@layer base {
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
 }
 
 html { scroll-behavior: smooth; }
@@ -249,8 +251,8 @@ body {
   height: 100%;
 }
 
-/* PageHeader fica fixo — nunca rola */
-.app-main-content > [data-page-header] {
+/* Breadcrumb fica fixo — nunca rola */
+.app-main-content > [data-page-breadcrumb] {
   flex-shrink: 0;
 }
 
@@ -382,8 +384,8 @@ body {
 
 /* Scrollbars: em `Apple_Direction.html` usamos scroll oculto; na app mantém-se barra fina acima. */
 
-/* PageHeader fica fixo — nunca rola */
-.app-main-content > [data-page-header] {
+/* Breadcrumb fica fixo — nunca rola */
+.app-main-content > [data-page-breadcrumb] {
   flex-shrink: 0;
 }
 
