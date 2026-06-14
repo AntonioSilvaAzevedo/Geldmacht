@@ -33,6 +33,7 @@ import {
   importTransactions,
 } from '@/lib/api';
 import { formatCurrency, formatDate } from '@/lib/formatters';
+import { toSlug } from '@/lib/carteira/institution-helpers';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -445,10 +446,13 @@ export default function UploadPreview({ result, card, cards = [], categories = [
       }
       setImportResult(res);
       if (isCreditCardImport && selectedCard) {
-        if (res.invoice_id) {
-          router.push(`/home/cartao/${selectedCard.id}/fatura/${res.invoice_id}`);
-        } else if (res.due_month) {
-          router.push(`/home/cartao/${selectedCard.id}/${res.due_month}`);
+        const slug = selectedCard.institution ? toSlug(selectedCard.institution) : null;
+        if (slug && res.invoice_id) {
+          router.push(`/home/carteira/${slug}/cartao/faturas/${res.invoice_id}`);
+        } else if (slug) {
+          router.push(`/home/carteira/${slug}/cartao/faturas`);
+        } else {
+          router.push('/home/carteira');
         }
       }
     } catch (err) {
@@ -496,11 +500,11 @@ export default function UploadPreview({ result, card, cards = [], categories = [
             href={
               importResult.bank_account_id
                 ? '/home/carteira'
-                : importResult.card_id && importResult.invoice_id
-                  ? `/home/cartao/${importResult.card_id}/fatura/${importResult.invoice_id}`
-                  : importResult.card_id && importResult.due_month
-                    ? `/home/cartao/${importResult.card_id}/${importResult.due_month}`
-                    : '/'
+                : selectedCard?.institution && importResult.invoice_id
+                  ? `/home/carteira/${toSlug(selectedCard.institution)}/cartao/faturas/${importResult.invoice_id}`
+                  : selectedCard?.institution
+                    ? `/home/carteira/${toSlug(selectedCard.institution)}/cartao/faturas`
+                    : '/home/carteira'
             }
             style={{
               padding: '10px 20px',

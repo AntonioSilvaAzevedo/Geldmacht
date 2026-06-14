@@ -1,25 +1,13 @@
-/**
- * src/app/(app)/cartao/[cardId]/fatura/[invoiceId]/page.tsx
- *
- * Detalhe de Fatura — redesenhado.
- * Principais mudanças:
- *   - InvoiceNavBar: ← mês anterior | Mês Atual | próximo mês → (substitui <select>)
- *   - InvoiceHero: valor grande + status + chips de contexto
- *   - SummaryStrip: 3 métricas (substitui 4 MetricCards em grid)
- *   - CategoryBreakdown: progress bars por categoria (substitui CategoryGrid)
- *   - InstallmentsAccordion: simplificado com barra de progresso por parcela
- */
-
 'use client';
 
 import { use, useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight, TrendingUp } from 'lucide-react';
 import { CategoryChoiceSelect } from '@/components/category-choice-select';
+import { useInstitution } from '@/components/carteira/institution-context';
 import StatePanel from '@/components/StatePanel';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import CategoryIcon  from '@/components/CategoryIcon';
-import { PageBreadcrumb } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import {
   api, type CardInvoice, type CardInvoiceDetail,
@@ -29,7 +17,7 @@ import { formatCurrency, formatDate } from '@/lib/formatters';
 import type { Transaction } from '@/types/financial';
 import { useIsMobile } from '@/hooks/useIsMobile';
 
-interface PageProps { params: Promise<{ cardId: string; invoiceId: string }> }
+interface PageProps { params: Promise<{ slug: string; invoiceId: string }> }
 
 // ─── Month helpers ─────────────────────────────────────────────────────────────
 const MONTH_FULL: Record<string,string> = {
@@ -439,8 +427,9 @@ function InstallmentsAccordion({ transactions }: { transactions: Transaction[] }
 export default function InvoiceDetailPage({ params }: PageProps) {
   const router = useRouter();
   const isMobile = useIsMobile();
-  const { cardId, invoiceId } = use(params);
-  const cid = Number(cardId), iid = Number(invoiceId);
+  const { invoiceId } = use(params);
+  const { slug, cards } = useInstitution();
+  const cid = cards[0]?.id ?? 0, iid = Number(invoiceId);
 
   const [card, setCard]           = useState<CreditCardConfig|null>(null);
   const [invoice, setInvoice]     = useState<CardInvoiceDetail|null>(null);
@@ -515,28 +504,19 @@ export default function InvoiceDetailPage({ params }: PageProps) {
     } finally { setRecatSaving(false); }
   }, [recatModal, load]);
 
-  const navigate = (inv: CardInvoice) => router.push(`/home/cartao/${cid}/fatura/${inv.id}`);
+  const navigate = (inv: CardInvoice) => router.push(`/home/carteira/${slug}/cartao/faturas/${inv.id}`);
 
-  const padding = isMobile ? '16px 14px 32px' : '16px 32px 40px';
-
-  if (loading) return <main style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center' }}><LoadingSpinner /></main>;
+  if (loading) return <div className="flex flex-1 items-center justify-center"><LoadingSpinner /></div>;
   if (error)   return <StatePanel variant="error" message={error} />;
   if (!card || !invoice) return <StatePanel variant="error" message="Fatura não encontrada." />;
   if (!invoice.transactions.length) return (
-    <main style={{ flex:1 }}>
-      <StatePanel variant="empty" title="Nenhum lançamento nesta fatura." message="" actionHref={`/home/cartao/${card.id}`} actionLabel="Voltar ao cartão" />
-    </main>
+    <StatePanel variant="empty" title="Nenhum lançamento nesta fatura." message="" actionHref={`/home/carteira/${slug}/cartao/faturas`} actionLabel="Voltar às faturas" />
   );
 
   const summary = invoice.summary;
 
   return (
-    <>
-      <PageBreadcrumb
-        items={[{ href: `/home/cartao/${cid}`, label: card.name }]}
-        px={isMobile ? 14 : 32}
-      />
-    <main style={{ flex:1, padding, maxWidth:860, margin:'0 auto', width:'100%' }}>
+    <div>
 
       {sorted.length > 1 && current ? (
         <div style={{ marginBottom: 14 }}>
@@ -605,7 +585,6 @@ export default function InvoiceDetailPage({ params }: PageProps) {
           </div>
         </div>
       )}
-    </main>
-    </>
+    </div>
   );
 }
