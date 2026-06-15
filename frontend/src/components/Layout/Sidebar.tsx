@@ -132,7 +132,7 @@ export default function Sidebar() {
   const pathname = usePathname();
 
   function isActive(href: string) {
-    if (href === "/") return pathname === "/";
+    if (href === "/home") return pathname === "/home";
     // /lancamentos/novo deve acender para qualquer sub-rota de /lancamentos
     if (href === "/home/lancamentos/novo")
       return pathname.startsWith("/home/lancamentos");
