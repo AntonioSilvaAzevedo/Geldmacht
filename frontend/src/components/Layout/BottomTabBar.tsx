@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 import { cn } from '@/lib/utils';
+import { useLancamentoModal } from '@/components/Lancamento/lancamento-modal-context';
 
 type IconName = 'home' | 'wallet' | 'plus' | 'grid' | 'more';
 
@@ -16,7 +17,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { href: '/home', label: 'Início', icon: 'home' },
   { href: '/home/carteira', label: 'Carteira', icon: 'wallet' },
-  { href: '/home/lancamentos/novo', label: 'Adicionar', icon: 'plus' },
+  { href: 'lancamento', label: 'Adicionar', icon: 'plus' },
   { href: '/home/categorias', label: 'Categorias', icon: 'grid' },
   { href: '/home/mais', label: 'Mais', icon: 'more' },
 ];
@@ -70,10 +71,10 @@ function TabIcon({ icon, active }: { icon: Exclude<IconName, 'plus'>; active: bo
 
 export default function BottomTabBar() {
   const pathname = usePathname();
+  const { open: openLancamento } = useLancamentoModal();
 
   function isActive(href: string) {
     if (href === '/home') return pathname === '/home';
-    if (href === '/home/lancamentos/novo') return pathname.startsWith('/home/lancamentos');
     if (href === '/home/carteira') {
       return pathname.startsWith('/home/carteira') || pathname.startsWith('/home/cartao');
     }
@@ -98,13 +99,9 @@ export default function BottomTabBar() {
 
         {NAV_ITEMS.map((item) => {
           const active = isActive(item.href);
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              aria-current={active ? 'page' : undefined}
-              className="relative z-10 flex flex-1 flex-col items-center justify-center gap-1"
-            >
+          const slotClass = 'relative z-10 flex flex-1 flex-col items-center justify-center gap-1';
+          const content = (
+            <>
               {item.icon === 'plus' ? (
                 <span
                   className={cn(
@@ -137,6 +134,31 @@ export default function BottomTabBar() {
               >
                 {item.label}
               </span>
+            </>
+          );
+
+          if (item.icon === 'plus') {
+            return (
+              <button
+                key={item.href}
+                type="button"
+                onClick={openLancamento}
+                aria-label="Adicionar lançamento"
+                className={slotClass}
+              >
+                {content}
+              </button>
+            );
+          }
+
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              aria-current={active ? 'page' : undefined}
+              className={slotClass}
+            >
+              {content}
             </Link>
           );
         })}

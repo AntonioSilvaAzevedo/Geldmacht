@@ -7,12 +7,12 @@
 import { config } from "@/config/env";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useLancamentoModal } from "@/components/Lancamento/lancamento-modal-context";
 
 // ── Nav config ────────────────────────────────────────────────────────────────
 const NAV_PRINCIPAL = [
   { href: "/home", label: "Início" },
   { href: "/home/carteira", label: "Carteira" },
-  { href: "/home/lancamentos/novo", label: "Lançamentos" },
   { href: "/home/proventos", label: "Proventos" },
 ];
 
@@ -46,13 +46,6 @@ function NavIcon({ href, active }: { href: string; active: boolean }) {
       <svg {...props}>
         <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
         <line x1="1" y1="10" x2="23" y2="10" />
-      </svg>
-    ),
-    "/home/lancamentos/novo": (
-      <svg {...props}>
-        <line x1="3" y1="6" x2="21" y2="6" />
-        <line x1="3" y1="12" x2="21" y2="12" />
-        <line x1="3" y1="18" x2="21" y2="18" />
       </svg>
     ),
     "/home/proventos": (
@@ -130,12 +123,10 @@ function NavItem({
 // ── Sidebar ───────────────────────────────────────────────────────────────────
 export default function Sidebar() {
   const pathname = usePathname();
+  const { open: openLancamento } = useLancamentoModal();
 
   function isActive(href: string) {
     if (href === "/home") return pathname === "/home";
-    // /lancamentos/novo deve acender para qualquer sub-rota de /lancamentos
-    if (href === "/home/lancamentos/novo")
-      return pathname.startsWith("/home/lancamentos");
     if (href === "/home/carteira")
       return (
         pathname.startsWith("/home/carteira") ||
@@ -210,6 +201,55 @@ export default function Sidebar() {
       {NAV_PRINCIPAL.map((item) => (
         <NavItem key={item.href} {...item} active={isActive(item.href)} />
       ))}
+
+      <button
+        type="button"
+        onClick={openLancamento}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          padding: "9px 12px",
+          borderRadius: 10,
+          fontSize: 14,
+          fontWeight: 400,
+          color: "rgba(255,255,255,0.4)",
+          background: "transparent",
+          border: "none",
+          textAlign: "left",
+          cursor: "pointer",
+          fontFamily: "inherit",
+          marginBottom: 2,
+          width: "100%",
+        }}
+      >
+        <div
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: 7,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+          }}
+        >
+          <svg
+            width={16}
+            height={16}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="rgba(255,255,255,0.45)"
+            strokeWidth={1.8}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+        </div>
+        Adicionar lançamento
+      </button>
 
       {/* Análise */}
       <div
