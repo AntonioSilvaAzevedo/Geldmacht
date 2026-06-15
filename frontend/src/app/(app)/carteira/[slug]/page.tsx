@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, Plus } from 'lucide-react';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import PageHeader from '@/components/Layout/PageHeader';
 import AccountCard from '@/components/Cards/AccountCard';
@@ -32,6 +32,7 @@ import ContaEmptyTransactions from '@/components/Conta/ContaEmptyTransactions';
 import type { ImportFileContext } from '@/lib/importStore';
 import CartaoEmptyState from '@/components/Cards/CartaoEmptyState';
 import CardPanel from '@/components/Cards/CardPanel';
+import CardFormModal from '@/components/Cards/CardFormModal';
 import { useLancamentoModal } from '@/components/LancamentoModal';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -475,6 +476,7 @@ export default function InstitutionDetailPage() {
   const [cards, setCards]                   = useState<CreditCardConfig[]>([]);
   const [cardDashboards, setCardDashboards] = useState<Map<number, CardDashboard>>(new Map());
   const [cardInvoices, setCardInvoices]     = useState<Map<number, CardInvoice[]>>(new Map());
+  const [showCardForm, setShowCardForm]     = useState(false);
 
   const [activeAccountId, setActiveAccountId] = useState<number | null>(null);
   const [transactions, setTransactions]       = useState<Transaction[]>([]);
@@ -669,26 +671,33 @@ export default function InstitutionDetailPage() {
         )}
 
         {/* Tab: Cartão */}
-        {tab === 'cartao' && cards.length === 0 && (
-          <CartaoEmptyState
-            institutionName={displayName || institutionName}
-            institutionColor={institutionColor}
-            institutionAbbr={institutionAbbr(displayName || institutionName)}
-            onCreated={card => setCards(prev => [...prev, card])}
-          />
-        )}
-        {tab === 'cartao' && cards.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {cards.map(card => (
-              <CardPanel
-                key={card.id}
-                card={card}
-                dashboard={cardDashboards.get(card.id)}
-                invoices={cardInvoices.get(card.id) ?? []}
-                color={institutionColor}
-              />
-            ))}
-          </div>
+        {tab === 'cartao' && (
+          cards.length === 0 ? (
+            <CartaoEmptyState
+              institutionName={displayName || institutionName}
+              institutionColor={institutionColor}
+              onAddCard={() => setShowCardForm(true)}
+            />
+          ) : (
+            <div className="flex flex-col gap-4">
+              {cards.map(card => (
+                <CardPanel
+                  key={card.id}
+                  card={card}
+                  dashboard={cardDashboards.get(card.id)}
+                  invoices={cardInvoices.get(card.id) ?? []}
+                  color={institutionColor}
+                />
+              ))}
+              <button
+                type="button"
+                onClick={() => setShowCardForm(true)}
+                className="flex w-full items-center justify-center gap-2 rounded-[16px] border border-dashed border-[var(--border-default)] py-6 text-[13px] font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
+              >
+                <Plus size={15} /> Adicionar novo cartão
+              </button>
+            </div>
+          )
         )}
 
         {/* Tab: Resumo */}
@@ -701,6 +710,16 @@ export default function InstitutionDetailPage() {
           />
         )}
       </main>
+
+      {showCardForm && (
+        <CardFormModal
+          institutionName={displayName || institutionName}
+          institutionColor={institutionColor}
+          institutionAbbr={institutionAbbr(displayName || institutionName)}
+          onClose={() => setShowCardForm(false)}
+          onCreated={card => setCards(prev => [...prev, card])}
+        />
+      )}
     </>
   );
 }
