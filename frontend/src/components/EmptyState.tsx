@@ -1,100 +1,67 @@
 'use client';
 
 import Link from 'next/link';
-import { Upload, Database } from 'lucide-react';
+import type { ReactNode } from 'react';
 
-interface Props {
-  title?: string;
-  message?: string;
-  actionHref?: string;
+interface EmptyStateProps {
+  title: ReactNode;
+  description?: ReactNode;
+  icon?: ReactNode;
   actionLabel?: string;
   onAction?: () => void;
-  icon?: React.ReactNode;
+  actionHref?: string;
+  children?: ReactNode;
+  className?: string;
 }
 
+const ACTION_CLASS =
+  'inline-flex items-center justify-center gap-1.5 rounded-[9px] border border-[var(--border-default)] bg-transparent px-[18px] py-[9px] text-[13px] font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]';
+
 export default function EmptyState({
-  title = 'Nenhum dado importado ainda',
-  message = 'Importe um extrato para começar a ver seus dados no Dashboard.',
-  actionHref,
-  actionLabel = 'Importar extrato',
-  onAction,
+  title,
+  description,
   icon,
-}: Props) {
-  const hasAction = actionHref != null || onAction != null;
+  actionLabel,
+  onAction,
+  actionHref,
+  children,
+  className,
+}: EmptyStateProps) {
+  const hasInlineAction = actionLabel != null && (onAction != null || actionHref != null);
 
   return (
-    <div style={{
-      flex: 1,
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 12,
-      padding: 48,
-      textAlign: 'center',
-    }}>
-      <div style={{
-        width: 48,
-        height: 48,
-        borderRadius: '50%',
-        background: 'rgba(49,130,206,0.1)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}>
-        {icon ?? <Database size={22} color="var(--blue-400)" />}
-      </div>
-      <div>
-        <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>
+    <div
+      className={`flex flex-1 flex-col items-center justify-center gap-3 px-6 py-12 text-center ${className ?? ''}`}
+    >
+      {icon != null && (
+        <div className="flex size-14 shrink-0 items-center justify-center rounded-[16px] border border-[var(--border-subtle)] bg-[var(--surface-hover)] text-[var(--text-tertiary)]">
+          {icon}
+        </div>
+      )}
+
+      <div className="flex flex-col items-center gap-1.5">
+        <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-[var(--text-primary)]">
           {title}
-        </div>
-        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: hasAction ? 16 : 0 }}>
-          {message}
-        </div>
-        {hasAction && (
-          <>
-            {onAction ? (
-              <button
-                onClick={onAction}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  padding: '8px 16px',
-                  borderRadius: 8,
-                  border: 'none',
-                  background: 'linear-gradient(135deg, #3182ce 0%, #2c7a7b 100%)',
-                  color: '#fff',
-                  fontSize: 13,
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                }}
-              >
-                {actionLabel}
-              </button>
-            ) : (
-              <Link
-                href={actionHref!}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  padding: '8px 16px',
-                  borderRadius: 8,
-                  background: 'linear-gradient(135deg, #3182ce 0%, #2c7a7b 100%)',
-                  color: '#fff',
-                  fontSize: 13,
-                  fontWeight: 600,
-                  textDecoration: 'none',
-                }}
-              >
-                <Upload size={14} />
-                {actionLabel}
-              </Link>
-            )}
-          </>
+        </h2>
+        {description != null && (
+          <p className="max-w-[300px] text-[13px] leading-relaxed text-[var(--text-secondary)]">
+            {description}
+          </p>
         )}
       </div>
+
+      {hasInlineAction &&
+        (actionHref != null ? (
+          <Link href={actionHref} className={ACTION_CLASS}>
+            {actionLabel}
+          </Link>
+        ) : (
+          <button type="button" onClick={onAction} className={ACTION_CLASS}>
+            {actionLabel}
+          </button>
+        ))}
+
+      {children}
     </div>
   );
 }

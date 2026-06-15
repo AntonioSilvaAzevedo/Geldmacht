@@ -332,7 +332,7 @@ export default function CardDetailPage({ params }: PageProps) {
       {!hasInvoices ? (
         <EmptyState
           title="Nenhuma fatura importada para este cartão."
-          message="Importe uma fatura para começar a visualizar estatísticas."
+          description="Importe uma fatura para começar a visualizar estatísticas."
           actionHref={`/upload?type=credit_card&cardId=${card.id}`}
           actionLabel="Importar fatura"
         />

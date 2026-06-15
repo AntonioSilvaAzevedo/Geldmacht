@@ -531,7 +531,7 @@ export default function InvoiceDetailPage({ params }: PageProps) {
   if (!card || !invoice) return <ErrorState message="Fatura não encontrada." />;
   if (!invoice.transactions.length) return (
     <main style={{ flex:1 }}>
-      <EmptyState title="Nenhum lançamento nesta fatura." message="" actionHref={`/cartao/${card.id}`} actionLabel="Voltar ao cartão" />
+      <EmptyState title="Nenhum lançamento nesta fatura." actionHref={`/cartao/${card.id}`} actionLabel="Voltar ao cartão" />
     </main>
   );
 

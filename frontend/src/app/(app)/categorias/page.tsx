@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Plus, Trash2, Pencil, Search, Tags, AlertTriangle, RefreshCw } from 'lucide-react';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import EmptyState from '@/components/EmptyState';
 import { api, type Category, type CreditCardConfig, type CategoryPayload, type CategoryUpdatePayload } from '@/lib/api';
 import { formatCurrency } from '@/lib/formatters';
 import { useIsMobile } from '@/hooks/useIsMobile';
@@ -584,15 +585,12 @@ export default function CategoriesPage() {
             )}
 
             {filtered.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '40px 24px', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: 16 }}>
-                <Tags size={28} style={{ margin: '0 auto 12px', display: 'block', opacity: 0.3 }} />
-                <div style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 16 }}>
-                  {`Nenhuma categoria de ${domain === 'credit_card' ? 'cartão' : 'conta'} ainda.`}
-                </div>
-                <button onClick={() => { setFormMode('new-parent'); setEditTarget(null); setParentTarget(null); }} style={primaryBtnStyle}>
-                  <Plus size={13} /> Criar primeira categoria
-                </button>
-              </div>
+              <EmptyState
+                icon={<Tags size={24} />}
+                title={`Nenhuma categoria de ${domain === 'credit_card' ? 'cartão' : 'conta'} ainda.`}
+                actionLabel="Criar primeira categoria"
+                onAction={() => { setFormMode('new-parent'); setEditTarget(null); setParentTarget(null); }}
+              />
             ) : (
               <div style={{ display: 'grid', gap: 10 }}>
                 {filtered.map((cat, i) => (

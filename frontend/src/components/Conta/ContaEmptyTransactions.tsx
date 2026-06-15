@@ -17,6 +17,7 @@
 import { useRef, useState }       from 'react';
 import { useRouter }              from 'next/navigation';
 import { useLancamentoModal }     from '@/components/LancamentoModal';
+import EmptyState                  from '@/components/EmptyState';
 import {
   setPendingImport,
   type ImportFileContext,
@@ -89,134 +90,97 @@ export default function ContaEmptyTransactions({
 
   return (
     <div style={{
-      background:    'var(--surface-1)',
-      border:        '1px solid rgba(255,255,255,0.06)',
-      borderRadius:  16,
-      padding:       '48px 24px 40px',
-      display:       'flex',
-      flexDirection: 'column',
-      alignItems:    'center',
-      textAlign:     'center',
+      background:   'var(--surface-1)',
+      border:       '1px solid rgba(255,255,255,0.06)',
+      borderRadius: 16,
     }}>
-
-      {/* Ícone — cifrão neutro */}
-      <div style={{
-        width:          56,
-        height:         56,
-        borderRadius:   16,
-        background:     'rgba(255,255,255,0.05)',
-        border:         '1px solid rgba(255,255,255,0.08)',
-        display:        'flex',
-        alignItems:     'center',
-        justifyContent: 'center',
-        marginBottom:   16,
-        flexShrink:     0,
-      }}>
-        <svg width={24} height={24} viewBox="0 0 24 24" fill="none"
-          stroke="var(--text-tertiary, rgba(255,255,255,0.35))"
-          strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-          <line x1="12" y1="1" x2="12" y2="23" />
-          <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-        </svg>
-      </div>
-
-      {/* Título */}
-      <div style={{ fontSize: 15, fontWeight: 600, letterSpacing: '-0.01em', marginBottom: 6 }}>
-        Nenhum lançamento nesta conta
-      </div>
-
-      {/* Descrição */}
-      <p style={{
-        fontSize:   13,
-        color:      'var(--text-tertiary, rgba(255,255,255,0.38))',
-        lineHeight: 1.6,
-        maxWidth:   280,
-        margin:     '0 0 28px',
-      }}>
-        Adicione um lançamento manual ou importe o extrato do seu banco para começar.
-      </p>
-
-      {/* Botões */}
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
-
-        {/* Primário — adicionar manual */}
-        <button
-          onClick={handleAddClick}
-          style={{
-            display:      'inline-flex',
-            alignItems:   'center',
-            gap:          7,
-            padding:      '9px 18px',
-            borderRadius: 9,
-            border:       'none',
-            background:   'var(--blue-400, #0A84FF)',
-            color:        '#fff',
-            fontSize:     13,
-            fontWeight:   600,
-            cursor:       'pointer',
-            fontFamily:   'inherit',
-          }}
-        >
-          <svg width={12} height={12} viewBox="0 0 24 24" fill="none"
-            stroke="white" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 5v14M5 12h14" />
+      <EmptyState
+        icon={
+          <svg width={24} height={24} viewBox="0 0 24 24" fill="none"
+            stroke="currentColor"
+            strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="12" y1="1" x2="12" y2="23" />
+            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
           </svg>
-          Adicionar lançamento manual
-        </button>
+        }
+        title="Nenhum lançamento nesta conta"
+        description="Adicione um lançamento manual ou importe o extrato do seu banco para começar."
+      >
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
+          <button
+            onClick={handleAddClick}
+            style={{
+              display:      'inline-flex',
+              alignItems:   'center',
+              gap:          7,
+              padding:      '9px 18px',
+              borderRadius: 9,
+              border:       'none',
+              background:   'var(--blue-400, #0A84FF)',
+              color:        '#fff',
+              fontSize:     13,
+              fontWeight:   600,
+              cursor:       'pointer',
+              fontFamily:   'inherit',
+            }}
+          >
+            <svg width={12} height={12} viewBox="0 0 24 24" fill="none"
+              stroke="white" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+            Adicionar lançamento manual
+          </button>
 
-        {/* Ghost — importar extrato */}
-        <button
-          onClick={handleImportClick}
-          style={{
-            display:      'inline-flex',
-            alignItems:   'center',
-            gap:          7,
-            padding:      '9px 18px',
-            borderRadius: 9,
-            border:       '1px solid rgba(255,255,255,0.14)',
-            background:   'transparent',
-            color:        'rgba(255,255,255,0.55)',
-            fontSize:     13,
-            fontWeight:   600,
-            cursor:       'pointer',
-            fontFamily:   'inherit',
-          }}
-        >
-          <svg width={12} height={12} viewBox="0 0 24 24" fill="none"
-            stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-            <polyline points="7 10 12 15 17 10" />
-            <line x1="12" y1="15" x2="12" y2="3" />
-          </svg>
-          Importar extrato
-        </button>
-
-      </div>
-
-      {/* Erro de formato inline */}
-      {formatError && (
-        <div style={{
-          marginTop:   14,
-          display:     'flex',
-          alignItems:  'center',
-          gap:         6,
-          fontSize:    12,
-          color:       'var(--red-400, #FF453A)',
-          maxWidth:    320,
-          textAlign:   'left',
-        }}>
-          <svg width={13} height={13} viewBox="0 0 24 24" fill="none"
-            stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-            style={{ flexShrink: 0 }}>
-            <circle cx="12" cy="12" r="10"/>
-            <line x1="12" y1="8" x2="12" y2="12"/>
-            <line x1="12" y1="16" x2="12.01" y2="16"/>
-          </svg>
-          {formatError}
+          <button
+            onClick={handleImportClick}
+            style={{
+              display:      'inline-flex',
+              alignItems:   'center',
+              gap:          7,
+              padding:      '9px 18px',
+              borderRadius: 9,
+              border:       '1px solid rgba(255,255,255,0.14)',
+              background:   'transparent',
+              color:        'rgba(255,255,255,0.55)',
+              fontSize:     13,
+              fontWeight:   600,
+              cursor:       'pointer',
+              fontFamily:   'inherit',
+            }}
+          >
+            <svg width={12} height={12} viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            Importar extrato
+          </button>
         </div>
-      )}
 
-      {/* Input oculto — file picker nativo do SO */}
+        {formatError && (
+          <div style={{
+            marginTop:  2,
+            display:    'flex',
+            alignItems: 'center',
+            gap:        6,
+            fontSize:   12,
+            color:      'var(--red-400, #FF453A)',
+            maxWidth:   320,
+            textAlign:  'left',
+          }}>
+            <svg width={13} height={13} viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+              style={{ flexShrink: 0 }}>
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="8" x2="12" y2="12"/>
+              <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            {formatError}
+          </div>
+        )}
+      </EmptyState>
+
       <input
         ref={fileInputRef}
         type="file"
@@ -224,7 +188,6 @@ export default function ContaEmptyTransactions({
         style={{ display: 'none' }}
         onChange={handleFileChange}
       />
-
     </div>
   );
 }
