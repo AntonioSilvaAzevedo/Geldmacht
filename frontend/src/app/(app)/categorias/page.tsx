@@ -660,7 +660,7 @@ export default function CategoriesPage() {
             fontSize: 13, color: 'var(--text-secondary, rgba(255,255,255,.55))',
             lineHeight: 1.6, margin: '0 0 22px',
           }}>
-            <strong style={{ color: 'var(--text-primary)' }}>"{deleteConfirm.name}"</strong>{' '}
+            <strong style={{ color: 'var(--text-primary)' }}>&quot;{deleteConfirm.name}&quot;</strong>{' '}
             será removida permanentemente. Lançamentos vinculados não serão apagados.
           </p>
 
