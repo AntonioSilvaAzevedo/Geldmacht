@@ -22,6 +22,7 @@ import { formatCurrency } from '@/lib/formatters';
 import { ACCOUNT_TYPE_LABELS } from '@/lib/carteira/account-type-labels';
 import { toSlug } from '@/lib/carteira/institution-helpers';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { CardFormModal, type CardFormData } from '@/components/Cards/CardFormModal';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -87,6 +88,7 @@ export default function CarteiraPage() {
   const [dashboards, setDashboards] = useState<Map<number, CardDashboard>>(new Map());
   const [loading, setLoading]       = useState(true);
   const [error, setError]           = useState<string | null>(null);
+  const [showCardModal, setShowCardModal] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -117,6 +119,12 @@ export default function CarteiraPage() {
 
   useEffect(() => { void load(); }, []);
 
+  async function handleCreateCard(payload: CardFormData) {
+    await api.createCard(payload);
+    setShowCardModal(false);
+    await load();
+  }
+
   // Agrupa por campo `institution` (string livre em ambos os tipos)
   const institutions = useMemo<InstitutionGroup[]>(() => {
     const map = new Map<string, InstitutionGroup>();
@@ -139,12 +147,6 @@ export default function CarteiraPage() {
       return a.name.localeCompare(b.name, 'pt-BR');
     });
   }, [accounts, cards, dashboards]);
-
-  // Totais para o summary strip
-  const totalFaturas = useMemo(
-    () => cards.reduce((sum, card) => sum + (dashboards.get(card.id)?.latest_invoice?.computed_total ?? 0), 0),
-    [cards, dashboards],
-  );
 
   // ── Loading / Error ──
   if (loading) {
@@ -170,49 +172,11 @@ export default function CarteiraPage() {
     );
   }
 
-  const activeAccountCount = accounts.filter(a => a.is_active).length;
   const padding = isMobile ? '16px 14px 32px' : '24px 32px 40px';
 
   return (
     <>
 <main style={{ padding, flex: 1, maxWidth: 860, margin: '0 auto', width: '100%' }}>
-
-        {/* Summary strip */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)',
-          background: 'var(--surface-card)',
-          border: '1px solid var(--border-subtle)',
-          borderRadius: 14,
-          overflow: 'hidden',
-          marginBottom: 20,
-          boxShadow: 'var(--shadow-card)',
-        }}>
-          {[
-            { label: 'Contas ativas',        value: String(activeAccountCount),   mono: false },
-            { label: 'Cartões',              value: String(cards.length),          mono: false },
-            { label: 'Fatura atual (total)', value: formatCurrency(totalFaturas),  mono: true,  color: totalFaturas > 0 ? 'var(--red-400)' : undefined },
-            { label: 'Instituições',         value: String(institutions.length),   mono: false },
-          ].map((s, i) => (
-            <div key={i} style={{
-              padding: '14px 18px',
-              borderRight: i < 3 ? '1px solid var(--border-subtle)' : 'none',
-              borderBottom: isMobile && i < 2 ? '1px solid var(--border-subtle)' : 'none',
-            }}>
-              <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 6 }}>
-                {s.label}
-              </div>
-              <div style={{
-                fontFamily: s.mono ? 'var(--font-mono)' : 'inherit',
-                fontSize: 17, fontWeight: 700,
-                color: s.color ?? 'var(--text-primary)',
-                letterSpacing: s.mono ? '-0.02em' : 0,
-              }}>
-                {s.value}
-              </div>
-            </div>
-          ))}
-        </div>
 
         {/* Empty state */}
         {institutions.length === 0 && (
@@ -221,12 +185,14 @@ export default function CarteiraPage() {
             border: '1px dashed var(--border-default)', borderRadius: 16,
           }}>
             <Landmark size={36} color="var(--text-muted)" style={{ margin: '0 auto 12px', display: 'block' }} />
-            <h2 style={{ fontSize: 17, marginBottom: 8 }}>Nenhuma conta ou cartão cadastrado</h2>
+            <h2 style={{ fontSize: 17, marginBottom: 8 }}>Nenhum cartão cadastrado</h2>
             <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 20, lineHeight: 1.5 }}>
-              Cadastre contas e cartões para visualizar sua carteira consolidada.
+              Cadastre um cartão para começar a organizar suas faturas.
             </p>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
-              <Link href="/home/cartao" style={ghostLinkStyle}>Cadastrar cartão</Link>
+              <Button type="button" variant="primary" onClick={() => setShowCardModal(true)}>
+                Cadastrar cartão
+              </Button>
             </div>
           </div>
         )}
@@ -244,6 +210,9 @@ export default function CarteiraPage() {
           </div>
         )}
       </main>
+      {showCardModal && (
+        <CardFormModal onClose={() => setShowCardModal(false)} onSubmit={handleCreateCard} />
+      )}
     </>
   );
 }
@@ -423,10 +392,4 @@ const productRowStyle: React.CSSProperties = {
   padding: '11px 14px',
   background: 'var(--surface-2)',
   borderRadius: 12,
-};
-
-const ghostLinkStyle: React.CSSProperties = {
-  padding: '9px 18px', borderRadius: 9,
-  border: '1px solid var(--border-default)',
-  color: 'var(--text-secondary)', fontSize: 13, textDecoration: 'none',
 };
