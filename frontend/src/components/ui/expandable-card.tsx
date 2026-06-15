@@ -60,7 +60,11 @@ export function ExpandableCard({
           )}
         />
       </button>
-      {open && <div className="border-t border-[var(--separator)]">{children}</div>}
+      {open && (
+        <div className="max-h-[55vh] overflow-y-auto overscroll-contain border-t border-[var(--separator)]">
+          {children}
+        </div>
+      )}
     </div>
   )
 }
