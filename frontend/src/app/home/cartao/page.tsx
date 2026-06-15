@@ -9,6 +9,7 @@ import CreditCardForm from '@/components/Cards/CreditCardForm';
 import { Button } from '@/components/ui/button';
 import { api, type CardInvoice, type CreditCardConfig } from '@/lib/api';
 import { getOpeningDay } from '@/lib/cardDates';
+import { toSlug } from '@/lib/carteira/institution-helpers';
 
 interface DeleteTarget {
   card: CreditCardConfig;
@@ -311,8 +312,7 @@ export default function CardsPage() {
                     overflow: 'hidden',
                     transition: 'border-color 0.15s',
                   }}>
-                    {/* Info do cartão — clicável para ver faturas */}
-                    <Link href={`/home/cartao/${card.id}`} style={{
+                    <Link href={card.institution ? `/home/carteira/${toSlug(card.institution)}/cartao/faturas` : '/home/carteira'} style={{
                       display: 'block',
                       padding: '16px 18px',
                       textDecoration: 'none',
