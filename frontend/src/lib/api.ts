@@ -276,9 +276,20 @@ export interface BankAccountConfig {
 export interface BankAccountPayload {
   name: string;
   institution?: string | null;
+  institution_id?: number | null;
   account_type: BankAccountType;
   currency?: string;
   is_active?: boolean;
+}
+
+export interface InstitutionConfig {
+  id: number;
+  user_id: number;
+  name: string;
+  created_at: string;
+  updated_at: string;
+  account_count: number;
+  card_count: number;
 }
 
 export interface ManualTransactionPayload {
@@ -492,6 +503,15 @@ export const api = {
     return request<BankAccountConfig[]>(`${BASE}/api/bank-accounts${q}`);
   },
 
+  listInstitutions: (): Promise<InstitutionConfig[]> =>
+    request<InstitutionConfig[]>(`${BASE}/api/institutions`),
+
+  createInstitution: (name: string): Promise<InstitutionConfig> =>
+    request<InstitutionConfig>(`${BASE}/api/institutions`, {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    }),
+
   getBankAccount: (id: number): Promise<BankAccountConfig> =>
     request<BankAccountConfig>(`${BASE}/api/bank-accounts/${id}`),
 
@@ -532,7 +552,7 @@ export const api = {
    */
   createCard: (
     payload: Pick<CreditCardConfig, 'name' | 'institution' | 'closing_day' | 'due_day'>
-      & { credit_limit?: number | null },
+      & { credit_limit?: number | null; institution_id?: number | null },
   ): Promise<CreditCardConfig> =>
     request<CreditCardConfig>(`${BASE}/api/cards`, {
       method: 'POST',

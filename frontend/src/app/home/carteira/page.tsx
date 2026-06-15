@@ -17,12 +17,13 @@ import {
   type BankAccountConfig,
   type CreditCardConfig,
   type CardDashboard,
+  type InstitutionConfig,
 } from '@/lib/api';
 import { formatCurrency } from '@/lib/formatters';
 import { ACCOUNT_TYPE_LABELS } from '@/lib/carteira/account-type-labels';
 import { toSlug } from '@/lib/carteira/institution-helpers';
 import { useIsMobile } from '@/hooks/useIsMobile';
-import { CardFormModal, type CardFormData } from '@/components/Cards/CardFormModal';
+import { CreateInstitutionModal } from '@/components/carteira/CreateInstitutionModal';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -85,21 +86,24 @@ export default function CarteiraPage() {
   const isMobile = useIsMobile();
   const [accounts, setAccounts]     = useState<BankAccountConfig[]>([]);
   const [cards, setCards]           = useState<CreditCardConfig[]>([]);
+  const [institutionEntities, setInstitutionEntities] = useState<InstitutionConfig[]>([]);
   const [dashboards, setDashboards] = useState<Map<number, CardDashboard>>(new Map());
   const [loading, setLoading]       = useState(true);
   const [error, setError]           = useState<string | null>(null);
-  const [showCardModal, setShowCardModal] = useState(false);
+  const [showInstitutionModal, setShowInstitutionModal] = useState(false);
 
   const load = async () => {
     setLoading(true);
     setError(null);
     try {
-      const [accs, cds] = await Promise.all([
+      const [accs, cds, insts] = await Promise.all([
         api.listBankAccounts(false),
         api.listCards(),
+        api.listInstitutions(),
       ]);
       setAccounts(accs);
       setCards(cds);
+      setInstitutionEntities(insts);
 
       // Carrega dashboards dos cartões em paralelo (ignora falhas individuais)
       const map = new Map<number, CardDashboard>();
@@ -119,9 +123,9 @@ export default function CarteiraPage() {
 
   useEffect(() => { void load(); }, []);
 
-  async function handleCreateCard(payload: CardFormData) {
-    await api.createCard(payload);
-    setShowCardModal(false);
+  async function handleCreateInstitution(name: string) {
+    await api.createInstitution(name);
+    setShowInstitutionModal(false);
     await load();
   }
 
@@ -137,6 +141,7 @@ export default function CarteiraPage() {
       return map.get(name)!;
     };
 
+    institutionEntities.forEach(inst => upsert(inst.name));
     accounts.forEach(acc  => upsert(acc.institution).accounts.push(acc));
     cards.forEach(card    => upsert(card.institution).cards.push(card));
 
@@ -146,7 +151,7 @@ export default function CarteiraPage() {
       if (b.name === 'Sem instituição') return -1;
       return a.name.localeCompare(b.name, 'pt-BR');
     });
-  }, [accounts, cards, dashboards]);
+  }, [accounts, cards, dashboards, institutionEntities]);
 
   // ── Loading / Error ──
   if (loading) {
@@ -185,13 +190,13 @@ export default function CarteiraPage() {
             border: '1px dashed var(--border-default)', borderRadius: 16,
           }}>
             <Landmark size={36} color="var(--text-muted)" style={{ margin: '0 auto 12px', display: 'block' }} />
-            <h2 style={{ fontSize: 17, marginBottom: 8 }}>Nenhum cartão cadastrado</h2>
+            <h2 style={{ fontSize: 17, marginBottom: 8 }}>Nenhuma conta cadastrada</h2>
             <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 20, lineHeight: 1.5 }}>
-              Cadastre um cartão para começar a organizar suas faturas.
+              Cadastre uma instituição para começar a organizar suas contas e cartões.
             </p>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
-              <Button type="button" variant="outline" onClick={() => setShowCardModal(true)}>
-                Cadastrar cartão
+              <Button type="button" variant="outline" onClick={() => setShowInstitutionModal(true)}>
+                Cadastrar conta
               </Button>
             </div>
           </div>
@@ -209,16 +214,19 @@ export default function CarteiraPage() {
             ))}
             <button
               type="button"
-              onClick={() => setShowCardModal(true)}
+              onClick={() => setShowInstitutionModal(true)}
               className="flex min-h-[100px] w-full items-center justify-center gap-2 rounded-[16px] border border-dashed border-[var(--border-default)] text-[13px] font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
             >
-              <Plus size={15} /> Adicionar cartão
+              <Plus size={15} /> Adicionar conta
             </button>
           </div>
         )}
       </main>
-      {showCardModal && (
-        <CardFormModal onClose={() => setShowCardModal(false)} onSubmit={handleCreateCard} />
+      {showInstitutionModal && (
+        <CreateInstitutionModal
+          onClose={() => setShowInstitutionModal(false)}
+          onSubmit={handleCreateInstitution}
+        />
       )}
     </>
   );
