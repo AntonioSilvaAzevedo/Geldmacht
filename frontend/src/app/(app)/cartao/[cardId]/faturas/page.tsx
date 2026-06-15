@@ -74,7 +74,7 @@ export default function CardInvoicesListPage({ params }: PageProps) {
         {invoices.length === 0 ? (
           <EmptyState
             title="Nenhuma fatura importada para este cartão."
-            message="Importe uma fatura para começar a visualizar os lançamentos."
+            description="Importe uma fatura para começar a visualizar os lançamentos."
             actionHref={`/upload?type=credit_card&cardId=${card.id}`}
             actionLabel="Importar fatura"
           />

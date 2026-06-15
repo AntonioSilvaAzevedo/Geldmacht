@@ -284,7 +284,7 @@ export default function CardsPage() {
           }}>
             <EmptyState
               title="Nenhum cartão cadastrado ainda."
-              message="Adicione um cartão para começar a importar e organizar suas faturas."
+              description="Adicione um cartão para começar a importar e organizar suas faturas."
               onAction={() => setShowCreateForm(true)}
               actionLabel="Adicionar cartão"
               icon={<CreditCard size={22} color="var(--blue-400)" />}

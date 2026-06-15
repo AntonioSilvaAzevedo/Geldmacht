@@ -20,6 +20,7 @@ import MonthNav from '@/components/MonthNav';
 import KPIStrip from '@/components/KPIStrip';
 import { TransactionList } from '@/components/TransactionList';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import EmptyState from '@/components/EmptyState';
 import { api, type BankAccountConfig, type Category } from '@/lib/api';
 import type { Transaction } from '@/types/financial';
 import { formatCurrency } from '@/lib/formatters';
@@ -239,20 +240,10 @@ export default function MovimentacoesPage() {
         width: '100%',
       }}>
         {months.length === 0 ? (
-          <div style={{
-            background: 'var(--surface-card)',
-            border: '1px solid rgba(255,255,255,0.06)',
-            borderRadius: 16,
-            padding: '48px 24px',
-            textAlign: 'center',
-          }}>
-            <p style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 8 }}>
-              Nenhum lançamento encontrado para esta conta.
-            </p>
-            <p style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
-              Importe um extrato OFX para começar.
-            </p>
-          </div>
+          <EmptyState
+            title="Nenhum lançamento encontrado para esta conta."
+            description="Importe um extrato OFX para começar."
+          />
         ) : (
           <TransactionList
             title="Lançamentos"

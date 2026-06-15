@@ -123,7 +123,7 @@ export default function CardInvoicePage({ params }: PageProps) {
 <main style={{ flex: 1 }}>
           <EmptyState
             title="Fatura não encontrada."
-            message="Não há lançamentos reais para este cartão e mês."
+            description="Não há lançamentos reais para este cartão e mês."
             actionHref={`/cartao/${card.id}`}
             actionLabel="Voltar ao cartão"
           />

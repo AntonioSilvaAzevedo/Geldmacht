@@ -7,7 +7,7 @@ import {
 } from 'recharts';
 import {
   TrendingUp, TrendingDown, Wallet, PiggyBank,
-  ArrowUpRight,
+  ArrowUpRight, Database,
 } from 'lucide-react';
 import Link from 'next/link';
 import ErrorState from '@/components/ErrorState';
@@ -191,7 +191,15 @@ export default function DashboardPage() {
   })();
 
   if (error)              return <ErrorState message={error.message} />;
-  if (!loading && !data)  return <EmptyState actionHref="/upload" actionLabel="Importar extrato" />;
+  if (!loading && !data)  return (
+    <EmptyState
+      icon={<Database size={22} />}
+      title="Nenhum dado importado ainda"
+      description="Importe um extrato para começar a ver seus dados no Dashboard."
+      actionHref="/upload"
+      actionLabel="Importar extrato"
+    />
+  );
 
   return (
     <>

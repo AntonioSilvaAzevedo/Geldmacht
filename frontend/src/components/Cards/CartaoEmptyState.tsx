@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { api, type CreditCardConfig } from '@/lib/api';
+import EmptyState from '@/components/EmptyState';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -188,59 +189,26 @@ export default function CartaoEmptyState({
 
   if (step === 'empty') {
     return (
-      <div style={{
-        display: 'flex', flexDirection: 'column',
-        alignItems: 'center', textAlign: 'center',
-        padding: '48px 24px',
-      }}>
-        {/* Ícone */}
-        <div style={{
-          width: 68, height: 68, borderRadius: 20, flexShrink: 0,
-          background: `${institutionColor}12`,
-          border: `1.5px solid ${institutionColor}28`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          marginBottom: 16,
-        }}>
-          <svg width={30} height={30} viewBox="0 0 24 24" fill="none"
+      <EmptyState
+        icon={
+          <svg width={26} height={26} viewBox="0 0 24 24" fill="none"
             stroke={institutionColor} strokeWidth="1.8"
             strokeLinecap="round" strokeLinejoin="round">
             <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
             <line x1="1" y1="10" x2="23" y2="10"/>
           </svg>
-        </div>
-
-        <div style={{
-          fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 7,
-        }}>
-          Nenhum cartão vinculado
-        </div>
-
-        <p style={{
-          fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.65,
-          maxWidth: 300, margin: '0 0 20px',
-        }}>
-          Adicione o cartão de crédito do{' '}
-          <strong style={{ color: 'var(--text-primary)' }}>{institutionName}</strong>{' '}
-          para acompanhar faturas e lançamentos.
-        </p>
-
-        <button
-          onClick={() => setStep('form')}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 6,
-            padding: '11px 24px', borderRadius: 12, border: 'none',
-            background: 'var(--blue-400, #0A84FF)',
-            color: '#fff', fontSize: 14, fontWeight: 700,
-            cursor: 'pointer', fontFamily: 'inherit',
-          }}
-        >
-          <svg width={11} height={11} viewBox="0 0 24 24" fill="none"
-            stroke="white" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 5v14M5 12h14"/>
-          </svg>
-          Adicionar cartão
-        </button>
-      </div>
+        }
+        title="Nenhum cartão vinculado"
+        description={
+          <>
+            Adicione o cartão de crédito do{' '}
+            <strong style={{ color: 'var(--text-primary)' }}>{institutionName}</strong>{' '}
+            para acompanhar faturas e lançamentos.
+          </>
+        }
+        actionLabel="Adicionar cartão"
+        onAction={() => setStep('form')}
+      />
     );
   }
 

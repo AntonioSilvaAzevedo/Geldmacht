@@ -18,6 +18,7 @@ import { useLancamentoModal } from '@/components/LancamentoModal';
 import { ModalOverlay } from '@/components/ModalOverlay';
 import ManageProductModal from '@/components/Manage/ManageProductModal';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import EmptyState from '@/components/EmptyState';
 import {
   api,
   type BankAccountConfig,
@@ -206,20 +207,16 @@ export default function CarteiraPage() {
 
         {/* Empty state */}
         {institutions.length === 0 && (
-          <div style={{
-            textAlign: 'center', padding: '48px 24px',
-            border: '1px dashed var(--border-default)', borderRadius: 16,
-          }}>
-            <Landmark size={36} color="var(--text-muted)" style={{ margin: '0 auto 12px', display: 'block' }} />
-            <h2 style={{ fontSize: 17, marginBottom: 8 }}>Nenhuma conta ou cartão cadastrado</h2>
-            <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 20, lineHeight: 1.5 }}>
-              Cadastre contas e cartões para visualizar sua carteira consolidada.
-            </p>
+          <EmptyState
+            icon={<Landmark size={24} />}
+            title="Nenhuma conta ou cartão cadastrado"
+            description="Cadastre contas e cartões para visualizar sua carteira consolidada."
+          >
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
               <button onClick={() => setShowNewAccount(true)} style={{ ...primaryLinkStyle, border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>Cadastrar conta</button>
               <Link href="/cartao" style={ghostLinkStyle}>Cadastrar cartão</Link>
             </div>
-          </div>
+          </EmptyState>
         )}
 
         {/* Institution cards grid */}
