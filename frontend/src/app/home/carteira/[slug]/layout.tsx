@@ -17,7 +17,6 @@ import { useIsMobile } from '@/hooks/useIsMobile'
 function InstitutionLayoutContent({ children }: { children: ReactNode }) {
   const isMobile = useIsMobile()
   const px = isMobile ? 14 : 32
-  const padding = isMobile ? '0 14px 32px' : '0 32px 40px'
   const { displayName, loading, error, refetch } = useInstitution()
 
   if (loading) {
@@ -52,10 +51,7 @@ function InstitutionLayoutContent({ children }: { children: ReactNode }) {
         currentPage={displayName}
         px={px}
       />
-      <main
-        className="mx-auto flex w-full max-w-[860px] flex-1 flex-col"
-        style={{ padding }}
-      >
+      <main className="mx-auto flex w-full max-w-[1280px] flex-1 flex-col px-3.5 pb-8 pt-5 sm:px-8 sm:pb-10 sm:pt-6">
         <InstitutionNav className="mb-5" />
         {children}
       </main>
