@@ -9,7 +9,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Landmark } from 'lucide-react';
+import { Landmark, Plus } from 'lucide-react';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { Button } from '@/components/ui/button';
 import {
@@ -190,7 +190,7 @@ export default function CarteiraPage() {
               Cadastre um cartão para começar a organizar suas faturas.
             </p>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
-              <Button type="button" variant="primary" onClick={() => setShowCardModal(true)}>
+              <Button type="button" variant="outline" onClick={() => setShowCardModal(true)}>
                 Cadastrar cartão
               </Button>
             </div>
@@ -207,6 +207,13 @@ export default function CarteiraPage() {
             {institutions.map(inst => (
               <InstitutionCard key={inst.name} institution={inst} />
             ))}
+            <button
+              type="button"
+              onClick={() => setShowCardModal(true)}
+              className="flex min-h-[100px] w-full items-center justify-center gap-2 rounded-[16px] border border-dashed border-[var(--border-default)] text-[13px] font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
+            >
+              <Plus size={15} /> Adicionar cartão
+            </button>
           </div>
         )}
       </main>
