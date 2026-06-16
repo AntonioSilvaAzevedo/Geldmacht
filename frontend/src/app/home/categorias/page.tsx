@@ -9,7 +9,6 @@ import {
   type Category,
   type CategoryPayload,
   type CategoryUpdatePayload,
-  type CreditCardConfig,
 } from "@/lib/api";
 import { formatCurrency } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
@@ -18,7 +17,6 @@ import {
   Pencil,
   Plus,
   RefreshCw,
-  Search,
   Tags,
   Trash2,
 } from "lucide-react";
@@ -69,15 +67,15 @@ function resolveColor(cat: Category, idx: number): string {
   return cat.color ?? PALETTE[idx % PALETTE.length];
 }
 
-type Scope = "credit_card" | "bank";
 type FormMode = null | "new-parent" | "new-sub" | "edit";
+
+type Destination = "bank" | "credit_card" | "both";
 
 interface FormState {
   name: string;
   icon: string;
   color: string;
-  scope: Scope;
-  cardId: number | null;
+  destination: Destination;
   parentId: number | null;
   budgetLimit: string;
 }
@@ -86,10 +84,20 @@ const EMPTY_FORM: FormState = {
   name: "",
   icon: "📁",
   color: PALETTE[0],
-  scope: "credit_card",
-  cardId: null,
+  destination: "both",
   parentId: null,
   budgetLimit: "",
+};
+
+function categoryDestination(cat: Category): Destination {
+  if (cat.applies_to_bank && cat.applies_to_credit_card) return "both";
+  return cat.applies_to_bank ? "bank" : "credit_card";
+}
+
+const DESTINATION_LABELS: Record<Destination, string> = {
+  bank: "Conta",
+  credit_card: "Cartão de crédito",
+  both: "Conta e cartão",
 };
 
 
@@ -99,8 +107,6 @@ function CategoryCard({
   cat,
   idx,
   subs,
-  domain,
-  cards,
   onEdit,
   onDelete,
   onAddSub,
@@ -109,8 +115,6 @@ function CategoryCard({
   cat: Category;
   idx: number;
   subs: Category[];
-  domain: Scope;
-  cards: CreditCardConfig[];
   onEdit: (c: Category) => void;
   onDelete: (c: Category) => void;
   onAddSub: (c: Category) => void;
@@ -122,10 +126,7 @@ function CategoryCard({
   const hasLimit =
     cat.invoice_budget_limit != null && cat.invoice_budget_limit > 0;
 
-  const cardLabel = cat.card_id
-    ? (cards.find((c) => c.id === cat.card_id)?.name ??
-      `Cartão #${cat.card_id}`)
-    : "Todos os cartões";
+  const destinationLabel = DESTINATION_LABELS[categoryDestination(cat)];
 
   return (
     <div
@@ -220,7 +221,7 @@ function CategoryCard({
           <div
             style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}
           >
-            {domain === "credit_card" ? cardLabel : "Conta bancária"}
+            {destinationLabel}
           </div>
           {hasLimit && (
             <BudgetBar spent={0} limit={cat.invoice_budget_limit!} />
@@ -331,16 +332,12 @@ function CategoryForm({
   mode,
   target,
   parentCat,
-  domain,
-  cards,
   onSave,
   onCancel,
 }: {
   mode: FormMode;
   target: Category | null;
   parentCat: Category | null;
-  domain: Scope;
-  cards: CreditCardConfig[];
   onSave: (form: FormState) => Promise<void>;
   onCancel: () => void;
 }) {
@@ -350,8 +347,7 @@ function CategoryForm({
         name: target.name,
         icon: target.icon ?? "📁",
         color: target.color ?? PALETTE[0],
-        scope: target.scope,
-        cardId: target.card_id,
+        destination: categoryDestination(target),
         parentId: target.parent_id,
         budgetLimit:
           target.invoice_budget_limit != null
@@ -362,12 +358,12 @@ function CategoryForm({
     if (mode === "new-sub" && parentCat) {
       return {
         ...EMPTY_FORM,
-        scope: parentCat.scope,
+        destination: categoryDestination(parentCat),
         parentId: parentCat.id,
         color: resolveColor(parentCat, 0),
       };
     }
-    return { ...EMPTY_FORM, scope: domain };
+    return { ...EMPTY_FORM };
   });
   const [showIconPicker, setShowIconPicker] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -486,29 +482,6 @@ function CategoryForm({
             >
               {form.icon}
             </Button>
-            {!isSub && (
-              <div
-                style={{ display: "flex", flexWrap: "wrap", gap: 3, width: 52 }}
-              >
-                {PALETTE.slice(0, 8).map((c) => (
-                  <Button
-                    key={c}
-                    type="button"
-                    variant="ghost"
-                    size="lg"
-                    onClick={() => setForm((f) => ({ ...f, color: c }))}
-                    aria-label={`Cor ${c}`}
-                    className={cn(
-                      "size-5 min-h-5 min-w-5 shrink-0 rounded-full p-0",
-                    )}
-                    style={{
-                      background: c,
-                      border: `2px solid ${form.color === c ? "#fff" : "transparent"}`,
-                    }}
-                  />
-                ))}
-              </div>
-            )}
           </div>
 
           <div style={{ display: "grid", gap: 10 }}>
@@ -525,28 +498,24 @@ function CategoryForm({
                 autoFocus
               />
             </label>
-            {!isSub && domain === "credit_card" && (
-              <>
-                <label style={lbl}>
-                  <span>Aplicar em</span>
-                  <Select
-                    size="sm"
-                    value={form.cardId ?? ""}
-                    onChange={(e) =>
-                      setForm((f) => ({
-                        ...f,
-                        cardId: e.target.value ? Number(e.target.value) : null,
-                      }))
-                    }
-                  >
-                    <option value="">Todos os cartões</option>
-                    {cards.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </Select>
-                </label>
+            {!isSub && (
+              <label style={lbl}>
+                <span>Usar categoria em</span>
+                <Select
+                  size="sm"
+                  value={form.destination}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, destination: e.target.value as Destination }))
+                  }
+                >
+                  <option value="bank">Conta</option>
+                  <option value="credit_card">Cartão de crédito</option>
+                  <option value="both">Ambos</option>
+                </Select>
+              </label>
+            )}
+            {!isSub &&
+              (form.destination === "credit_card" || form.destination === "both") && (
                 <label style={lbl}>
                   <span>Limite por fatura (opcional)</span>
                   <div style={{ position: "relative" }}>
@@ -576,10 +545,30 @@ function CategoryForm({
                     />
                   </div>
                 </label>
-              </>
-            )}
+              )}
           </div>
         </div>
+
+        {!isSub && (
+          <label style={lbl}>
+            <span>Cor</span>
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(34px,1fr))] gap-2">
+              {PALETTE.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setForm((f) => ({ ...f, color: c }))}
+                  aria-label={`Cor ${c}`}
+                  className="aspect-square w-full rounded-full transition-transform hover:scale-110"
+                  style={{
+                    background: c,
+                    border: `2px solid ${form.color === c ? "var(--text-primary)" : "transparent"}`,
+                  }}
+                />
+              ))}
+            </div>
+          </label>
+        )}
 
         {showIconPicker && (
           <div
@@ -639,53 +628,22 @@ function CategoryForm({
 }
 
 // ─── Summary Strip ─────────────────────────────────────────────────────────────
-function SummaryStrip({ cats, domain }: { cats: Category[]; domain: Scope }) {
+function SummaryStrip({ cats }: { cats: Category[] }) {
   const parents = cats.filter((c) => c.parent_id == null);
   const subs = cats.filter((c) => c.parent_id != null);
-  const withLimit = parents.filter(
-    (c) => c.invoice_budget_limit != null && c.invoice_budget_limit > 0,
-  ).length;
-  const withSubcats = parents.filter((c) =>
-    subs.some((s) => s.parent_id === c.id),
-  ).length;
 
-  const items =
-    domain === "credit_card"
-      ? [
-          {
-            label: "Categorias",
-            value: parents.length,
-            color: "var(--text-primary)",
-          },
-          {
-            label: "Subcategorias",
-            value: subs.length,
-            color: "var(--purple-400,#BF5AF2)",
-          },
-          {
-            label: "Com limite",
-            value: withLimit,
-            color: withLimit > 0 ? "var(--blue-400)" : "var(--text-muted)",
-          },
-          {
-            label: "Com subcats",
-            value: withSubcats,
-            color:
-              withSubcats > 0 ? "var(--teal-400,#5AC8FA)" : "var(--text-muted)",
-          },
-        ]
-      : [
-          {
-            label: "Categorias",
-            value: parents.length,
-            color: "var(--text-primary)",
-          },
-          {
-            label: "Subcategorias",
-            value: subs.length,
-            color: "var(--purple-400,#BF5AF2)",
-          },
-        ];
+  const items = [
+    {
+      label: "Categorias",
+      value: parents.length,
+      color: "var(--text-primary)",
+    },
+    {
+      label: "Subcategorias",
+      value: subs.length,
+      color: "var(--purple-400,#BF5AF2)",
+    },
+  ];
 
   return (
     <div
@@ -815,48 +773,12 @@ function IconBtn({
   );
 }
 
-function DomainToggle({
-  domain,
-  onChange,
-}: {
-  domain: Scope;
-  onChange: (d: Scope) => void;
-}) {
-  return (
-    <div
-      style={{
-        display: "flex",
-        gap: 2,
-        background: "rgba(255,255,255,0.08)",
-        borderRadius: 10,
-        padding: 3,
-      }}
-    >
-      {(["credit_card", "bank"] as Scope[]).map((d, i) => (
-        <Button
-          key={d}
-          type="button"
-          variant={domain === d ? "secondary" : "ghost"}
-          size="sm"
-          onClick={() => onChange(d)}
-          className={domain === d ? "shadow-[0_1px_4px_rgba(0,0,0,0.4)]" : ""}
-        >
-          {i === 0 ? "Cartão" : "Conta"}
-        </Button>
-      ))}
-    </div>
-  );
-}
-
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function CategoriesPage() {
   const isMobile = useIsMobile();
-  const [domain, setDomain] = useState<Scope>("credit_card");
   const [categories, setCategories] = useState<Category[]>([]);
-  const [cards, setCards] = useState<CreditCardConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
   const [formMode, setFormMode] = useState<FormMode>(null);
   const [editTarget, setEditTarget] = useState<Category | null>(null);
   const [parentTarget, setParentTarget] = useState<Category | null>(null);
@@ -865,20 +787,14 @@ export default function CategoriesPage() {
     setLoading(true);
     setError(null);
     try {
-      const [cats, cds] = await Promise.all([
-        api.listCategories(domain),
-        domain === "credit_card"
-          ? api.listCards()
-          : Promise.resolve<CreditCardConfig[]>([]),
-      ]);
+      const cats = await api.listCategories();
       setCategories(cats);
-      setCards(cds);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erro ao carregar.");
     } finally {
       setLoading(false);
     }
-  }, [domain]);
+  }, []);
 
   useEffect(() => {
     void load();
@@ -900,49 +816,38 @@ export default function CategoriesPage() {
     return m;
   }, [categories]);
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return parents;
-    return parents.filter(
-      (c) =>
-        c.name.toLowerCase().includes(q) ||
-        (subsByParent.get(c.id) ?? []).some((s) =>
-          s.name.toLowerCase().includes(q),
-        ),
-    );
-  }, [parents, subsByParent, search]);
+  const filtered = parents;
 
   async function handleSave(form: FormState) {
-    const payload: CategoryPayload = {
-      name: form.name.trim(),
-      scope: form.scope,
-      icon: form.icon || null,
-      color: form.color || null,
-      card_id: form.scope === "bank" ? null : (form.cardId ?? null),
-      parent_id: form.parentId ?? null,
-      invoice_budget_limit:
-        form.scope === "credit_card" && form.budgetLimit
-          ? parseFloat(form.budgetLimit)
-          : null,
-    };
+    const appliesToBank = form.destination === "bank" || form.destination === "both";
+    const appliesToCreditCard =
+      form.destination === "credit_card" || form.destination === "both";
+    const budget =
+      appliesToCreditCard && form.budgetLimit ? parseFloat(form.budgetLimit) : null;
+
     if (formMode === "edit" && editTarget) {
       const patch: CategoryUpdatePayload = {
-        name: payload.name,
-        icon: payload.icon as string,
-        color: payload.color as string,
+        name: form.name.trim(),
+        icon: form.icon || "",
+        color: form.color || "",
+        applies_to_bank: appliesToBank,
+        applies_to_credit_card: appliesToCreditCard,
+        invoice_budget_limit: budget ?? 0,
       };
-      if (form.scope === "credit_card") {
-        patch.card_id = form.cardId ?? 0;
-        patch.parent_id = form.parentId ?? 0;
-        patch.invoice_budget_limit = form.budgetLimit
-          ? parseFloat(form.budgetLimit)
-          : 0;
-      }
       const updated = await api.updateCategory(editTarget.id, patch);
       setCategories((prev) =>
         prev.map((c) => (c.id === updated.id ? updated : c)),
       );
     } else {
+      const payload: CategoryPayload = {
+        name: form.name.trim(),
+        applies_to_bank: appliesToBank,
+        applies_to_credit_card: appliesToCreditCard,
+        icon: form.icon || null,
+        color: form.color || null,
+        parent_id: form.parentId ?? null,
+        invoice_budget_limit: budget,
+      };
       const created = await api.createCategory(payload);
       setCategories((prev) => [...prev, created]);
     }
@@ -983,68 +888,6 @@ export default function CategoriesPage() {
   return (
     <>
       <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}>
-        {/* Page header row */}
-        <div
-          style={{
-            padding: `13px ${px}px 12px`,
-            borderBottom: "1px solid rgba(255,255,255,0.06)",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            gap: 12,
-          }}
-        >
-          <div style={{ position: "relative", flex: 1, maxWidth: 280 }}>
-            <Search
-              size={13}
-              style={{
-                position: "absolute",
-                left: 10,
-                top: "50%",
-                transform: "translateY(-50%)",
-                color: "var(--text-muted)",
-                pointerEvents: "none",
-              }}
-            />
-            <Input
-              variant="search"
-              size="sm"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar categoria..."
-              className="w-full pl-[30px] text-xs"
-            />
-          </div>
-          <div
-            style={{
-              display: "flex",
-              gap: 8,
-              alignItems: "center",
-              flexShrink: 0,
-            }}
-          >
-            <DomainToggle
-              domain={domain}
-              onChange={(d) => {
-                setDomain(d);
-                setFormMode(null);
-              }}
-            />
-            <Button
-              type="button"
-              variant="primary"
-              size="sm"
-              onClick={() => {
-                setFormMode("new-parent");
-                setEditTarget(null);
-                setParentTarget(null);
-              }}
-            >
-              <Plus size={13} /> Nova categoria
-            </Button>
-          </div>
-        </div>
-
         <div style={{ padding: `16px ${px}px 40px` }}>
           {loading ? (
             <div
@@ -1076,15 +919,30 @@ export default function CategoriesPage() {
             </div>
           ) : (
             <>
-              <SummaryStrip cats={categories} domain={domain} />
+              <SummaryStrip cats={categories} />
+
+              {filtered.length > 0 && !formMode && (
+                <div style={{ display: "flex", justifyContent: "flex-end", margin: "4px 0 12px" }}>
+                  <Button
+                    type="button"
+                    variant="primary"
+                    size="sm"
+                    onClick={() => {
+                      setFormMode("new-parent");
+                      setEditTarget(null);
+                      setParentTarget(null);
+                    }}
+                  >
+                    <Plus size={13} /> Nova categoria
+                  </Button>
+                </div>
+              )}
 
               {formMode && (
                 <CategoryForm
                   mode={formMode}
                   target={editTarget}
                   parentCat={parentTarget}
-                  domain={domain}
-                  cards={cards}
                   onSave={handleSave}
                   onCancel={() => {
                     setFormMode(null);
@@ -1118,11 +976,9 @@ export default function CategoriesPage() {
                       marginBottom: 16,
                     }}
                   >
-                    {search
-                      ? "Nenhuma categoria encontrada."
-                      : `Nenhuma categoria de ${domain === "credit_card" ? "cartão" : "conta"} ainda.`}
+                    Nenhuma categoria cadastrada
                   </div>
-                  {!search && (
+                  {!formMode && (
                     <Button
                       type="button"
                       variant="primary"
@@ -1133,7 +989,7 @@ export default function CategoriesPage() {
                         setParentTarget(null);
                       }}
                     >
-                      <Plus size={13} /> Criar primeira categoria
+                      <Plus size={13} /> Criar categoria
                     </Button>
                   )}
                 </div>
@@ -1144,8 +1000,6 @@ export default function CategoriesPage() {
                       key={cat.id}
                       cat={cat}
                       idx={i}
-                      domain={domain}
-                      cards={cards}
                       subs={subsByParent.get(cat.id) ?? []}
                       onEdit={openEdit}
                       onDelete={handleDelete}
