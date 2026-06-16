@@ -1,8 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { CreditCard, FileUp, X } from 'lucide-react';
+import { X } from 'lucide-react';
 
 import { CategoryChoiceSelect } from '@/components/category-choice-select';
 import LoadingSpinner from '@/components/LoadingSpinner';
@@ -15,8 +14,6 @@ interface LancamentoModalProps {
 }
 
 export function LancamentoModal({ onClose }: LancamentoModalProps) {
-  const router = useRouter();
-
   const [banks, setBanks] = useState<BankAccountConfig[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loadingRefs, setLoadingRefs] = useState(true);
@@ -120,11 +117,6 @@ export function LancamentoModal({ onClose }: LancamentoModalProps) {
     }
   }
 
-  function goImport(href: string) {
-    onClose();
-    router.push(href);
-  }
-
   return (
     <div
       role="dialog"
@@ -155,10 +147,6 @@ export function LancamentoModal({ onClose }: LancamentoModalProps) {
             </div>
           ) : loadError ? (
             <p className="text-[13px] text-[var(--red-400)]">{loadError}</p>
-          ) : banks.length === 0 ? (
-            <p className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-2)] px-5 py-6 text-center text-[13px] leading-relaxed text-[var(--text-secondary)]">
-              Cadastre uma conta bancária antes de registrar lançamentos manuais.
-            </p>
           ) : (
             <form onSubmit={(e) => void handleSubmit(e)} className="grid gap-3.5">
               <label className="grid gap-1.5 text-xs">
@@ -239,32 +227,6 @@ export function LancamentoModal({ onClose }: LancamentoModalProps) {
               </Button>
             </form>
           )}
-
-          <div className="mt-5 border-t border-[var(--separator)] pt-4">
-            <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--text-tertiary)]">
-              Ou importar
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="inline-flex items-center justify-center gap-1.5"
-                onClick={() => goImport('/home/upload?type=credit_card')}
-              >
-                <CreditCard className="size-[13px] shrink-0" /> Fatura
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="inline-flex items-center justify-center gap-1.5"
-                onClick={() => goImport('/home/upload?type=bank_statement')}
-              >
-                <FileUp className="size-[13px] shrink-0" /> Extrato (OFX)
-              </Button>
-            </div>
-          </div>
         </div>
       </div>
     </div>

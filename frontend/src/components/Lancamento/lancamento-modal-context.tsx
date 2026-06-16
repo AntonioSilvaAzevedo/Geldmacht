@@ -3,6 +3,11 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
 
 import { LancamentoModal } from '@/components/Lancamento/LancamentoModal';
+import { LancamentoPrerequisiteModal } from '@/components/Lancamento/LancamentoPrerequisiteModal';
+import LoadingSpinner from '@/components/LoadingSpinner';
+import { api, type ManualEligibility } from '@/lib/api';
+
+type View = 'closed' | 'loading' | 'form' | 'warning';
 
 interface LancamentoModalContextValue {
   open: () => void;
@@ -12,17 +17,40 @@ interface LancamentoModalContextValue {
 const LancamentoModalContext = createContext<LancamentoModalContextValue | null>(null);
 
 export function LancamentoModalProvider({ children }: { children: ReactNode }) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [view, setView] = useState<View>('closed');
+  const [eligibility, setEligibility] = useState<ManualEligibility | null>(null);
 
   const value = useMemo<LancamentoModalContextValue>(
-    () => ({ open: () => setIsOpen(true), close: () => setIsOpen(false) }),
+    () => ({
+      open: () => {
+        setView('loading');
+        void api
+          .getManualEligibility()
+          .then((result) => {
+            setEligibility(result);
+            setView(result.can_launch ? 'form' : 'warning');
+          })
+          .catch(() => {
+            setView('form');
+          });
+      },
+      close: () => setView('closed'),
+    }),
     [],
   );
 
   return (
     <LancamentoModalContext.Provider value={value}>
       {children}
-      {isOpen && <LancamentoModal onClose={value.close} />}
+      {view === 'loading' && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40">
+          <LoadingSpinner />
+        </div>
+      )}
+      {view === 'form' && <LancamentoModal onClose={value.close} />}
+      {view === 'warning' && (
+        <LancamentoPrerequisiteModal hasCard={eligibility?.has_card ?? false} onClose={value.close} />
+      )}
     </LancamentoModalContext.Provider>
   );
 }
