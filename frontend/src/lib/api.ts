@@ -291,6 +291,12 @@ export interface ManualTransactionPayload {
   notes?: string | null;
 }
 
+export interface ManualEligibility {
+  has_account: boolean;
+  has_card: boolean;
+  can_launch: boolean;
+}
+
 export interface CreditCardConfig {
   id: number;
   user_id: number;
@@ -518,6 +524,9 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
+
+  getManualEligibility: (): Promise<ManualEligibility> =>
+    request<ManualEligibility>(`${BASE}/api/transactions/manual-eligibility`),
 
   listCards: (): Promise<CreditCardConfig[]> =>
     request<CreditCardConfig[]>(`${BASE}/api/cards`),
