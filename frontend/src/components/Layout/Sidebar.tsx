@@ -251,19 +251,7 @@ export default function Sidebar() {
         Adicionar lançamento
       </button>
 
-      {/* Análise */}
-      <div
-        style={{
-          fontSize: 10,
-          fontWeight: 600,
-          letterSpacing: "0.08em",
-          textTransform: "uppercase",
-          color: "rgba(255,255,255,0.2)",
-          padding: "16px 12px 6px",
-        }}
-      >
-        Análise
-      </div>
+      <div style={{ height: 8 }} />
       {NAV_ANALISE.map((item) => (
         <NavItem key={item.href} {...item} active={isActive(item.href)} />
       ))}
