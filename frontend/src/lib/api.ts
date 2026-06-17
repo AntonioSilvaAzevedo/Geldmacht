@@ -541,6 +541,9 @@ export const api = {
       body: JSON.stringify({ name }),
     }),
 
+  deleteInstitution: (id: number): Promise<{ deleted: boolean }> =>
+    request<{ deleted: boolean }>(`${BASE}/api/institutions/${id}`, { method: 'DELETE' }),
+
   createManualTransaction: (payload: ManualTransactionPayload): Promise<Transaction> =>
     request<Transaction>(ENDPOINTS.transactions, {
       method: 'POST',
