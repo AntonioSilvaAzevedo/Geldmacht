@@ -22,7 +22,6 @@ import { formatCurrency } from '@/lib/formatters';
 import { ACCOUNT_TYPE_LABELS } from '@/lib/carteira/account-type-labels';
 import { toSlug } from '@/lib/carteira/institution-helpers';
 import { useIsMobile } from '@/hooks/useIsMobile';
-import { CardFormModal, type CardFormData } from '@/components/Cards/CardFormModal';
 import { BankAccountModal, type BankAccountModalData } from '@/components/carteira/BankAccountModal';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -89,7 +88,6 @@ export default function CarteiraPage() {
   const [dashboards, setDashboards] = useState<Map<number, CardDashboard>>(new Map());
   const [loading, setLoading]       = useState(true);
   const [error, setError]           = useState<string | null>(null);
-  const [showCardModal, setShowCardModal] = useState(false);
   const [showBankModal, setShowBankModal] = useState(false);
 
   const load = async () => {
@@ -120,12 +118,6 @@ export default function CarteiraPage() {
   };
 
   useEffect(() => { void load(); }, []);
-
-  async function handleCreateCard(payload: CardFormData) {
-    await api.createCard(payload);
-    setShowCardModal(false);
-    await load();
-  }
 
   async function handleCreateBankAccount(payload: BankAccountModalData) {
     await api.createBankAccount({ ...payload, currency: 'BRL', is_active: true });
@@ -217,17 +209,14 @@ export default function CarteiraPage() {
             ))}
             <button
               type="button"
-              onClick={() => setShowCardModal(true)}
+              onClick={() => setShowBankModal(true)}
               className="flex min-h-[100px] w-full items-center justify-center gap-2 rounded-[16px] border border-dashed border-[var(--border-default)] text-[13px] font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
             >
-              <Plus size={15} /> Adicionar cartão
+              <Plus size={15} /> Adicionar conta
             </button>
           </div>
         )}
       </main>
-      {showCardModal && (
-        <CardFormModal onClose={() => setShowCardModal(false)} onSubmit={handleCreateCard} />
-      )}
       {showBankModal && (
         <BankAccountModal onClose={() => setShowBankModal(false)} onSubmit={handleCreateBankAccount} />
       )}
