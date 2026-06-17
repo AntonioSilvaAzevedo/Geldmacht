@@ -22,7 +22,6 @@ import { formatCurrency } from '@/lib/formatters';
 import { ACCOUNT_TYPE_LABELS } from '@/lib/carteira/account-type-labels';
 import { ensureInstitutionId } from '@/lib/carteira/ensure-institution';
 import { useIsMobile } from '@/hooks/useIsMobile';
-import { CardFormModal, type CardFormData } from '@/components/Cards/CardFormModal';
 import { BankAccountModal, type BankAccountModalData } from '@/components/carteira/BankAccountModal';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -91,7 +90,6 @@ export default function CarteiraPage() {
   const [dashboards, setDashboards] = useState<Map<number, CardDashboard>>(new Map());
   const [loading, setLoading]       = useState(true);
   const [error, setError]           = useState<string | null>(null);
-  const [showCardModal, setShowCardModal] = useState(false);
   const [showBankModal, setShowBankModal] = useState(false);
 
   const load = async () => {
@@ -122,13 +120,6 @@ export default function CarteiraPage() {
   };
 
   useEffect(() => { void load(); }, []);
-
-  async function handleCreateCard(payload: CardFormData) {
-    const institutionId = payload.institution ? await ensureInstitutionId(payload.institution) : null;
-    await api.createCard({ ...payload, institution_id: institutionId ?? undefined });
-    setShowCardModal(false);
-    await load();
-  }
 
   async function handleCreateBankAccount(payload: BankAccountModalData) {
     const institutionId = payload.institution ? await ensureInstitutionId(payload.institution) : null;
@@ -225,17 +216,14 @@ export default function CarteiraPage() {
             ))}
             <button
               type="button"
-              onClick={() => setShowCardModal(true)}
+              onClick={() => setShowBankModal(true)}
               className="flex min-h-[100px] w-full items-center justify-center gap-2 rounded-[16px] border border-dashed border-[var(--border-default)] text-[13px] font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
             >
-              <Plus size={15} /> Adicionar cartão
+              <Plus size={15} /> Adicionar conta
             </button>
           </div>
         )}
       </main>
-      {showCardModal && (
-        <CardFormModal onClose={() => setShowCardModal(false)} onSubmit={handleCreateCard} />
-      )}
       {showBankModal && (
         <BankAccountModal onClose={() => setShowBankModal(false)} onSubmit={handleCreateBankAccount} />
       )}
