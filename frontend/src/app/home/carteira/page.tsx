@@ -23,6 +23,7 @@ import { ACCOUNT_TYPE_LABELS } from '@/lib/carteira/account-type-labels';
 import { toSlug } from '@/lib/carteira/institution-helpers';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { CardFormModal, type CardFormData } from '@/components/Cards/CardFormModal';
+import { BankAccountModal, type BankAccountModalData } from '@/components/carteira/BankAccountModal';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -89,6 +90,7 @@ export default function CarteiraPage() {
   const [loading, setLoading]       = useState(true);
   const [error, setError]           = useState<string | null>(null);
   const [showCardModal, setShowCardModal] = useState(false);
+  const [showBankModal, setShowBankModal] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -122,6 +124,12 @@ export default function CarteiraPage() {
   async function handleCreateCard(payload: CardFormData) {
     await api.createCard(payload);
     setShowCardModal(false);
+    await load();
+  }
+
+  async function handleCreateBankAccount(payload: BankAccountModalData) {
+    await api.createBankAccount({ ...payload, currency: 'BRL', is_active: true });
+    setShowBankModal(false);
     await load();
   }
 
@@ -185,13 +193,13 @@ export default function CarteiraPage() {
             border: '1px dashed var(--border-default)', borderRadius: 16,
           }}>
             <Landmark size={36} color="var(--text-muted)" style={{ margin: '0 auto 12px', display: 'block' }} />
-            <h2 style={{ fontSize: 17, marginBottom: 8 }}>Nenhum cartão cadastrado</h2>
+            <h2 style={{ fontSize: 17, marginBottom: 8 }}>Nenhuma conta bancária cadastrada</h2>
             <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 20, lineHeight: 1.5 }}>
-              Cadastre um cartão para começar a organizar suas faturas.
+              Cadastre um banco ou conta bancária para vincular conta corrente, cartão de crédito, faturas e investimentos.
             </p>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
-              <Button type="button" variant="outline" onClick={() => setShowCardModal(true)}>
-                Cadastrar cartão
+              <Button type="button" variant="outline" onClick={() => setShowBankModal(true)}>
+                Cadastrar conta bancária
               </Button>
             </div>
           </div>
@@ -219,6 +227,9 @@ export default function CarteiraPage() {
       </main>
       {showCardModal && (
         <CardFormModal onClose={() => setShowCardModal(false)} onSubmit={handleCreateCard} />
+      )}
+      {showBankModal && (
+        <BankAccountModal onClose={() => setShowBankModal(false)} onSubmit={handleCreateBankAccount} />
       )}
     </>
   );
