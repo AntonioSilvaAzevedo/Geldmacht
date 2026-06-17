@@ -13,9 +13,10 @@ export type CardFormData = Pick<CreditCardConfig, 'name' | 'institution' | 'clos
 interface CardFormModalProps {
   onClose: () => void;
   onSubmit: (payload: CardFormData) => Promise<void>;
+  institutionName?: string;
 }
 
-export function CardFormModal({ onClose, onSubmit }: CardFormModalProps) {
+export function CardFormModal({ onClose, onSubmit, institutionName }: CardFormModalProps) {
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') onClose();
@@ -47,7 +48,12 @@ export function CardFormModal({ onClose, onSubmit }: CardFormModalProps) {
           </button>
         </div>
         <div className="overflow-y-auto px-5 py-5">
-          <CreditCardForm submitLabel="Cadastrar cartão" onSubmit={onSubmit} onCancel={onClose} />
+          <CreditCardForm
+            submitLabel="Cadastrar cartão"
+            onSubmit={onSubmit}
+            onCancel={onClose}
+            initial={institutionName ? { institution: institutionName } : undefined}
+          />
         </div>
       </div>
     </div>

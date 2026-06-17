@@ -33,7 +33,6 @@ import {
   importTransactions,
 } from '@/lib/api';
 import { formatCurrency, formatDate } from '@/lib/formatters';
-import { toSlug } from '@/lib/carteira/institution-helpers';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -446,7 +445,7 @@ export default function UploadPreview({ result, card, cards = [], categories = [
       }
       setImportResult(res);
       if (isCreditCardImport && selectedCard) {
-        const slug = selectedCard.institution ? toSlug(selectedCard.institution) : null;
+        const slug = selectedCard.institution_id != null ? String(selectedCard.institution_id) : null;
         if (slug && res.invoice_id) {
           router.push(`/home/carteira/${slug}/cartao/faturas/${res.invoice_id}`);
         } else if (slug) {
@@ -500,10 +499,10 @@ export default function UploadPreview({ result, card, cards = [], categories = [
             href={
               importResult.bank_account_id
                 ? '/home/carteira'
-                : selectedCard?.institution && importResult.invoice_id
-                  ? `/home/carteira/${toSlug(selectedCard.institution)}/cartao/faturas/${importResult.invoice_id}`
-                  : selectedCard?.institution
-                    ? `/home/carteira/${toSlug(selectedCard.institution)}/cartao/faturas`
+                : selectedCard?.institution_id != null && importResult.invoice_id
+                  ? `/home/carteira/${selectedCard.institution_id}/cartao/faturas/${importResult.invoice_id}`
+                  : selectedCard?.institution_id != null
+                    ? `/home/carteira/${selectedCard.institution_id}/cartao/faturas`
                     : '/home/carteira'
             }
             style={{

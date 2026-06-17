@@ -266,6 +266,7 @@ export interface BankAccountConfig {
   user_id: number;
   name: string;
   institution: string | null;
+  institution_id: number | null;
   account_type: BankAccountType;
   currency: string;
   is_active: boolean;
@@ -276,9 +277,20 @@ export interface BankAccountConfig {
 export interface BankAccountPayload {
   name: string;
   institution?: string | null;
+  institution_id?: number | null;
   account_type: BankAccountType;
   currency?: string;
   is_active?: boolean;
+}
+
+export interface InstitutionConfig {
+  id: number;
+  user_id: number;
+  name: string;
+  account_count: number;
+  card_count: number;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface ManualTransactionPayload {
@@ -302,6 +314,7 @@ export interface CreditCardConfig {
   user_id: number;
   name: string;
   institution: string | null;
+  institution_id: number | null;
   closing_day: number;
   due_day: number;
   /** Limite informado manualmente pelo usuário. null = não informado. */
@@ -519,6 +532,15 @@ export const api = {
   deactivateBankAccount: (id: number): Promise<{ deleted: boolean }> =>
     request<{ deleted: boolean }>(`${BASE}/api/bank-accounts/${id}`, { method: 'DELETE' }),
 
+  listInstitutions: (): Promise<InstitutionConfig[]> =>
+    request<InstitutionConfig[]>(`${BASE}/api/institutions`),
+
+  createInstitution: (name: string): Promise<InstitutionConfig> =>
+    request<InstitutionConfig>(`${BASE}/api/institutions`, {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    }),
+
   createManualTransaction: (payload: ManualTransactionPayload): Promise<Transaction> =>
     request<Transaction>(ENDPOINTS.transactions, {
       method: 'POST',
@@ -541,7 +563,7 @@ export const api = {
    */
   createCard: (
     payload: Pick<CreditCardConfig, 'name' | 'institution' | 'closing_day' | 'due_day'>
-      & { credit_limit?: number | null },
+      & { credit_limit?: number | null; institution_id?: number | null },
   ): Promise<CreditCardConfig> =>
     request<CreditCardConfig>(`${BASE}/api/cards`, {
       method: 'POST',

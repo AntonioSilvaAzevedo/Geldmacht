@@ -3,11 +3,12 @@
 import { createContext, useContext, type ReactNode } from 'react'
 
 import { useInstitutionDetail } from '@/hooks/use-institution-detail'
-import { decodeSlug } from '@/lib/carteira/institution-helpers'
+import { parseInstitutionId } from '@/lib/carteira/institution-helpers'
 import { getInstitutionColor } from '@/lib/institutionColors'
 import type { InstitutionDetail } from '@/lib/carteira/types'
 
 export interface InstitutionContextValue extends InstitutionDetail {
+  institutionId: number | null
   institutionName: string
   institutionColor: string
   slug: string
@@ -22,16 +23,15 @@ export interface InstitutionProviderProps {
 }
 
 export function InstitutionProvider({ slug, children }: InstitutionProviderProps) {
-  const institutionName = decodeSlug(slug)
-  const detail = useInstitutionDetail(institutionName)
+  const institutionId = parseInstitutionId(slug)
+  const detail = useInstitutionDetail(institutionId)
 
   const value: InstitutionContextValue = {
     ...detail,
-    institutionName,
+    institutionId,
+    institutionName: detail.displayName,
     slug,
-    institutionColor: getInstitutionColor(
-      detail.displayName || institutionName,
-    ),
+    institutionColor: getInstitutionColor(detail.displayName),
     refetch: detail.refetch,
   }
 
