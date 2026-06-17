@@ -323,8 +323,6 @@ export interface Category {
   user_id: number;
   name: string;
   scope: 'credit_card' | 'bank';
-  applies_to_bank: boolean;
-  applies_to_credit_card: boolean;
   color: string | null;
   icon: string | null;
   /** null = aplica em todos os cartões. */
@@ -340,8 +338,6 @@ export interface Category {
 export interface CategoryPayload {
   name: string;
   scope?: 'credit_card' | 'bank';
-  applies_to_bank?: boolean;
-  applies_to_credit_card?: boolean;
   color?: string | null;
   icon?: string | null;
   card_id?: number | null;
@@ -364,8 +360,6 @@ export interface ReleaseNote {
 export interface CategoryUpdatePayload {
   name?: string;
   scope?: 'credit_card' | 'bank';
-  applies_to_bank?: boolean;
-  applies_to_credit_card?: boolean;
   color?: string | null;
   icon?: string | null;
   /** 0 limpa (vira global); >0 define o cartão. */

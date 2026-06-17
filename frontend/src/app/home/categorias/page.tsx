@@ -2,7 +2,7 @@
 
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { Button } from "@/components/ui/button";
-import { Input, Select } from "@/components/ui/input";
+import { Input } from "@/components/ui/input";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import {
   api,
@@ -69,13 +69,10 @@ function resolveColor(cat: Category, idx: number): string {
 
 type FormMode = null | "new-parent" | "new-sub" | "edit";
 
-type Destination = "bank" | "credit_card" | "both";
-
 interface FormState {
   name: string;
   icon: string;
   color: string;
-  destination: Destination;
   parentId: number | null;
   budgetLimit: string;
 }
@@ -84,20 +81,8 @@ const EMPTY_FORM: FormState = {
   name: "",
   icon: "📁",
   color: PALETTE[0],
-  destination: "both",
   parentId: null,
   budgetLimit: "",
-};
-
-function categoryDestination(cat: Category): Destination {
-  if (cat.applies_to_bank && cat.applies_to_credit_card) return "both";
-  return cat.applies_to_bank ? "bank" : "credit_card";
-}
-
-const DESTINATION_LABELS: Record<Destination, string> = {
-  bank: "Conta",
-  credit_card: "Cartão de crédito",
-  both: "Conta e cartão",
 };
 
 
@@ -125,8 +110,6 @@ function CategoryCard({
   const color = resolveColor(cat, idx);
   const hasLimit =
     cat.invoice_budget_limit != null && cat.invoice_budget_limit > 0;
-
-  const destinationLabel = DESTINATION_LABELS[categoryDestination(cat)];
 
   return (
     <div
@@ -217,11 +200,6 @@ function CategoryCard({
                 {subsOpen ? "↑" : "↓"}
               </Button>
             )}
-          </div>
-          <div
-            style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}
-          >
-            {destinationLabel}
           </div>
           {hasLimit && (
             <BudgetBar spent={0} limit={cat.invoice_budget_limit!} />
@@ -347,7 +325,6 @@ function CategoryForm({
         name: target.name,
         icon: target.icon ?? "📁",
         color: target.color ?? PALETTE[0],
-        destination: categoryDestination(target),
         parentId: target.parent_id,
         budgetLimit:
           target.invoice_budget_limit != null
@@ -358,7 +335,6 @@ function CategoryForm({
     if (mode === "new-sub" && parentCat) {
       return {
         ...EMPTY_FORM,
-        destination: categoryDestination(parentCat),
         parentId: parentCat.id,
         color: resolveColor(parentCat, 0),
       };
@@ -499,23 +475,6 @@ function CategoryForm({
               />
             </label>
             {!isSub && (
-              <label style={lbl}>
-                <span>Usar categoria em</span>
-                <Select
-                  size="sm"
-                  value={form.destination}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, destination: e.target.value as Destination }))
-                  }
-                >
-                  <option value="bank">Conta</option>
-                  <option value="credit_card">Cartão de crédito</option>
-                  <option value="both">Ambos</option>
-                </Select>
-              </label>
-            )}
-            {!isSub &&
-              (form.destination === "credit_card" || form.destination === "both") && (
                 <label style={lbl}>
                   <span>Limite por fatura (opcional)</span>
                   <div style={{ position: "relative" }}>
@@ -819,19 +778,13 @@ export default function CategoriesPage() {
   const filtered = parents;
 
   async function handleSave(form: FormState) {
-    const appliesToBank = form.destination === "bank" || form.destination === "both";
-    const appliesToCreditCard =
-      form.destination === "credit_card" || form.destination === "both";
-    const budget =
-      appliesToCreditCard && form.budgetLimit ? parseFloat(form.budgetLimit) : null;
+    const budget = form.budgetLimit ? parseFloat(form.budgetLimit) : null;
 
     if (formMode === "edit" && editTarget) {
       const patch: CategoryUpdatePayload = {
         name: form.name.trim(),
         icon: form.icon || "",
         color: form.color || "",
-        applies_to_bank: appliesToBank,
-        applies_to_credit_card: appliesToCreditCard,
         invoice_budget_limit: budget ?? 0,
       };
       const updated = await api.updateCategory(editTarget.id, patch);
@@ -841,8 +794,6 @@ export default function CategoriesPage() {
     } else {
       const payload: CategoryPayload = {
         name: form.name.trim(),
-        applies_to_bank: appliesToBank,
-        applies_to_credit_card: appliesToCreditCard,
         icon: form.icon || null,
         color: form.color || null,
         parent_id: form.parentId ?? null,
