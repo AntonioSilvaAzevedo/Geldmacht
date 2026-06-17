@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { X } from 'lucide-react';
+import Link from 'next/link';
+import { Upload, X } from 'lucide-react';
 
 import { CategoryChoiceSelect } from '@/components/category-choice-select';
 import LoadingSpinner from '@/components/LoadingSpinner';
@@ -225,6 +226,20 @@ export function LancamentoModal({ onClose }: LancamentoModalProps) {
               <Button type="submit" variant="primary" loading={saving} className="mt-1.5 w-full">
                 Salvar lançamento
               </Button>
+
+              <div className="flex items-center gap-3 text-[var(--text-tertiary)]">
+                <span className="h-px flex-1 bg-[var(--separator)]" />
+                <span className="text-[11px]">ou</span>
+                <span className="h-px flex-1 bg-[var(--separator)]" />
+              </div>
+
+              <Link
+                href="/home/upload?type=bank_statement"
+                onClick={onClose}
+                className="inline-flex w-full items-center justify-center gap-1.5 rounded-[10px] border border-[var(--separator-opaque)] px-3 py-2 text-[13px] font-medium text-[var(--text-primary)] no-underline transition-colors hover:bg-[var(--surface-hover)]"
+              >
+                <Upload className="size-4" /> Importar extrato
+              </Link>
             </form>
           )}
         </div>
