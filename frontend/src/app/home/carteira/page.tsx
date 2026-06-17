@@ -23,6 +23,7 @@ import { ACCOUNT_TYPE_LABELS } from '@/lib/carteira/account-type-labels';
 import { ensureInstitutionId } from '@/lib/carteira/ensure-institution';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { BankAccountModal, type BankAccountModalData } from '@/components/carteira/BankAccountModal';
+import { AccountSettingsMenu } from '@/components/carteira/AccountSettingsMenu';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -212,7 +213,7 @@ export default function CarteiraPage() {
             gap: 12,
           }}>
             {institutions.map(inst => (
-              <InstitutionCard key={inst.name} institution={inst} />
+              <InstitutionCard key={inst.id ?? inst.name} institution={inst} onDeleted={() => void load()} />
             ))}
             <button
               type="button"
@@ -233,7 +234,7 @@ export default function CarteiraPage() {
 
 // ── InstitutionCard ───────────────────────────────────────────────────────────
 
-function InstitutionCard({ institution }: { institution: InstitutionGroup }) {
+function InstitutionCard({ institution, onDeleted }: { institution: InstitutionGroup; onDeleted: () => void }) {
   const { name, id, accounts, cards, dashboards } = institution;
   const [hovered, setHovered] = useState(false);
 
@@ -250,6 +251,15 @@ function InstitutionCard({ institution }: { institution: InstitutionGroup }) {
   );
 
   return (
+    <div className="relative">
+    {id != null && (
+      <AccountSettingsMenu
+        institutionId={id}
+        institutionName={name}
+        onDeleted={onDeleted}
+        className="absolute right-3 top-3 z-10"
+      />
+    )}
     <Link
       href={id != null ? `/home/carteira/${id}` : '/home/carteira'}
       onMouseEnter={() => setHovered(true)}
@@ -396,6 +406,7 @@ function InstitutionCard({ institution }: { institution: InstitutionGroup }) {
         </span>
       </div>
     </Link>
+    </div>
   );
 }
 

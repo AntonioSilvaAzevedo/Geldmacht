@@ -2,9 +2,11 @@
 
 import { useState, type ReactNode } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { CreditCard, Landmark, Plus, TrendingUp } from 'lucide-react'
 
 import { useInstitution } from '@/components/carteira/institution-context'
+import { AccountSettingsMenu } from '@/components/carteira/AccountSettingsMenu'
 import { BankAccountModal, type BankAccountModalData } from '@/components/carteira/BankAccountModal'
 import { CardFormModal, type CardFormData } from '@/components/Cards/CardFormModal'
 import { Button } from '@/components/ui/button'
@@ -13,6 +15,7 @@ import { api } from '@/lib/api'
 type ActiveModal = 'conta' | 'cartao' | null
 
 export default function InstitutionIndexPage() {
+  const router = useRouter()
   const { slug, institutionId, displayName, accounts, cards, loading, refetch } = useInstitution()
   const [activeModal, setActiveModal] = useState<ActiveModal>(null)
 
@@ -38,6 +41,15 @@ export default function InstitutionIndexPage() {
 
   return (
     <div className="flex flex-col gap-3">
+      {institutionId != null && (
+        <div className="flex justify-end">
+          <AccountSettingsMenu
+            institutionId={institutionId}
+            institutionName={displayName}
+            onDeleted={() => router.push('/home/carteira')}
+          />
+        </div>
+      )}
       <ProductArea
         icon={<Landmark size={18} />}
         title="Conta corrente"
