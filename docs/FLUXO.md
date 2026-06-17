@@ -40,7 +40,7 @@ A Carteira é organizada por **instituição** (banco/corretora). Desde a issue 
 ### 2.1. Lista de instituições — `/home/carteira` ✅
 1. Mostra um **card por instituição** (avatar colorido, nº de contas/cartões, total da fatura quando houver).
 2. **Estado vazio:** "Cadastrar conta bancária" → modal de conta bancária.
-3. **Adicionar cartão** (tile tracejado) → modal de cartão. Ao salvar, faz **get-or-create** da instituição pelo nome digitado e cria o cartão já vinculado (`institution_id`).
+3. **Adicionar conta** (tile tracejado) → modal de conta bancária. Ao salvar, faz **get-or-create** da instituição pelo nome digitado e cria a conta já vinculada (`institution_id`). O **cartão de crédito não é criado aqui** — apenas dentro do resumo da instituição.
 4. Clicar num card → abre o **resumo da instituição** (`/home/carteira/{id}`).
 
 ### 2.2. Resumo da instituição — `/home/carteira/{id}` ✅ (issue #44)
