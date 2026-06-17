@@ -17,12 +17,14 @@ export interface BankAccountModalData {
 interface BankAccountModalProps {
   onClose: () => void;
   onSubmit: (payload: BankAccountModalData) => Promise<void>;
+  institutionName?: string;
 }
 
 const TYPE_OPTIONS = Object.entries(ACCOUNT_TYPE_LABELS) as [BankAccountType, string][];
 
-export function BankAccountModal({ onClose, onSubmit }: BankAccountModalProps) {
-  const [institution, setInstitution] = useState('');
+export function BankAccountModal({ onClose, onSubmit, institutionName }: BankAccountModalProps) {
+  const lockedInstitution = Boolean(institutionName);
+  const [institution, setInstitution] = useState(institutionName ?? '');
   const [name, setName] = useState('');
   const [accountType, setAccountType] = useState<BankAccountType>('checking');
   const [saving, setSaving] = useState(false);
@@ -77,11 +79,11 @@ export function BankAccountModal({ onClose, onSubmit }: BankAccountModalProps) {
         <div className="flex flex-col gap-4 px-5 py-5">
           <label className="flex flex-col gap-1.5">
             <span className="text-[12px] font-semibold text-[var(--text-secondary)]">Banco / instituição</span>
-            <Input size="sm" value={institution} onChange={(e) => setInstitution(e.target.value)} autoFocus placeholder="ex: Nubank" />
+            <Input size="sm" value={institution} onChange={(e) => setInstitution(e.target.value)} autoFocus={!lockedInstitution} readOnly={lockedInstitution} placeholder="ex: Nubank" />
           </label>
           <label className="flex flex-col gap-1.5">
             <span className="text-[12px] font-semibold text-[var(--text-secondary)]">Nome da conta (opcional)</span>
-            <Input size="sm" value={name} onChange={(e) => setName(e.target.value)} placeholder="ex: Conta PF" />
+            <Input size="sm" value={name} onChange={(e) => setName(e.target.value)} autoFocus={lockedInstitution} placeholder="ex: Conta PF" />
           </label>
           <label className="flex flex-col gap-1.5">
             <span className="text-[12px] font-semibold text-[var(--text-secondary)]">Tipo</span>

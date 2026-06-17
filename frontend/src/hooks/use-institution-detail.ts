@@ -8,13 +8,9 @@ import {
   type CardDashboard,
   type CreditCardConfig,
 } from '@/lib/api'
-import {
-  deriveDisplayName,
-  matchesInstitution,
-} from '@/lib/carteira/institution-helpers'
 import type { InstitutionDetail } from '@/lib/carteira/types'
 
-export function useInstitutionDetail(institutionName: string) {
+export function useInstitutionDetail(institutionId: number | null) {
   const [accounts, setAccounts] = useState<BankAccountConfig[]>([])
   const [cards, setCards] = useState<CreditCardConfig[]>([])
   const [dashboards, setDashboards] = useState<Map<number, CardDashboard>>(
@@ -30,7 +26,11 @@ export function useInstitutionDetail(institutionName: string) {
   }, [])
 
   useEffect(() => {
-    if (!institutionName) return
+    if (institutionId == null) {
+      setLoading(false)
+      setError('Instituição inválida.')
+      return
+    }
 
     let cancelled = false
 
@@ -39,28 +39,29 @@ export function useInstitutionDetail(institutionName: string) {
       setError(null)
 
       try {
-        const [allAccounts, allCards] = await Promise.all([
+        const [institutions, allAccounts, allCards] = await Promise.all([
+          api.listInstitutions(),
           api.listBankAccounts(false),
           api.listCards(),
         ])
 
-        const filteredAccounts = allAccounts.filter((account) =>
-          matchesInstitution(account.institution, institutionName),
+        const institution = institutions.find((i) => i.id === institutionId)
+        const filteredAccounts = allAccounts.filter(
+          (account) => account.institution_id === institutionId,
         )
-        const filteredCards = allCards.filter((card) =>
-          matchesInstitution(card.institution, institutionName),
+        const filteredCards = allCards.filter(
+          (card) => card.institution_id === institutionId,
         )
 
         const dashMap = new Map<number, CardDashboard>()
-        await Promise.allSettled(
-          filteredCards.map(async (card) => {
-            try {
-              dashMap.set(card.id, await api.getCardDashboard(card.id))
-            } catch {
-              /* skip */
-            }
-          }),
+        const results = await Promise.allSettled(
+          filteredCards.map((card) => api.getCardDashboard(card.id)),
         )
+        results.forEach((result, index) => {
+          if (result.status === 'fulfilled') {
+            dashMap.set(filteredCards[index].id, result.value)
+          }
+        })
 
         if (cancelled) return
 
@@ -68,7 +69,10 @@ export function useInstitutionDetail(institutionName: string) {
         setCards(filteredCards)
         setDashboards(dashMap)
         setDisplayName(
-          deriveDisplayName(filteredAccounts, filteredCards, institutionName),
+          institution?.name ||
+            filteredAccounts[0]?.institution ||
+            filteredCards[0]?.institution ||
+            '',
         )
       } catch (err) {
         if (cancelled) return
@@ -85,7 +89,7 @@ export function useInstitutionDetail(institutionName: string) {
     return () => {
       cancelled = true
     }
-  }, [institutionName, reloadKey])
+  }, [institutionId, reloadKey])
 
   const detail: InstitutionDetail = {
     accounts,

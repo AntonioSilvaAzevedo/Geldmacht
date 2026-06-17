@@ -20,16 +20,18 @@ import {
 } from '@/lib/api';
 import { formatCurrency } from '@/lib/formatters';
 import { ACCOUNT_TYPE_LABELS } from '@/lib/carteira/account-type-labels';
-import { toSlug } from '@/lib/carteira/institution-helpers';
+import { ensureInstitutionId } from '@/lib/carteira/ensure-institution';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { CardFormModal, type CardFormData } from '@/components/Cards/CardFormModal';
 import { BankAccountModal, type BankAccountModalData } from '@/components/carteira/BankAccountModal';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
+const SEM_INSTITUICAO = -1;
+
 interface InstitutionGroup {
+  id: number | null;
   name: string;
-  slug: string;
   accounts: BankAccountConfig[];
   cards: CreditCardConfig[];
   dashboards: Map<number, CardDashboard>;
@@ -122,33 +124,39 @@ export default function CarteiraPage() {
   useEffect(() => { void load(); }, []);
 
   async function handleCreateCard(payload: CardFormData) {
-    await api.createCard(payload);
+    const institutionId = payload.institution ? await ensureInstitutionId(payload.institution) : null;
+    await api.createCard({ ...payload, institution_id: institutionId ?? undefined });
     setShowCardModal(false);
     await load();
   }
 
   async function handleCreateBankAccount(payload: BankAccountModalData) {
-    await api.createBankAccount({ ...payload, currency: 'BRL', is_active: true });
+    const institutionId = payload.institution ? await ensureInstitutionId(payload.institution) : null;
+    await api.createBankAccount({ ...payload, institution_id: institutionId ?? undefined, currency: 'BRL', is_active: true });
     setShowBankModal(false);
     await load();
   }
 
-  // Agrupa por campo `institution` (string livre em ambos os tipos)
   const institutions = useMemo<InstitutionGroup[]>(() => {
-    const map = new Map<string, InstitutionGroup>();
+    const map = new Map<number, InstitutionGroup>();
 
-    const upsert = (institutionName: string | null): InstitutionGroup => {
-      const name = institutionName?.trim() || 'Sem instituição';
-      if (!map.has(name)) {
-        map.set(name, { name, slug: toSlug(name), accounts: [], cards: [], dashboards });
+    const upsert = (id: number | null, institutionName: string | null): InstitutionGroup => {
+      const key = id ?? SEM_INSTITUICAO;
+      if (!map.has(key)) {
+        map.set(key, {
+          id,
+          name: institutionName?.trim() || 'Sem instituição',
+          accounts: [],
+          cards: [],
+          dashboards,
+        });
       }
-      return map.get(name)!;
+      return map.get(key)!;
     };
 
-    accounts.forEach(acc  => upsert(acc.institution).accounts.push(acc));
-    cards.forEach(card    => upsert(card.institution).cards.push(card));
+    accounts.forEach(acc  => upsert(acc.institution_id, acc.institution).accounts.push(acc));
+    cards.forEach(card    => upsert(card.institution_id, card.institution).cards.push(card));
 
-    // Ordena alfabeticamente, "Sem instituição" vai para o final
     return Array.from(map.values()).sort((a, b) => {
       if (a.name === 'Sem instituição') return 1;
       if (b.name === 'Sem instituição') return -1;
@@ -238,7 +246,7 @@ export default function CarteiraPage() {
 // ── InstitutionCard ───────────────────────────────────────────────────────────
 
 function InstitutionCard({ institution }: { institution: InstitutionGroup }) {
-  const { name, slug, accounts, cards, dashboards } = institution;
+  const { name, id, accounts, cards, dashboards } = institution;
   const [hovered, setHovered] = useState(false);
 
   const color = getInstitutionColor(name);
@@ -255,7 +263,7 @@ function InstitutionCard({ institution }: { institution: InstitutionGroup }) {
 
   return (
     <Link
-      href={`/home/carteira/${slug}`}
+      href={id != null ? `/home/carteira/${id}` : '/home/carteira'}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
