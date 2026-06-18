@@ -129,6 +129,23 @@ export interface AnnualInvoiceMonth {
   invoice_id: number | null;
 }
 
+export interface RecurringExpenseConfig {
+  id: number;
+  card_id: number;
+  description: string;
+  amount: number;
+  category_id: number | null;
+  start_month: string;
+  active: boolean;
+}
+
+export interface RecurringExpensePayload {
+  description: string;
+  amount: number;
+  category_id?: number | null;
+  start_month?: string;
+}
+
 /**
  * Fatura detalhada com metadados completos + transactions
  * (GET /api/cards/{id}/invoices/{invoice_id}).
@@ -609,6 +626,18 @@ export const api = {
 
   getCardAnnualInvoices: (id: number, year?: number): Promise<AnnualInvoiceMonth[]> =>
     request<AnnualInvoiceMonth[]>(`${BASE}/api/cards/${id}/annual-invoices${year ? `?year=${year}` : ''}`),
+
+  listCardRecurring: (id: number): Promise<RecurringExpenseConfig[]> =>
+    request<RecurringExpenseConfig[]>(`${BASE}/api/cards/${id}/recurring`),
+
+  createCardRecurring: (id: number, payload: RecurringExpensePayload): Promise<RecurringExpenseConfig> =>
+    request<RecurringExpenseConfig>(`${BASE}/api/cards/${id}/recurring`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  deleteCardRecurring: (id: number, recurringId: number): Promise<{ deleted: boolean }> =>
+    request<{ deleted: boolean }>(`${BASE}/api/cards/${id}/recurring/${recurringId}`, { method: 'DELETE' }),
 
   /** Dashboard agregado do cartão (visão geral). */
   getCardDashboard: (id: number): Promise<CardDashboard> =>
