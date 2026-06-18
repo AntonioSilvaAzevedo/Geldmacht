@@ -69,7 +69,7 @@ function UploadPageInner() {
     if (!isCreditCardType) return;
     void Promise.all([
       api.listCards(),
-      api.listCategories('credit_card'),
+      api.listCategories(),
     ])
       .then(([cardsData, categoryData]) => {
         setCards(cardsData);
@@ -89,7 +89,7 @@ function UploadPageInner() {
     if (!isBankStatementType) return;
     void Promise.all([
       api.listBankAccounts(false),
-      api.listCategories('bank'),
+      api.listCategories(),
     ])
       .then(([banksData, categoryData]) => {
         const active = banksData.filter(b => b.is_active);

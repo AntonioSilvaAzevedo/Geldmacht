@@ -61,6 +61,8 @@ export function ReviewTransactionRow({
           padding: '12px 12px 10px',
           display: 'grid',
           gap: 8,
+          minWidth: 0,
+          maxWidth: '100%',
           cursor: 'pointer',
           opacity: tx.is_internal_transfer && !isSelected ? 0.7 : 1,
         }}

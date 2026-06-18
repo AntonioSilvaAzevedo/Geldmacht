@@ -31,25 +31,18 @@ export function ReviewFooter({
   return (
     <div
       className={cn(
-        'mt-3.5 flex shrink-0 items-center justify-between gap-2.5',
-        isMobile && 'border-t border-[var(--border-default)] pt-2.5',
+        'mt-3.5 flex shrink-0 items-center gap-2.5',
+        isMobile ? 'border-t border-[var(--border-default)] pt-2.5' : 'justify-between',
       )}
     >
-      <span className="min-w-0 text-[12px] text-[var(--text-muted)]">
-        {isMobile ? (
-          <>
-            <strong className="text-[var(--text-primary)]">{selectedCount}</strong>
-            {' '}selecionado{selectedCount === 1 ? '' : 's'}
-          </>
-        ) : (
-          <>
-            <strong className="text-[var(--text-primary)]">{selectedCount}</strong> de {transactionsTotal} serão importados
-          </>
-        )}
-      </span>
+      {!isMobile && (
+        <span className="min-w-0 text-[12px] text-[var(--text-muted)]">
+          <strong className="text-[var(--text-primary)]">{selectedCount}</strong> de {transactionsTotal} serão importados
+        </span>
+      )}
 
-      <div className="flex shrink-0 gap-2.5">
-        <Button type="button" variant="outline" onClick={onBack}>
+      <div className={cn('flex gap-2.5', isMobile ? 'w-full' : 'shrink-0')}>
+        <Button type="button" variant="outline" onClick={onBack} className={cn(isMobile && 'flex-1')}>
           Cancelar
         </Button>
 
@@ -59,7 +52,7 @@ export function ReviewFooter({
             variant="outline"
             disabled
             title="Volte e selecione uma conta bancária."
-            className="border-[rgba(229,62,62,0.3)] text-[var(--red-400)] opacity-75"
+            className={cn('border-[rgba(229,62,62,0.3)] text-[var(--red-400)] opacity-75', isMobile && 'flex-1')}
           >
             <Download className="size-[15px]" aria-hidden />
             Conta obrigatória
@@ -70,7 +63,7 @@ export function ReviewFooter({
             variant="outline"
             disabled
             title="Selecione o cartão desta fatura antes de importar."
-            className="border-[rgba(229,62,62,0.3)] text-[var(--red-400)] opacity-75"
+            className={cn('border-[rgba(229,62,62,0.3)] text-[var(--red-400)] opacity-75', isMobile && 'flex-1')}
           >
             <Download className="size-[15px]" aria-hidden />
             Selecione um cartão
@@ -82,6 +75,7 @@ export function ReviewFooter({
             onClick={onImport}
             disabled={selectedCount === 0}
             loading={importing}
+            className={cn(isMobile && 'flex-1')}
           >
             {!importing && <Download className="size-[15px]" aria-hidden />}
             {importing

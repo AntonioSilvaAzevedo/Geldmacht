@@ -102,23 +102,8 @@ export default function UploadPreview({ result, card, cards = [], categories = [
   // Inclui categorias globais (card_id=null) + específicas do cartão atual.
   // Sub aparece com label hierárquico "Pai / Sub". Ordena por label.
   const categoryOptions = useMemo(() => {
-    if (isBankStatement) {
-      const valid = categories.filter(c => c.scope === 'bank');
-      const byId = new Map(valid.map(c => [c.id, c] as const));
-      return valid
-        .map(c => {
-          const parent = c.parent_id != null ? byId.get(c.parent_id) : null;
-          const label = parent ? `${parent.name} / ${c.name}` : c.name;
-          return { id: c.id, label, icon: c.icon ?? null, isSub: !!parent };
-        })
-        .sort((a, b) => a.label.localeCompare(b.label));
-    }
-    const cardId = selectedCard?.id;
-    const valid = categories.filter(c => {
-      if (c.scope !== 'credit_card') return false;
-      if (c.card_id == null) return true;
-      return cardId != null && c.card_id === cardId;
-    });
+    const cardId = isBankStatement ? null : selectedCard?.id;
+    const valid = categories.filter(c => c.card_id == null || c.card_id === cardId);
     const byId = new Map(valid.map(c => [c.id, c] as const));
     return valid
       .map(c => {
@@ -286,13 +271,19 @@ export default function UploadPreview({ result, card, cards = [], categories = [
 
       {isBankStatement && <BankStatementInfo bankAccount={bankAccount} />}
 
-      {isBankStatement && categoryOptions.length === 0 && (
+      {categoryOptions.length === 0 && (
         <div className="mb-3 rounded-[9px] border border-[rgba(49,130,206,0.2)] bg-[rgba(49,130,206,0.07)] px-3 py-2.5 text-[12.5px] leading-normal text-[var(--text-secondary)]">
-          Você ainda não tem categorias para conta bancária. Você pode importar sem categoria ou{' '}
+          Você ainda não tem categorias. Você pode importar sem categoria ou{' '}
           <Link href="/home/categorias" className="font-semibold text-[var(--blue-400)]">criar categorias</Link>
           {' '}depois.
         </div>
       )}
+
+      <div className="mb-2 flex shrink-0 items-center justify-between text-[12px] text-[var(--text-muted)]">
+        <span>
+          <strong className="text-[var(--text-primary)]">{selectedCount}</strong> de {transactions.length} selecionado{selectedCount === 1 ? '' : 's'}
+        </span>
+      </div>
 
       <ReviewTransactionList
         isMobile={isMobile}

@@ -107,9 +107,10 @@ Visão geral de todos os cartões: limite/fatura, **Adicionar cartão**, editar 
 
 ---
 
-## 4. Categorias — `/home/categorias` ✅ (issues #23/#38)
-1. Categorias **globais** do usuário (sem escopo/destino — simplificado na #38).
-2. Usadas para classificar lançamentos manuais e itens importados.
+## 4. Categorias — `/home/categorias` ✅ (issues #23/#38/#71)
+1. Categorias **globais** do usuário. Novas categorias são criadas com `scope="global"` no backend; a listagem (`GET /api/categories`) **ignora `scope`** e retorna todas — então valem tanto para extrato quanto para fatura. _(issue #71)_
+2. Usadas para classificar lançamentos manuais e itens importados (inclusive na **revisão de importação**, ver seção 6).
+3. **UI (issue #71):** o `SummaryStrip` fica fixo no topo e a **lista de categorias rola internamente** (a página não rola inteira). Abaixo da lista há uma **ação tracejada "Adicionar categoria"** (padrão do tile "Adicionar conta" da carteira), que substitui o antigo botão "Nova categoria". Sem categorias → estado vazio com a mesma ação tracejada.
 
 ---
 
@@ -132,6 +133,8 @@ Dois fluxos **separados** (não se misturam):
    - **Destino compacto:** um único bloco confirma para onde a importação vai — **"Conta corrente de destino"** (extrato) ou **"Cartão de destino"** (fatura, seletor de cartão). Os metadados da fatura (vencimento, ciclo, total) vêm detectados do arquivo e não são mais editáveis na tela.
    - **Sem cards secundários** (resumo da fatura — Total/Estornos/Maior gasto/Parcelas) e **sem busca por descrição nem chips de filtro** na revisão.
    - A **lista rola internamente** e o **botão final de importar fica sempre visível** num rodapé fixo no fim (no mobile, acima da bottom tab bar — não fica mais escondido). Listas grandes não escondem a ação final.
+   - **Categorizar e renomear** _(issue #71)_: cada lançamento permite **escolher uma categoria** (o seletor lista as **categorias globais** do usuário — antes filtrava por `scope` e ficava vazio em faturas) e **renomear o título** (edição inline; o nome editado é enviado na importação).
+   - **Mobile** _(issue #71)_: cards de lançamento **cabem na largura da tela** (sem scroll lateral); o **contador de selecionados** fica numa linha **acima da lista** (saiu do rodapé) e o rodapé mostra só **Cancelar/Importar**, sempre visíveis e com safe-area.
 4. Ao concluir, redireciona para o extrato/fatura correspondente (`/home/carteira/{institution_id}/...`).
 
 > **Refator (#54 → #57):** o `UploadPreview` (antes ~1232 linhas, inline-style) foi decomposto em componentes de responsabilidade única — `ReviewTransactionList` (lista) + `ReviewTransactionRow` (linha/card de um lançamento, reutilizável), `ReviewFooter`, `ImportResultView`, `CreditCardInvoiceForm`, `BankStatementInfo` — ficando como orquestrador enxuto. Na #57 a tela foi simplificada: removidos `ReviewFilters` (chips + busca) e o uso dos cards de resumo na revisão (`InvoiceSummaryCards` segue só na tela de sucesso), os blocos de destino reduzidos ao mínimo, e a lista passou a rolar internamente também no mobile (lista `flex-1` com scroll próprio; rodapé em fluxo acima da bottom tab bar). O `CategoryChoiceSelect` mostra um rótulo estático "Sem categoria" quando não há categorias (sem abrir o seletor).
