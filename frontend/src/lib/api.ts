@@ -121,6 +121,14 @@ export interface CardInvoice {
   label: string;                  // "Vencimento em Abril/2026"
 }
 
+export interface AnnualInvoiceMonth {
+  due_month: string;              // "2026-05"
+  label: string;                  // "Maio"
+  total: number;
+  predicted: boolean;
+  invoice_id: number | null;
+}
+
 /**
  * Fatura detalhada com metadados completos + transactions
  * (GET /api/cards/{id}/invoices/{invoice_id}).
@@ -598,6 +606,9 @@ export const api = {
    */
   getCardInvoices: (id: number): Promise<CardInvoice[]> =>
     request<CardInvoice[]>(`${BASE}/api/cards/${id}/invoices`),
+
+  getCardAnnualInvoices: (id: number, year?: number): Promise<AnnualInvoiceMonth[]> =>
+    request<AnnualInvoiceMonth[]>(`${BASE}/api/cards/${id}/annual-invoices${year ? `?year=${year}` : ''}`),
 
   /** Dashboard agregado do cartão (visão geral). */
   getCardDashboard: (id: number): Promise<CardDashboard> =>

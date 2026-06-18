@@ -6,18 +6,13 @@ import { useInstitution } from '@/components/carteira/institution-context'
 import { CreditCardInvoiceCard } from '@/components/Cards/CreditCardInvoiceCard'
 import LoadingSpinner from '@/components/LoadingSpinner'
 import StatePanel from '@/components/StatePanel'
-import { api, type CardInvoice } from '@/lib/api'
-
-const MONTHS = [
-  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
-]
+import { api, type AnnualInvoiceMonth } from '@/lib/api'
 
 export default function InstitutionCartaoFaturasPage() {
   const { slug, cards } = useInstitution()
   const card = cards[0]
 
-  const [invoices, setInvoices] = useState<CardInvoice[]>([])
+  const [months, setMonths] = useState<AnnualInvoiceMonth[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -29,7 +24,7 @@ export default function InstitutionCartaoFaturasPage() {
     setLoading(true)
     setError(null)
     try {
-      setInvoices(await api.getCardInvoices(card.id))
+      setMonths(await api.getCardAnnualInvoices(card.id))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao carregar faturas.')
     } finally {
@@ -40,20 +35,9 @@ export default function InstitutionCartaoFaturasPage() {
   useEffect(() => { void load() }, [load])
 
   const year = useMemo(() => {
-    const months = invoices.map((i) => i.due_month).filter(Boolean).sort()
-    const latest = months[months.length - 1]
-    return latest ? Number(latest.slice(0, 4)) : new Date().getFullYear()
-  }, [invoices])
-
-  const monthCards = useMemo(() => MONTHS.map((label, idx) => {
-    const key = `${year}-${String(idx + 1).padStart(2, '0')}`
-    const invoice = invoices.find((i) => i.due_month === key)
-    const amount = invoice ? (invoice.total_amount ?? invoice.computed_total) : 0
-    const href = invoice
-      ? `/home/carteira/${slug}/cartao/faturas/${invoice.id}`
-      : undefined
-    return { label, amount, href }
-  }), [invoices, year, slug])
+    const first = months[0]?.due_month
+    return first ? Number(first.slice(0, 4)) : new Date().getFullYear()
+  }, [months])
 
   if (!card) {
     return <StatePanel variant="error" message="Nenhum cartão nesta instituição." />
@@ -78,16 +62,25 @@ export default function InstitutionCartaoFaturasPage() {
         </p>
       </header>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {monthCards.map((m) => (
-          <CreditCardInvoiceCard
-            key={m.label}
-            month={m.label}
-            amount={m.amount}
-            href={m.href}
-          />
-        ))}
-      </div>
+      {months.length === 0 ? (
+        <StatePanel
+          variant="empty"
+          title="Nenhuma fatura ou previsão."
+          message="Importe uma fatura ou cadastre uma compra parcelada para ver os meses aqui."
+        />
+      ) : (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {months.map((m) => (
+            <CreditCardInvoiceCard
+              key={m.due_month}
+              month={m.label}
+              amount={m.total}
+              predicted={m.predicted}
+              href={m.invoice_id ? `/home/carteira/${slug}/cartao/faturas/${m.invoice_id}` : undefined}
+            />
+          ))}
+        </div>
+      )}
     </div>
   )
 }
