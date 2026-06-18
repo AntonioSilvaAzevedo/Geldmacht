@@ -6,7 +6,6 @@ import { cn } from '@/lib/utils';
 interface ReviewFooterProps {
   isMobile: boolean;
   selectedCount: number;
-  filteredTotal: number;
   transactionsTotal: number;
   isBankStatement: boolean;
   isCreditCardType: boolean;
@@ -20,7 +19,6 @@ interface ReviewFooterProps {
 export function ReviewFooter({
   isMobile,
   selectedCount,
-  filteredTotal,
   transactionsTotal,
   isBankStatement,
   isCreditCardType,
@@ -34,8 +32,7 @@ export function ReviewFooter({
     <div
       className={cn(
         'mt-3.5 flex shrink-0 items-center justify-between gap-2.5',
-        isMobile &&
-          'fixed inset-x-0 bottom-[calc(56px+env(safe-area-inset-bottom))] z-40 mt-0 border-t border-[var(--border-default)] bg-[var(--surface-card)] px-3.5 py-2.5 shadow-[0_-8px_24px_rgba(0,0,0,0.30)]',
+        isMobile && 'border-t border-[var(--border-default)] pt-2.5',
       )}
     >
       <span className="min-w-0 text-[12px] text-[var(--text-muted)]">
@@ -46,8 +43,7 @@ export function ReviewFooter({
           </>
         ) : (
           <>
-            Mostrando {filteredTotal} de {transactionsTotal} ·{' '}
-            <strong className="text-[var(--text-primary)]">{selectedCount}</strong> serão importados
+            <strong className="text-[var(--text-primary)]">{selectedCount}</strong> de {transactionsTotal} serão importados
           </>
         )}
       </span>

@@ -489,35 +489,6 @@ function UploadPageInner() {
         </div>
       )}
 
-      <div style={{ marginTop: 32 }}>
-        <p style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>
-          Formatos suportados
-        </p>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          {(isBankStatementType
-            ? ['OFX genérico (extrato)']
-            : [
-                'Nubank PF (extrato)',
-                'Nubank PJ (extrato)',
-                'Fatura Cartão Nubank',
-                'Itaú Uniclass',
-                'Mercado Pago',
-              ]
-          ).map(label => (
-            <span key={label} style={{
-              padding: '4px 10px',
-              borderRadius: 6,
-              background: 'var(--surface-card)',
-              border: '1px solid var(--border-subtle)',
-              fontSize: 12,
-              color: 'var(--text-secondary)',
-            }}>
-              {label}
-            </span>
-          ))}
-        </div>
-      </div>
-
       <style>{`
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
       `}</style>

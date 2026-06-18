@@ -64,27 +64,38 @@ export function CategoryChoiceSelect({
     if (!open) setQ('');
   }, [open]);
 
+  if (options.length === 0) {
+    return (
+      <div
+        data-slot="category-choice-empty"
+        style={{ width: '100%', maxWidth }}
+        className="flex min-h-9 items-center gap-2 rounded-[var(--radius-sm)] border border-dashed border-[var(--separator-opaque)] px-2.5 py-[7px] text-[length:var(--text-footnote)] text-[var(--text-muted)]"
+      >
+        <CategoryIcon icon={null} size={15} color="var(--text-muted)" />
+        <span className="min-w-0 flex-1 truncate">{emptyLabel}</span>
+      </div>
+    );
+  }
+
   return (
     <div
       ref={rootRef}
       data-slot="category-choice-select"
       style={{ position: 'relative', width: '100%', maxWidth }}
     >
-      <Button
+      <button
         type="button"
-        variant="outline"
-        size="sm"
         disabled={disabled}
         onClick={() => !disabled && setOpen(o => !o)}
         aria-expanded={open}
         aria-haspopup="listbox"
         aria-controls={listId}
         className={cn(
-          'min-h-9 h-auto w-full justify-start gap-2 px-2.5 py-[7px] text-left font-normal text-[length:var(--text-footnote)] [&_svg]:shrink-0',
-          disabled ? '!cursor-not-allowed' : 'cursor-pointer',
+          'flex min-h-9 w-full items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--separator-opaque)] bg-transparent px-2.5 py-[7px] text-left text-[length:var(--text-footnote)] outline-none transition-colors focus-visible:ring-3 focus-visible:ring-[rgba(10,132,255,0.45)]',
+          disabled ? 'cursor-not-allowed opacity-[0.38]' : 'cursor-pointer hover:bg-[var(--surface-hover)]',
         )}
       >
-        <span style={{ flexShrink: 0, display: 'inline-flex' }}>
+        <span className="inline-flex shrink-0">
           <CategoryIcon icon={selected?.icon} size={15} color="var(--blue-400)" />
         </span>
         <span className={cn('min-w-0 flex-1 truncate', selected ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]')}>
@@ -92,10 +103,11 @@ export function CategoryChoiceSelect({
         </span>
         <ChevronDown
           size={14}
-          color="var(--text-muted)"
-          style={{ flexShrink: 0, transform: open ? 'rotate(180deg)' : undefined, transition: 'transform 0.15s' }}
+          aria-hidden
+          className="shrink-0 text-[var(--text-muted)] transition-transform duration-150"
+          style={{ transform: open ? 'rotate(180deg)' : undefined }}
         />
-      </Button>
+      </button>
 
       {open && (
         <div
