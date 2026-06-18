@@ -7,15 +7,23 @@ export interface CreditCardInvoiceCardProps {
   month: string;
   amount: number;
   href?: string;
+  predicted?: boolean;
 }
 
-export function CreditCardInvoiceCard({ month, amount, href }: CreditCardInvoiceCardProps) {
+export function CreditCardInvoiceCard({ month, amount, href, predicted = false }: CreditCardInvoiceCardProps) {
   const isEmpty = amount === 0;
 
   const content = (
     <>
-      <span className="text-[13px] font-semibold tracking-[-0.01em] text-[var(--text-secondary)]">
-        {month}
+      <span className="flex items-center gap-1.5">
+        <span className="text-[13px] font-semibold tracking-[-0.01em] text-[var(--text-secondary)]">
+          {month}
+        </span>
+        {predicted && (
+          <span className="rounded-full bg-[var(--surface-2)] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.04em] text-[var(--text-tertiary)]">
+            Previsto
+          </span>
+        )}
       </span>
       <span
         className={cn(
