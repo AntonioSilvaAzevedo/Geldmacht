@@ -13,10 +13,7 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft } from 'lucide-react';
-import { InvoiceSummaryCards } from '@/components/Upload/InvoiceSummaryCards';
 import { ReviewFooter } from '@/components/Upload/ReviewFooter';
-import { ReviewFilters, type Filter as TxFilter } from '@/components/Upload/ReviewFilters';
 import { ReviewTransactionList } from '@/components/Upload/ReviewTransactionList';
 import { ImportResultView } from '@/components/Upload/ImportResultView';
 import { CreditCardInvoiceForm } from '@/components/Upload/CreditCardInvoiceForm';
@@ -33,18 +30,7 @@ import {
   importTransactions,
 } from '@/lib/api';
 import { useIsMobile } from '@/hooks/useIsMobile';
-import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-
-// ── Labels amigáveis por parser ───────────────────────────────────────────────
-const PARSER_LABELS: Record<string, string> = {
-  nubankpf:            'Extrato Nubank PF',
-  nubankpj:            'Extrato Nubank PJ',
-  faturacartaonubank:  'Fatura Cartão Nubank',
-  itau:                'Extrato Itaú Uniclass',
-  mercadopago:         'Extrato Mercado Pago',
-  bank_statement_ofx:  'Extrato bancário (OFX)',
-};
 
 interface Props {
   result: UploadResponse;
@@ -63,7 +49,7 @@ interface Props {
 export default function UploadPreview({ result, card, cards = [], categories = [], uploadType, importKind, bankAccount, onBack, onImportDone }: Props) {
   const isMobile = useIsMobile();
   const router = useRouter();
-  const { transactions, parser_used, source_file, summary, statement_metadata } = result;
+  const { transactions, parser_used, source_file } = result;
   const isCreditCardType = uploadType === 'credit_card';
   const isBankStatement =
     uploadType === 'bank_statement' ||
@@ -73,7 +59,7 @@ export default function UploadPreview({ result, card, cards = [], categories = [
   const isCreditCardImport = isCreditCardType && !!selectedCard && !isBankStatement;
 
   // ── Metadados editáveis da fatura ────────────────────────────────────────────
-  const [invoiceData, setInvoiceData] = useState<InvoiceCreate>(() => {
+  const [invoiceData] = useState<InvoiceCreate>(() => {
     const meta = result.invoice_metadata;
     return {
       due_month: meta?.due_month ?? result.detected_reference_month ?? '',
@@ -87,9 +73,6 @@ export default function UploadPreview({ result, card, cards = [], categories = [
       raw_reference_month: meta?.due_month ?? result.detected_reference_month ?? null,
     };
   });
-
-  const updateInvoice = (patch: Partial<InvoiceCreate>) =>
-    setInvoiceData(prev => ({ ...prev, ...patch }));
 
   // ── Estado de seleção ───────────────────────────────────────────────────────
   // Transferências internas começam desmarcadas por padrão
@@ -110,10 +93,6 @@ export default function UploadPreview({ result, card, cards = [], categories = [
   const [categoryIds, setCategoryIds] = useState<Record<number, number | null>>(
     () => Object.fromEntries(transactions.map((tx, i) => [i, tx.category_id ?? null]))
   );
-
-  // ── Filtros ─────────────────────────────────────────────────────────────────
-  const [activeFilter, setActiveFilter] = useState<TxFilter>('todos');
-  const [search, setSearch] = useState('');
 
   // ── Import state ────────────────────────────────────────────────────────────
   const [importing, setImporting] = useState(false);
@@ -150,10 +129,6 @@ export default function UploadPreview({ result, card, cards = [], categories = [
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [categories, selectedCard, isBankStatement]);
 
-  useEffect(() => {
-    if (isBankStatement && activeFilter === 'transferencias') setActiveFilter('todos');
-  }, [isBankStatement, activeFilter]);
-
   // Limpa categoryIds que ficaram inválidos quando cartão / escopo de categorias muda
   useEffect(() => {
     const validIds = new Set(categoryOptions.map(o => o.id));
@@ -168,28 +143,12 @@ export default function UploadPreview({ result, card, cards = [], categories = [
     });
   }, [categoryOptions]);
 
-  // ── Transações filtradas ────────────────────────────────────────────────────
-  const filteredIndices = useMemo(() => {
-    return transactions
-      .map((tx, i) => ({ tx, i }))
-      .filter(({ tx }) => {
-        if (activeFilter === 'entradas' && tx.amount <= 0) return false;
-        if (activeFilter === 'saidas' && tx.amount >= 0) return false;
-        if (activeFilter === 'transferencias' && !tx.is_internal_transfer) return false;
-        if (search) {
-          const q = search.toLowerCase();
-          if (!tx.description.toLowerCase().includes(q)) return false;
-        }
-        return true;
-      })
-      .map(({ i }) => i);
-  }, [transactions, activeFilter, search]);
+  // ── Índices visíveis (todos os lançamentos) ─────────────────────────────────
+  const allIndices = useMemo(() => transactions.map((_, i) => i), [transactions]);
 
   // ── Contagens ────────────────────────────────────────────────────────────────
   const selectedCount = selected.size;
-  const filteredSelected = filteredIndices.filter(i => selected.has(i)).length;
-  const filteredTotal = filteredIndices.length;
-  const allFilteredSelected = filteredTotal > 0 && filteredSelected === filteredTotal;
+  const allSelected = allIndices.length > 0 && selectedCount === allIndices.length;
 
   // ── Toggle individual ───────────────────────────────────────────────────────
   const toggle = useCallback((i: number) => {
@@ -201,14 +160,14 @@ export default function UploadPreview({ result, card, cards = [], categories = [
     });
   }, []);
 
-  // ── Selecionar / desmarcar todos os filtrados ───────────────────────────────
-  const toggleAllFiltered = () => {
+  // ── Selecionar / desmarcar todos ────────────────────────────────────────────
+  const toggleAll = () => {
     setSelected(prev => {
       const next = new Set(prev);
-      if (allFilteredSelected) {
-        filteredIndices.forEach(i => next.delete(i));
+      if (allSelected) {
+        allIndices.forEach(i => next.delete(i));
       } else {
-        filteredIndices.forEach(i => next.add(i));
+        allIndices.forEach(i => next.add(i));
       }
       return next;
     });
@@ -302,56 +261,30 @@ export default function UploadPreview({ result, card, cards = [], categories = [
   return (
     <div
       className={cn(
-        'flex min-h-0 flex-col',
-        isMobile ? 'has-mobile-actionbar px-3.5 pb-4 pt-5' : 'flex-1 px-8 py-7',
+        'flex min-h-0 flex-1 flex-col',
+        isMobile
+          ? 'px-3.5 pt-5 pb-[calc(56px+env(safe-area-inset-bottom))]'
+          : 'px-8 py-7',
       )}
     >
       <div className={cn('shrink-0', isMobile ? 'mb-3.5' : 'mb-5')}>
-        <Button
-          type="button"
-          variant="link"
-          size="sm"
-          className="mb-2 h-auto p-0"
-          onClick={onBack}
-        >
-          <ArrowLeft className="size-3.5 shrink-0" aria-hidden /> Trocar arquivo
-        </Button>
-        <h1 className="mb-2 text-[20px] font-bold text-[var(--text-primary)]">
+        <h1 className="text-[20px] font-bold text-[var(--text-primary)]">
           Revisar lançamentos
         </h1>
-        <div className="flex flex-wrap items-center gap-2.5">
-          <span className="inline-flex items-center gap-1.5 rounded-[20px] border border-[rgba(49,130,206,0.25)] bg-[rgba(49,130,206,0.12)] px-2.5 py-[3px] text-[12px] font-semibold text-[var(--blue-400)]">
-            🏷️ {PARSER_LABELS[parser_used] ?? parser_used}
-          </span>
-          <span className="text-[12px] text-[var(--text-muted)]">
-            📄 {source_file}
-          </span>
-          <span className="text-[12px] text-[var(--text-muted)]">
-            🔢 {transactions.length} lançamentos
-          </span>
-        </div>
+        <span className="mt-1 block truncate text-[12px] text-[var(--text-muted)]">
+          {source_file}
+        </span>
       </div>
 
       {isCreditCardType && !isBankStatement && (
         <CreditCardInvoiceForm
-          isMobile={isMobile}
           selectedCard={selectedCard}
           cards={cards}
           onSelectCard={setSelectedCard}
-          invoiceData={invoiceData}
-          onUpdateInvoice={updateInvoice}
         />
       )}
 
-      {isBankStatement && (
-        <BankStatementInfo
-          bankAccount={bankAccount}
-          statementMetadata={statement_metadata}
-          transactionsCount={transactions.length}
-        />
-      )}
-
-      {summary && !isBankStatement && <InvoiceSummaryCards summary={summary} />}
+      {isBankStatement && <BankStatementInfo bankAccount={bankAccount} />}
 
       {isBankStatement && categoryOptions.length === 0 && (
         <div className="mb-3 rounded-[9px] border border-[rgba(49,130,206,0.2)] bg-[rgba(49,130,206,0.07)] px-3 py-2.5 text-[12.5px] leading-normal text-[var(--text-secondary)]">
@@ -361,24 +294,15 @@ export default function UploadPreview({ result, card, cards = [], categories = [
         </div>
       )}
 
-      <ReviewFilters
-        isBankStatement={isBankStatement}
-        activeFilter={activeFilter}
-        onFilterChange={setActiveFilter}
-        totalCount={transactions.length}
-        search={search}
-        onSearchChange={setSearch}
-      />
-
       <ReviewTransactionList
         isMobile={isMobile}
         isBankStatement={isBankStatement}
         transactions={transactions}
-        filteredIndices={filteredIndices}
+        filteredIndices={allIndices}
         selected={selected}
         onToggle={toggle}
-        allFilteredSelected={allFilteredSelected}
-        onToggleAll={toggleAllFiltered}
+        allFilteredSelected={allSelected}
+        onToggleAll={toggleAll}
         descriptions={descriptions}
         onDescriptionChange={(i, val) => setDescriptions(prev => ({ ...prev, [i]: val }))}
         categoryIds={categoryIds}
@@ -389,7 +313,6 @@ export default function UploadPreview({ result, card, cards = [], categories = [
       <ReviewFooter
         isMobile={isMobile}
         selectedCount={selectedCount}
-        filteredTotal={filteredTotal}
         transactionsTotal={transactions.length}
         isBankStatement={isBankStatement}
         isCreditCardType={isCreditCardType}

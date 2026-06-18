@@ -1,7 +1,7 @@
 # Fluxo do Geldmacht — o que está funcionando
 
 > Mapa passo a passo do que o app faz hoje, para consulta rápida e para não retroceder em features já entregues.
-> **Atualizado em:** 2026-06-17
+> **Atualizado em:** 2026-06-18
 
 **Legenda:** ✅ funcionando · 🚧 em desenvolvimento · ⛔ não iniciado
 
@@ -104,10 +104,14 @@ Dentro do extrato, **"Adicionar lançamento"** abre direto o modal manual.
 Dois fluxos **separados** (não se misturam):
 1. **Importar extrato** bancário (`?type=bank_statement`, arquivos `.ofx/.qfx`) → vincula a uma **conta corrente**. Pré-selecionada quando vem da conta corrente (`bankAccountId`). Acessível pela conta corrente e pelo menu Adicionar.
 2. **Importar fatura** de cartão (`?type=credit_card`, `.pdf/.xlsx`) → vincula a um **cartão** e gera a fatura/`invoice`. Pré-selecionado quando vem do cartão (`cardId`). Acessível pelas faturas do cartão e pelo menu Adicionar.
-3. **Revisão de lançamentos:** após o upload, a tela de revisão lista os lançamentos com seleção/edição; a **lista rola internamente** e o **botão final de importar fica sempre visível** num rodapé fixo no fim (no mobile, acima da bottom tab bar — não fica mais escondido). _(issue #54)_
+3. **Revisão de lançamentos:** após o upload, a tela de revisão tem a **lista de lançamentos como destaque principal**. Estrutura enxuta _(issue #57)_:
+   - **Topo:** apenas o título **"Revisar lançamentos"** e, abaixo, o **nome do arquivo** em label pequena e discreta. Sem chip de parser, sem contagem e sem datas no topo.
+   - **Destino compacto:** um único bloco confirma para onde a importação vai — **"Conta corrente de destino"** (extrato) ou **"Cartão de destino"** (fatura, seletor de cartão). Os metadados da fatura (vencimento, ciclo, total) vêm detectados do arquivo e não são mais editáveis na tela.
+   - **Sem cards secundários** (resumo da fatura — Total/Estornos/Maior gasto/Parcelas) e **sem busca por descrição nem chips de filtro** na revisão.
+   - A **lista rola internamente** e o **botão final de importar fica sempre visível** num rodapé fixo no fim (no mobile, acima da bottom tab bar — não fica mais escondido). Listas grandes não escondem a ação final.
 4. Ao concluir, redireciona para o extrato/fatura correspondente (`/home/carteira/{institution_id}/...`).
 
-> **Refator (#54):** o `UploadPreview` (antes ~1232 linhas, inline-style) foi decomposto em componentes Tailwind de responsabilidade única — `InvoiceSummaryCards`, `ReviewFilters`, `ReviewTransactionList`, `ReviewFooter`, `ImportResultView`, `CreditCardInvoiceForm`, `BankStatementInfo` — ficando como orquestrador (~405 linhas, sem inline-style).
+> **Refator (#54 → #57):** o `UploadPreview` (antes ~1232 linhas, inline-style) foi decomposto em componentes de responsabilidade única — `ReviewTransactionList` (lista) + `ReviewTransactionRow` (linha/card de um lançamento, reutilizável), `ReviewFooter`, `ImportResultView`, `CreditCardInvoiceForm`, `BankStatementInfo` — ficando como orquestrador enxuto. Na #57 a tela foi simplificada: removidos `ReviewFilters` (chips + busca) e o uso dos cards de resumo na revisão (`InvoiceSummaryCards` segue só na tela de sucesso), os blocos de destino reduzidos ao mínimo, e a lista passou a rolar internamente também no mobile (lista `flex-1` com scroll próprio; rodapé em fluxo acima da bottom tab bar). O `CategoryChoiceSelect` mostra um rótulo estático "Sem categoria" quando não há categorias (sem abrir o seletor).
 
 ---
 
