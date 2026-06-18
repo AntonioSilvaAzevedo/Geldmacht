@@ -2,12 +2,13 @@
 
 import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
 
+import { LancamentoChoiceModal } from '@/components/Lancamento/LancamentoChoiceModal';
 import { LancamentoModal } from '@/components/Lancamento/LancamentoModal';
 import { LancamentoPrerequisiteModal } from '@/components/Lancamento/LancamentoPrerequisiteModal';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { api, type ManualEligibility } from '@/lib/api';
 
-type View = 'closed' | 'loading' | 'form' | 'warning';
+type View = 'closed' | 'choice' | 'loading' | 'form' | 'warning';
 
 interface LancamentoModalContextValue {
   open: () => void;
@@ -22,26 +23,31 @@ export function LancamentoModalProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<LancamentoModalContextValue>(
     () => ({
-      open: () => {
-        setView('loading');
-        void api
-          .getManualEligibility()
-          .then((result) => {
-            setEligibility(result);
-            setView(result.can_launch ? 'form' : 'warning');
-          })
-          .catch(() => {
-            setView('form');
-          });
-      },
+      open: () => setView('choice'),
       close: () => setView('closed'),
     }),
     [],
   );
 
+  const startManual = () => {
+    setView('loading');
+    void api
+      .getManualEligibility()
+      .then((result) => {
+        setEligibility(result);
+        setView(result.can_launch ? 'form' : 'warning');
+      })
+      .catch(() => {
+        setView('form');
+      });
+  };
+
   return (
     <LancamentoModalContext.Provider value={value}>
       {children}
+      {view === 'choice' && (
+        <LancamentoChoiceModal onManual={startManual} onClose={value.close} />
+      )}
       {view === 'loading' && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40">
           <LoadingSpinner />

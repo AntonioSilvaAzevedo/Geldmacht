@@ -306,7 +306,7 @@ body {
 
   html, body { overflow-x: hidden; }
 
-  .has-mobile-actionbar { padding-bottom: 80px; }
+  .has-mobile-actionbar { padding-bottom: calc(140px + env(safe-area-inset-bottom)); }
 }
 
 /* ═══ apple-tokens.css (referência: frontend/apple-tokens.css) — utilitários sem blocos :root ═══ */

@@ -1156,12 +1156,13 @@ export default function UploadPreview({ result, card, cards = [], categories = [
         gap: 10,
         ...(isMobile ? {
           position: 'fixed',
-          left: 0, right: 0, bottom: 0,
-          padding: '10px 14px calc(10px + env(safe-area-inset-bottom))',
+          left: 0, right: 0,
+          bottom: 'calc(56px + env(safe-area-inset-bottom))',
+          padding: '10px 14px',
           background: 'var(--surface-card)',
           borderTop: '1px solid var(--border-default)',
           boxShadow: '0 -8px 24px rgba(0,0,0,0.30)',
-          zIndex: 50,
+          zIndex: 40,
           marginTop: 0,
         } : {}),
       }}>
