@@ -105,8 +105,10 @@ Dentro do extrato, **"Adicionar lançamento"** abre direto o modal manual.
 Dois fluxos **separados** (não se misturam):
 1. **Importar extrato** bancário (`?type=bank_statement`, arquivos `.ofx/.qfx`) → vincula a uma **conta corrente**. Pré-selecionada quando vem da conta corrente (`bankAccountId`). Acessível pela conta corrente e pelo menu Adicionar.
 2. **Importar fatura** de cartão (`?type=credit_card`, `.pdf/.xlsx`) → vincula a um **cartão** e gera a fatura/`invoice`. Pré-selecionado quando vem do cartão (`cardId`). Acessível pelas faturas do cartão e pelo menu Adicionar.
-3. **Revisão de lançamentos:** após o upload, a tela de revisão lista os lançamentos com seleção/edição; o **botão final de importar** fica num rodapé que, no mobile, é fixo **acima da bottom tab bar** (não fica mais escondido atrás dela). _(issue #54)_
+3. **Revisão de lançamentos:** após o upload, a tela de revisão lista os lançamentos com seleção/edição; a **lista rola internamente** e o **botão final de importar fica sempre visível** num rodapé fixo no fim (no mobile, acima da bottom tab bar — não fica mais escondido). _(issue #54)_
 4. Ao concluir, redireciona para o extrato/fatura correspondente (`/home/carteira/{institution_id}/...`).
+
+> **Refator (#54):** o `UploadPreview` (antes ~1232 linhas, inline-style) foi decomposto em componentes Tailwind de responsabilidade única — `InvoiceSummaryCards`, `ReviewFilters`, `ReviewTransactionList`, `ReviewFooter`, `ImportResultView`, `CreditCardInvoiceForm`, `BankStatementInfo` — ficando como orquestrador (~405 linhas, sem inline-style).
 
 ---
 
