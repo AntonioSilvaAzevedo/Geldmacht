@@ -91,20 +91,24 @@ Visão geral de todos os cartões: limite/fatura, **Adicionar cartão**, editar 
 
 ---
 
-## 5. Lançamento manual (modal global) ✅
-Acionado pelo botão "Adicionar" (bottom tab/sidebar) ou por "Adicionar lançamento" no extrato — **o mesmo modal** em todos os pontos.
-1. **Tipo:** Entrada (income) / Saída (expense).
-2. **Valor**, **Conta** (conta bancária), **Categoria**, **Descrição**.
-3. Pré-requisito: precisa existir ao menos uma conta (senão abre modal de pré-requisito).
-4. **Importar extrato** (ação secundária no modal) → leva a `/home/upload?type=bank_statement`. _(issue #50)_
+## 5. Adicionar — menu de escolha ✅ (issue #54)
+O botão **"Adicionar"** (bottom tab/sidebar) abre um **menu com 3 opções**:
+1. **Lançamento manual** → modal de lançamento (Tipo Entrada/Saída, Valor, Conta, Categoria, Descrição; pré-requisito: ao menos uma conta, senão abre modal de pré-requisito).
+2. **Importar extrato** → `/home/upload?type=bank_statement` (conta corrente).
+3. **Importar fatura** → `/home/upload?type=credit_card` (cartão).
+
+Dentro do extrato, **"Adicionar lançamento"** abre direto o modal manual.
 
 ---
 
 ## 6. Importação / Upload — `/home/upload` ✅
 Dois fluxos **separados** (não se misturam):
-1. **Importar extrato** bancário (`?type=bank_statement`, arquivos `.ofx/.qfx`) → vincula a uma **conta corrente** (`bankAccountId` como contexto). Acessível pela conta corrente e pelo modal de lançamento.
-2. **Importar fatura** de cartão (`?type=credit_card`, `.pdf/.xlsx`) → vincula a um **cartão** e gera a fatura/`invoice`. Acessível pelo fluxo de cartão.
-3. Pré-visualização antes de confirmar; ao concluir, redireciona para o extrato/fatura correspondente (`/home/carteira/{institution_id}/...`).
+1. **Importar extrato** bancário (`?type=bank_statement`, arquivos `.ofx/.qfx`) → vincula a uma **conta corrente**. Pré-selecionada quando vem da conta corrente (`bankAccountId`). Acessível pela conta corrente e pelo menu Adicionar.
+2. **Importar fatura** de cartão (`?type=credit_card`, `.pdf/.xlsx`) → vincula a um **cartão** e gera a fatura/`invoice`. Pré-selecionado quando vem do cartão (`cardId`). Acessível pelas faturas do cartão e pelo menu Adicionar.
+3. **Revisão de lançamentos:** após o upload, a tela de revisão lista os lançamentos com seleção/edição; a **lista rola internamente** e o **botão final de importar fica sempre visível** num rodapé fixo no fim (no mobile, acima da bottom tab bar — não fica mais escondido). _(issue #54)_
+4. Ao concluir, redireciona para o extrato/fatura correspondente (`/home/carteira/{institution_id}/...`).
+
+> **Refator (#54):** o `UploadPreview` (antes ~1232 linhas, inline-style) foi decomposto em componentes Tailwind de responsabilidade única — `InvoiceSummaryCards`, `ReviewFilters`, `ReviewTransactionList`, `ReviewFooter`, `ImportResultView`, `CreditCardInvoiceForm`, `BankStatementInfo` — ficando como orquestrador (~405 linhas, sem inline-style).
 
 ---
 
