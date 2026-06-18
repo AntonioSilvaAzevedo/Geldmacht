@@ -423,7 +423,7 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
         window.localStorage.removeItem('geldmacht_auth_version');
       } catch { /* ignore */ }
       await signOut({ callbackUrl: '/login', redirect: true });
-      return undefined as T; // never reached
+      throw new Error('Sessão expirada. Faça login novamente.');
     }
     const detail = await res.text().catch(() => '');
     throw new Error(`API error ${res.status} — ${url}${detail ? `: ${detail}` : ''}`);
