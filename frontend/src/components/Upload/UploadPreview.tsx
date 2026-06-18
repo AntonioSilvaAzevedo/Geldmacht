@@ -34,6 +34,7 @@ import {
 } from '@/lib/api';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 // ── Labels amigáveis por parser ───────────────────────────────────────────────
 const PARSER_LABELS: Record<string, string> = {
@@ -300,18 +301,12 @@ export default function UploadPreview({ result, card, cards = [], categories = [
   // ── Render principal ────────────────────────────────────────────────────────
   return (
     <div
-      className={isMobile ? 'has-mobile-actionbar' : undefined}
-      style={{
-        padding: isMobile ? '20px 14px 16px' : '28px 32px',
-        display: 'flex',
-        flexDirection: 'column',
-        minHeight: 0,
-        ...(isMobile ? { height: 'auto' } : { flex: 1 }),
-      }}
+      className={cn(
+        'flex min-h-0 flex-col',
+        isMobile ? 'has-mobile-actionbar px-3.5 pb-4 pt-5' : 'flex-1 px-8 py-7',
+      )}
     >
-
-      {/* Header */}
-      <div style={{ marginBottom: isMobile ? 14 : 20, flexShrink: 0 }}>
+      <div className={cn('shrink-0', isMobile ? 'mb-3.5' : 'mb-5')}>
         <Button
           type="button"
           variant="link"
@@ -321,29 +316,17 @@ export default function UploadPreview({ result, card, cards = [], categories = [
         >
           <ArrowLeft className="size-3.5 shrink-0" aria-hidden /> Trocar arquivo
         </Button>
-        <h1 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 }}>
+        <h1 className="mb-2 text-[20px] font-bold text-[var(--text-primary)]">
           Revisar lançamentos
         </h1>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          {/* Badge tipo detectado */}
-          <span style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 5,
-            padding: '3px 10px',
-            borderRadius: 20,
-            fontSize: 12,
-            fontWeight: 600,
-            background: 'rgba(49,130,206,0.12)',
-            border: '1px solid rgba(49,130,206,0.25)',
-            color: 'var(--blue-400)',
-          }}>
+        <div className="flex flex-wrap items-center gap-2.5">
+          <span className="inline-flex items-center gap-1.5 rounded-[20px] border border-[rgba(49,130,206,0.25)] bg-[rgba(49,130,206,0.12)] px-2.5 py-[3px] text-[12px] font-semibold text-[var(--blue-400)]">
             🏷️ {PARSER_LABELS[parser_used] ?? parser_used}
           </span>
-          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+          <span className="text-[12px] text-[var(--text-muted)]">
             📄 {source_file}
           </span>
-          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+          <span className="text-[12px] text-[var(--text-muted)]">
             🔢 {transactions.length} lançamentos
           </span>
         </div>
@@ -371,18 +354,9 @@ export default function UploadPreview({ result, card, cards = [], categories = [
       {summary && !isBankStatement && <InvoiceSummaryCards summary={summary} />}
 
       {isBankStatement && categoryOptions.length === 0 && (
-        <div style={{
-          marginBottom: 12,
-          padding: '10px 12px',
-          borderRadius: 9,
-          background: 'rgba(49,130,206,0.07)',
-          border: '1px solid rgba(49,130,206,0.2)',
-          fontSize: 12.5,
-          color: 'var(--text-secondary)',
-          lineHeight: 1.5,
-        }}>
+        <div className="mb-3 rounded-[9px] border border-[rgba(49,130,206,0.2)] bg-[rgba(49,130,206,0.07)] px-3 py-2.5 text-[12.5px] leading-normal text-[var(--text-secondary)]">
           Você ainda não tem categorias para conta bancária. Você pode importar sem categoria ou{' '}
-          <Link href="/home/categorias" style={{ color: 'var(--blue-400)', fontWeight: 600 }}>criar categorias</Link>
+          <Link href="/home/categorias" className="font-semibold text-[var(--blue-400)]">criar categorias</Link>
           {' '}depois.
         </div>
       )}
