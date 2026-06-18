@@ -54,9 +54,10 @@ Ao cadastrar conta/cartão por aqui, o produto já entra vinculado àquela insti
 
 ### 2.3. Extrato (conta corrente) — `/home/carteira/{id}/extrato` ✅
 1. Abas por conta (quando há mais de uma na instituição).
-2. **Adicionar lançamento** → modal de lançamento manual.
-3. **Exportar extrato** → baixa CSV (`extrato-{conta}-{ano}.csv`).
-4. Lista as transações da conta no período.
+2. **Adicionar lançamento** → abre o **modal** de lançamento manual (mesmo fluxo da sidebar/bottom bar). _(issue #50: antes apontava para uma rota inexistente e quebrava.)_
+3. **Importar extrato** → leva ao upload (`/home/upload?type=bank_statement&bankAccountId={conta}`) para arquivos `.ofx/.qfx`, já com a conta corrente como contexto. _(issue #50)_
+4. **Exportar extrato** → baixa CSV (`extrato-{conta}-{ano}.csv`).
+5. Lista as transações da conta no período.
 
 ### 2.4. Faturas do cartão — `/home/carteira/{id}/cartao/faturas` ✅
 1. **Visão anual:** grade dos 12 meses do ano vigente.
@@ -88,16 +89,18 @@ Visão geral de todos os cartões: limite/fatura, **Adicionar cartão**, editar 
 ---
 
 ## 5. Lançamento manual (modal global) ✅
-Acionado pelo botão "Adicionar" (bottom tab) ou por "Adicionar lançamento" no extrato.
+Acionado pelo botão "Adicionar" (bottom tab/sidebar) ou por "Adicionar lançamento" no extrato — **o mesmo modal** em todos os pontos.
 1. **Tipo:** Entrada (income) / Saída (expense).
 2. **Valor**, **Conta** (conta bancária), **Categoria**, **Descrição**.
 3. Pré-requisito: precisa existir ao menos uma conta (senão abre modal de pré-requisito).
+4. **Importar extrato** (ação secundária no modal) → leva a `/home/upload?type=bank_statement`. _(issue #50)_
 
 ---
 
 ## 6. Importação / Upload — `/home/upload` ✅
-1. Importa **extrato bancário (OFX)** → vincula a uma conta corrente.
-2. Importa **fatura de cartão (PDF)** → vincula a um cartão e gera a fatura/`invoice`.
+Dois fluxos **separados** (não se misturam):
+1. **Importar extrato** bancário (`?type=bank_statement`, arquivos `.ofx/.qfx`) → vincula a uma **conta corrente** (`bankAccountId` como contexto). Acessível pela conta corrente e pelo modal de lançamento.
+2. **Importar fatura** de cartão (`?type=credit_card`, `.pdf/.xlsx`) → vincula a um **cartão** e gera a fatura/`invoice`. Acessível pelo fluxo de cartão.
 3. Pré-visualização antes de confirmar; ao concluir, redireciona para o extrato/fatura correspondente (`/home/carteira/{institution_id}/...`).
 
 ---

@@ -2,6 +2,7 @@ import { mergeProps } from "@base-ui/react/merge-props";
 import { useRender } from "@base-ui/react/use-render";
 import { ChevronLeft, MoreHorizontal } from "lucide-react";
 import Link from "next/link";
+import { Fragment } from "react";
 import type { ComponentProps, CSSProperties } from "react";
 
 import { cn } from "@/lib/utils";
@@ -158,18 +159,22 @@ export function PageBreadcrumb({
       />
       <BreadcrumbList>
         {items.map((item, index) => (
-          <BreadcrumbItem key={`${item.href}-${index}`}>
+          <Fragment key={`${item.href}-${index}`}>
             {index > 0 ? <BreadcrumbSeparator /> : null}
-            <BreadcrumbLink render={<Link href={item.href} />}>
-              {item.label}
-            </BreadcrumbLink>
-          </BreadcrumbItem>
+            <BreadcrumbItem>
+              <BreadcrumbLink render={<Link href={item.href} />}>
+                {item.label}
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+          </Fragment>
         ))}
         {currentPage ? (
-          <BreadcrumbItem>
+          <>
             {items.length > 0 ? <BreadcrumbSeparator /> : null}
-            <BreadcrumbPage>{currentPage}</BreadcrumbPage>
-          </BreadcrumbItem>
+            <BreadcrumbItem>
+              <BreadcrumbPage>{currentPage}</BreadcrumbPage>
+            </BreadcrumbItem>
+          </>
         ) : null}
       </BreadcrumbList>
     </Breadcrumb>

@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Download, Plus } from 'lucide-react';
+import { Download, Plus, Upload } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { ExpandableCard } from '@/components/ui/expandable-card';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import StatePanel from '@/components/StatePanel';
+import { useLancamentoModal } from '@/components/Lancamento/lancamento-modal-context';
 import { api, type BankAccountConfig } from '@/lib/api';
 import type { Transaction } from '@/types/financial';
 import { formatCurrency, formatDate } from '@/lib/formatters';
@@ -79,6 +80,7 @@ function exportCsv(transactions: Transaction[], filename: string) {
 }
 
 export function ExtratoPanel({ accounts, activeAccountId, setActiveAccountId }: ExtratoPanelProps) {
+  const { open: openLancamento } = useLancamentoModal();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -168,12 +170,24 @@ export function ExtratoPanel({ accounts, activeAccountId, setActiveAccountId }: 
             <Download className="size-[13px] shrink-0" />
             Exportar extrato
           </Button>
+          {activeAccountId != null && (
+            <Button
+              variant="outline"
+              size="sm"
+              type="button"
+              className="inline-flex shrink-0 items-center gap-1.5"
+              render={<Link href={`/home/upload?type=bank_statement&bankAccountId=${activeAccountId}`} />}
+            >
+              <Upload className="size-[13px] shrink-0" />
+              Importar extrato
+            </Button>
+          )}
           <Button
             variant="primary"
             size="sm"
             type="button"
             className="inline-flex shrink-0 items-center gap-1.5"
-            render={<Link href="/home/lancamentos/novo" />}
+            onClick={openLancamento}
           >
             <Plus className="size-[13px] shrink-0" />
             Adicionar lançamento
@@ -212,7 +226,7 @@ export function ExtratoPanel({ accounts, activeAccountId, setActiveAccountId }: 
           variant="empty"
           title="Nenhuma movimentação nesta conta."
           message="Adicione um lançamento manual para começar."
-          actionHref="/home/lancamentos/novo"
+          onAction={openLancamento}
           actionLabel="Adicionar lançamento"
         />
       ) : (

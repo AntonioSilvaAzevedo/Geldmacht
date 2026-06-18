@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useLancamentoModal } from '@/components/Lancamento/lancamento-modal-context';
 
-type IconName = 'home' | 'wallet' | 'plus' | 'grid' | 'more';
+type IconName = 'home' | 'wallet' | 'plus' | 'grid';
 
 interface NavItem {
   href: string;
@@ -19,7 +19,6 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/home/carteira', label: 'Carteira', icon: 'wallet' },
   { href: 'lancamento', label: 'Adicionar', icon: 'plus' },
   { href: '/home/categorias', label: 'Categorias', icon: 'grid' },
-  { href: '/home/mais', label: 'Mais', icon: 'more' },
 ];
 
 function TabIcon({ icon, active }: { icon: Exclude<IconName, 'plus'>; active: boolean }) {
@@ -58,14 +57,6 @@ function TabIcon({ icon, active }: { icon: Exclude<IconName, 'plus'>; active: bo
           <rect x="14" y="14" width="7" height="7" rx="1" />
         </svg>
       );
-    case 'more':
-      return (
-        <svg {...props}>
-          <circle cx="5" cy="12" r="1.5" />
-          <circle cx="12" cy="12" r="1.5" />
-          <circle cx="19" cy="12" r="1.5" />
-        </svg>
-      );
   }
 }
 
@@ -91,7 +82,7 @@ export default function BottomTabBar() {
       <div className="relative flex h-[56px] w-full items-stretch">
         <span
           aria-hidden
-          className="pointer-events-none absolute inset-y-0 left-0 w-1/5 p-1 transition-[transform,opacity] duration-300 ease-out"
+          className="pointer-events-none absolute inset-y-0 left-0 w-1/4 p-1 transition-[transform,opacity] duration-300 ease-out"
           style={{ transform: `translateX(${Math.max(activeIndex, 0) * 100}%)`, opacity: activeIndex < 0 ? 0 : 1 }}
         >
           <span className="block h-full w-full rounded-2xl bg-white/[0.07]" />
