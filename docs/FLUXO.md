@@ -25,9 +25,22 @@
 
 ## 1. Autenticação ✅
 
-1. `/login` — entrar com e-mail e senha.
+1. `/login` — entrar **apenas com e-mail e senha**. O login com Google foi removido (#67) — front e endpoint `/auth/google` do backend retirados.
 2. `/register` — criar conta.
-3. Sessão via NextAuth; rotas `/home/*` exigem login.
+3. Sessão via NextAuth (JWT). Rotas `/home/*` exigem login, protegidas pelo `middleware.ts`.
+
+### Comportamento de sessão (#67)
+- **Token válido** → renderiza a aplicação.
+- **Token ausente, expirado ou inválido** → o `middleware` redireciona **direto para `/login`** antes de renderizar a área autenticada (sem flash); a sessão local é limpa.
+- A expiração da **sessão NextAuth acompanha a expiração do access token do backend**: no `jwt` callback o `exp` do token do backend é lido e aplicado ao `token.exp`. Assim a sessão não "sobrevive" ao token e não há mais o caso de renderizar a tela e só depois quebrar com 401.
+- Sem **"Manter logado"**, a sessão é limitada a 1 dia (cap sobre o `exp` do token).
+
+### Expiração do token e usuário de teste (#67)
+- **Token:** `ACCESS_TOKEN_EXPIRE_MINUTES` (env). **Dev/teste: 10080 (7 dias)**. **Produção define o seu próprio valor explicitamente** (recomenda-se menor) — não usar 7 dias em produção por padrão.
+- **Usuário de teste padrão** (apenas dev/teste, criado por seed no startup quando `SEED_TEST_USER=true`, idempotente, senha com hash, sem privilégios especiais):
+  - **E-mail:** `teste@agente.com`
+  - **Senha:** `teste@123`
+- **A partir da #67, issues que exijam validação autenticada devem usar esse usuário de teste por padrão.** Não habilitar `SEED_TEST_USER` em produção.
 
 ---
 

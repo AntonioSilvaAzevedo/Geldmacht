@@ -1,8 +1,17 @@
 import NextAuth from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
-import Google from 'next-auth/providers/google';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? '';
+
+function backendTokenExp(token: string): number | null {
+  try {
+    const payload = token.split('.')[1];
+    const json = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+    return typeof json.exp === 'number' ? json.exp : null;
+  } catch {
+    return null;
+  }
+}
 
 
 // ── Auth config ───────────────────────────────────────────────────────────────
@@ -44,36 +53,20 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         }
       },
     }),
-
-    Google({
-      clientId:     process.env.GOOGLE_CLIENT_ID  ?? '',
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? '',
-    }),
   ],
 
   callbacks: {
-    async jwt({ token, user, account }) {
-      // Credentials: accessToken + rememberMe vêm do authorize()
+    async jwt({ token, user }) {
       if (user) {
-        if (user.accessToken) token.accessToken = user.accessToken;
-        // Sem "Manter logado" → sessão expira em 1 dia
-        if (user.rememberMe !== 'true') {
-          token.exp = Math.floor(Date.now() / 1000) + 24 * 60 * 60;
+        if (user.accessToken) {
+          token.accessToken = user.accessToken;
+          const exp = backendTokenExp(user.accessToken);
+          if (exp) token.exp = exp;
         }
-      }
-      // Google: trocar token Google por JWT do backend
-      if (account?.provider === 'google' && account.access_token) {
-        try {
-          const res = await fetch(`${API}/auth/google`, {
-            method:  'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify({ access_token: account.access_token }),
-          });
-          if (res.ok) {
-            const data = await res.json();
-            token.accessToken = data.access_token;
-          }
-        } catch { /* mantém token existente */ }
+        if (user.rememberMe !== 'true') {
+          const oneDay = Math.floor(Date.now() / 1000) + 24 * 60 * 60;
+          token.exp = typeof token.exp === 'number' ? Math.min(token.exp, oneDay) : oneDay;
+        }
       }
       return token;
     },
