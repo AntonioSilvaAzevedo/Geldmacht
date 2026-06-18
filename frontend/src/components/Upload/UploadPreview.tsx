@@ -14,13 +14,14 @@ import { useState, useMemo, useCallback, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  CheckSquare, Square, ArrowLeft, Download,
+  CheckSquare, Square, ArrowLeft,
   AlertTriangle, TrendingUp, TrendingDown,
   Search, Filter, CheckCircle2,
 } from 'lucide-react';
 import EditableDescription from '@/components/EditableDescription';
 import { CategoryChoiceSelect } from '@/components/category-choice-select';
 import { InvoiceSummaryCards } from '@/components/Upload/InvoiceSummaryCards';
+import { ReviewFooter } from '@/components/Upload/ReviewFooter';
 import {
   type UploadResponse,
   type PreviewTransaction,
@@ -982,89 +983,19 @@ export default function UploadPreview({ result, card, cards = [], categories = [
       </div>
       )}
 
-      {/* Rodapé — sticky no mobile, normal no desktop */}
-      <div style={{
-        marginTop: 14,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: isMobile ? 'space-between' : 'space-between',
-        flexShrink: 0,
-        gap: 10,
-        ...(isMobile ? {
-          position: 'fixed',
-          left: 0, right: 0,
-          bottom: 'calc(56px + env(safe-area-inset-bottom))',
-          padding: '10px 14px',
-          background: 'var(--surface-card)',
-          borderTop: '1px solid var(--border-default)',
-          boxShadow: '0 -8px 24px rgba(0,0,0,0.30)',
-          zIndex: 40,
-          marginTop: 0,
-        } : {}),
-      }}>
-        {/* Contador */}
-        <span style={{ fontSize: 12, color: 'var(--text-muted)', minWidth: 0 }}>
-          {isMobile ? (
-            <>
-              <strong style={{ color: 'var(--text-primary)' }}>{selectedCount}</strong>
-              {' '}selecionado{selectedCount === 1 ? '' : 's'}
-            </>
-          ) : (
-            <>
-              Mostrando {filteredTotal} de {transactions.length} ·{' '}
-              <strong style={{ color: 'var(--text-primary)' }}>{selectedCount}</strong> serão importados
-            </>
-          )}
-        </span>
-
-        {/* Ações */}
-        <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
-          {/* Cancelar */}
-          <Button type="button" variant="outline" onClick={onBack}>
-            Cancelar
-          </Button>
-
-          {/* Importar */}
-          {isBankStatement && !bankAccount ? (
-            <Button
-              type="button"
-              variant="outline"
-              disabled
-              title="Volte e selecione uma conta bancária."
-              className="border-[rgba(229,62,62,0.3)] text-[var(--red-400)] opacity-75"
-            >
-              <Download className="size-[15px]" aria-hidden />
-              Conta obrigatória
-            </Button>
-          ) : isCreditCardType && !isBankStatement && !selectedCard ? (
-            <Button
-              type="button"
-              variant="outline"
-              disabled
-              title="Selecione o cartão desta fatura antes de importar."
-              className="border-[rgba(229,62,62,0.3)] text-[var(--red-400)] opacity-75"
-            >
-              <Download className="size-[15px]" aria-hidden />
-              Selecione um cartão
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              variant="primary"
-              onClick={handleImport}
-              disabled={selectedCount === 0}
-              loading={importing}
-            >
-              {!importing && <Download className="size-[15px]" aria-hidden />}
-              {importing
-                ? 'Importando...'
-                : isMobile
-                  ? `Importar (${selectedCount})`
-                  : `Importar ${selectedCount} selecionados`}
-            </Button>
-          )}
-        </div>
-      </div>
+      <ReviewFooter
+        isMobile={isMobile}
+        selectedCount={selectedCount}
+        filteredTotal={filteredTotal}
+        transactionsTotal={transactions.length}
+        isBankStatement={isBankStatement}
+        isCreditCardType={isCreditCardType}
+        hasBankAccount={bankAccount != null}
+        hasSelectedCard={selectedCard != null}
+        importing={importing}
+        onBack={onBack}
+        onImport={handleImport}
+      />
 
     </div>
   );
