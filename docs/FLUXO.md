@@ -141,5 +141,6 @@ Modelo de dados central da Carteira: `Institution` 1—N `BankAccount` / `Credit
 - **Investimentos**: seção existe só como placeholder no resumo da instituição. ⛔
 - **Backfill `institution_id`** (issue #44): precisa estar aplicado no ambiente para que registros antigos apareçam agrupados por instituição. Contas sem instituição ficam no grupo "Sem instituição" (sem hub dedicado).
 - Telas 🚧 (Proventos, Configurações, Perfil) ainda em evolução.
+- **Open Finance / Cumbuca MCP** (spike #61): investigado, **sem implementação**. Recomendação: aguardar maturidade para produção; aprovado apenas protótipo local exploratório. Fluxo conceitual futuro: `Conta bancária > Conectar Open Finance > Sincronizar > Deduplicar > Revisar lançamentos > Confirmar importação`. Detalhes em [`docs/spikes/61-cumbuca-of-data-mcp.md`](spikes/61-cumbuca-of-data-mcp.md). ⛔
 
 > Sempre que uma issue entregar uma feature nova ou mudar um fluxo, atualizar este arquivo.
