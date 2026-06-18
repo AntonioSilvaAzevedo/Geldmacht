@@ -13,6 +13,9 @@ interface ExpandableCardProps {
   defaultOpen?: boolean
   children: ReactNode
   className?: string
+  scrollableContent?: boolean
+  maxContentHeight?: string
+  contentClassName?: string
 }
 
 export function ExpandableCard({
@@ -23,6 +26,9 @@ export function ExpandableCard({
   defaultOpen = false,
   children,
   className,
+  scrollableContent = true,
+  maxContentHeight = 'max-h-[min(60vh,420px)]',
+  contentClassName,
 }: ExpandableCardProps) {
   const [open, setOpen] = useState(defaultOpen)
 
@@ -60,7 +66,18 @@ export function ExpandableCard({
           )}
         />
       </button>
-      {open && <div className="border-t border-[var(--separator)]">{children}</div>}
+      {open && (
+        <div
+          className={cn(
+            'border-t border-[var(--separator)]',
+            scrollableContent && 'overflow-y-auto overscroll-contain',
+            scrollableContent && maxContentHeight,
+            contentClassName,
+          )}
+        >
+          {children}
+        </div>
+      )}
     </div>
   )
 }
