@@ -246,10 +246,6 @@ function InstitutionCard({ institution, onDeleted }: { institution: InstitutionG
     cards.length > 0    && `${cards.length} cartão`,
   ].filter(Boolean).join(' · ');
 
-  const totalFatura = cards.reduce(
-    (sum, card) => sum + (dashboards.get(card.id)?.latest_invoice?.computed_total ?? 0), 0,
-  );
-
   return (
     <div className="relative">
     {id != null && (
@@ -292,7 +288,7 @@ function InstitutionCard({ institution, onDeleted }: { institution: InstitutionG
         </div>
 
         {/* Nome + subtitle */}
-        <div style={{ flex: 1, minWidth: 0, paddingTop: 1 }}>
+        <div style={{ flex: 1, minWidth: 0, paddingTop: 1, paddingRight: 36 }}>
           <div style={{
             fontSize: 17, fontWeight: 700, letterSpacing: '-0.015em',
             lineHeight: 1.15, marginBottom: 4,
@@ -304,23 +300,6 @@ function InstitutionCard({ institution, onDeleted }: { institution: InstitutionG
             {tagParts}
           </div>
         </div>
-
-        {/* Total fatura (se houver) */}
-        {totalFatura > 0 && (
-          <div style={{ textAlign: 'right', flexShrink: 0, paddingTop: 1 }}>
-            <div style={{
-              fontFamily: 'var(--font-mono)',
-              fontSize: 17, fontWeight: 700,
-              letterSpacing: '-0.025em', lineHeight: 1.1,
-              color: 'var(--red-400)',
-            }}>
-              {formatCurrency(totalFatura)}
-            </div>
-            <div style={{ fontSize: 11, color: 'var(--text-tertiary, rgba(255,255,255,0.35))', marginTop: 3 }}>
-              fatura
-            </div>
-          </div>
-        )}
       </div>
 
       {/* ── Products ── */}
