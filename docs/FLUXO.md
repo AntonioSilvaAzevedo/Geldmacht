@@ -38,7 +38,7 @@ A Carteira é organizada por **instituição** (banco/corretora). Desde a issue 
 > **Conceito-chave:** uma instituição "nasce" no momento em que seu **primeiro produto** (conta corrente **ou** cartão) é criado. Por isso, ao abrir uma instituição, o resumo lista qualquer produto que carregue aquele `institution_id` — inclusive um cartão que tenha sido criado já vinculado a ela.
 
 ### 2.1. Lista de instituições — `/home/carteira` ✅
-1. Mostra um **card por instituição** (avatar colorido, nº de contas/cartões, total da fatura quando houver). Cada card tem uma **engrenagem** no canto direito → "Configurações da conta" → "Excluir conta" (ver 2.6).
+1. Mostra um **card por instituição** (avatar colorido, nº de contas/cartões). Cada card tem uma **engrenagem** no canto direito → "Configurações da conta" → "Excluir conta" (ver 2.6). O **valor da fatura não aparece no topo do card** — fica apenas na **linha interna do cartão de crédito**, evitando sobreposição com a engrenagem. _(issue #58)_
 2. **Estado vazio:** "Cadastrar conta bancária" → modal de conta bancária.
 3. **Adicionar conta** (tile tracejado) → modal de conta bancária. Ao salvar, faz **get-or-create** da instituição pelo nome digitado e cria a conta já vinculada (`institution_id`). O **cartão de crédito não é criado aqui** — apenas dentro do resumo da instituição.
 4. Clicar num card → abre o **resumo da instituição** (`/home/carteira/{id}`).
