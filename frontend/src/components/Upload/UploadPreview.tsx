@@ -375,8 +375,8 @@ export default function UploadPreview({ result, card, cards = [], categories = [
         padding: isMobile ? '20px 14px 16px' : '28px 32px',
         display: 'flex',
         flexDirection: 'column',
-        height: isMobile ? 'auto' : '100%',
         minHeight: 0,
+        ...(isMobile ? { height: 'auto' } : { flex: 1 }),
       }}
     >
 
@@ -794,7 +794,12 @@ export default function UploadPreview({ result, card, cards = [], categories = [
           )}
         </div>
       ) : (
-      <div style={{ maxHeight: '60vh', overflowY: 'auto', borderRadius: 10, border: '1px solid var(--border-subtle)', flexShrink: 0 }}>
+      <div style={{
+        borderRadius: 10,
+        border: '1px solid var(--border-subtle)',
+        overflowY: 'auto',
+        ...(isMobile ? { maxHeight: '60vh', flexShrink: 0 } : { flex: 1, minHeight: 0 }),
+      }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
           <thead>
             <tr style={{ background: 'var(--surface-panel)', borderBottom: '1px solid var(--border-subtle)' }}>
