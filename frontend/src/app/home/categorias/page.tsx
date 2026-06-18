@@ -877,7 +877,14 @@ export default function CategoriesPage() {
         <SummaryStrip cats={categories} />
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto" style={{ padding: `0 ${px}px 40px` }}>
+      <div
+        className="min-h-0 flex-1 overflow-y-auto"
+        style={{
+          paddingLeft: px,
+          paddingRight: px,
+          paddingBottom: isMobile ? 'calc(56px + env(safe-area-inset-bottom) + 24px)' : 40,
+        }}
+      >
         {formMode && (
           <CategoryForm
             mode={formMode}

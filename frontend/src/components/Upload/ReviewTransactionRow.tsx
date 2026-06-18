@@ -60,6 +60,7 @@ export function ReviewTransactionRow({
           borderRadius: 10,
           padding: '12px 12px 10px',
           display: 'grid',
+          gridTemplateColumns: 'minmax(0, 1fr)',
           gap: 8,
           minWidth: 0,
           maxWidth: '100%',
@@ -132,6 +133,7 @@ export function ReviewTransactionRow({
 
         <div onClick={e => e.stopPropagation()} style={{
           display: 'grid', gap: 4,
+          gridTemplateColumns: 'minmax(0, 1fr)',
           paddingTop: 4,
           borderTop: '1px dashed var(--border-subtle)',
         }}>
