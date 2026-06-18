@@ -16,12 +16,13 @@ import { useRouter } from 'next/navigation';
 import {
   CheckSquare, Square, ArrowLeft,
   AlertTriangle, TrendingUp, TrendingDown,
-  Search, Filter, CheckCircle2,
+  Filter, CheckCircle2,
 } from 'lucide-react';
 import EditableDescription from '@/components/EditableDescription';
 import { CategoryChoiceSelect } from '@/components/category-choice-select';
 import { InvoiceSummaryCards } from '@/components/Upload/InvoiceSummaryCards';
 import { ReviewFooter } from '@/components/Upload/ReviewFooter';
+import { ReviewFilters, type Filter as TxFilter } from '@/components/Upload/ReviewFilters';
 import {
   type UploadResponse,
   type PreviewTransaction,
@@ -47,8 +48,6 @@ const PARSER_LABELS: Record<string, string> = {
   mercadopago:         'Extrato Mercado Pago',
   bank_statement_ofx:  'Extrato bancário (OFX)',
 };
-
-type Filter = 'todos' | 'entradas' | 'saidas' | 'transferencias';
 
 function previewMovementLabel(tx: PreviewTransaction): string {
   if (tx.transaction_type === 'income') return 'Entrada';
@@ -122,7 +121,7 @@ export default function UploadPreview({ result, card, cards = [], categories = [
   );
 
   // ── Filtros ─────────────────────────────────────────────────────────────────
-  const [activeFilter, setActiveFilter] = useState<Filter>('todos');
+  const [activeFilter, setActiveFilter] = useState<TxFilter>('todos');
   const [search, setSearch] = useState('');
 
   // ── Import state ────────────────────────────────────────────────────────────
@@ -616,46 +615,14 @@ export default function UploadPreview({ result, card, cards = [], categories = [
         </div>
       )}
 
-      {/* Filtros + busca */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 14, flexShrink: 0, flexWrap: 'wrap' }}>
-        {/* Chips de filtro */}
-        <div style={{ display: 'flex', gap: 6 }}>
-          {(isBankStatement
-            ? ['todos', 'entradas', 'saidas']
-            : ['todos', 'entradas', 'saidas', 'transferencias']
-          ).map(f => (
-            <Button
-              type="button"
-              key={f}
-              variant={activeFilter === f ? 'primary' : 'outline'}
-              size="sm"
-              className="rounded-[7px] capitalize"
-              onClick={() => setActiveFilter(f as Filter)}
-            >
-              {f === 'todos'
-                ? `Todos (${transactions.length})`
-                : f === 'entradas'
-                  ? 'Entradas'
-                  : f === 'saidas'
-                    ? 'Saídas'
-                    : 'Transferências'}
-            </Button>
-          ))}
-        </div>
-
-        {/* Busca */}
-        <div style={{ flex: 1, minWidth: 200, position: 'relative' }}>
-          <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-          <Input
-            type="text"
-            variant="search"
-            size="sm"
-            placeholder="Buscar por descrição..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
-        </div>
-      </div>
+      <ReviewFilters
+        isBankStatement={isBankStatement}
+        activeFilter={activeFilter}
+        onFilterChange={setActiveFilter}
+        totalCount={transactions.length}
+        search={search}
+        onSearchChange={setSearch}
+      />
 
       {/* Lista de lançamentos — cards no mobile, tabela no desktop */}
       {isMobile ? (
