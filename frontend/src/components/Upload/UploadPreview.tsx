@@ -13,11 +13,14 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { InvoiceSummaryCards } from '@/components/Upload/InvoiceSummaryCards';
 import { ReviewFooter } from '@/components/Upload/ReviewFooter';
 import { ReviewFilters, type Filter as TxFilter } from '@/components/Upload/ReviewFilters';
 import { ReviewTransactionList } from '@/components/Upload/ReviewTransactionList';
+import { ImportResultView } from '@/components/Upload/ImportResultView';
+import { CreditCardInvoiceForm } from '@/components/Upload/CreditCardInvoiceForm';
+import { BankStatementInfo } from '@/components/Upload/BankStatementInfo';
 import {
   type UploadResponse,
   type PreviewTransaction,
@@ -29,10 +32,8 @@ import {
   type ImportKind,
   importTransactions,
 } from '@/lib/api';
-import { formatCurrency, formatDate } from '@/lib/formatters';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 
 // ── Labels amigáveis por parser ───────────────────────────────────────────────
 const PARSER_LABELS: Record<string, string> = {
@@ -286,72 +287,13 @@ export default function UploadPreview({ result, card, cards = [], categories = [
     }
   };
 
-  // ── Resultado da importação ───────────────────────────────────────────────────
   if (importResult) {
     return (
-      <div style={{ padding: '48px 40px', maxWidth: 560, margin: '0 auto', textAlign: 'center' }}>
-        <div style={{
-          width: 72,
-          height: 72,
-          borderRadius: '50%',
-          background: 'rgba(56,161,105,0.15)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          margin: '0 auto 20px',
-        }}>
-          <CheckCircle2 size={36} color="var(--green-400)" />
-        </div>
-        <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 }}>
-          Importação concluída!
-        </h2>
-        <p style={{ color: 'var(--text-secondary)', fontSize: 14, marginBottom: 8 }}>
-          <strong style={{ color: 'var(--green-400)' }}>{importResult.imported}</strong> lançamentos importados
-          {importResult.skipped > 0 && (
-            <>, <strong style={{ color: 'var(--amber-400)' }}>{importResult.skipped}</strong> duplicatas ignoradas</>
-          )}
-        </p>
-        {importResult.summary && (
-          <div style={{ marginTop: 24, textAlign: 'left' }}>
-            <InvoiceSummaryCards summary={importResult.summary} />
-          </div>
-        )}
-        <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 28 }}>
-          <Button type="button" variant="outline" onClick={onImportDone}>
-            Importar outro arquivo
-          </Button>
-          <Link
-            href={
-              importResult.bank_account_id
-                ? '/home/carteira'
-                : selectedCard?.institution_id != null && importResult.invoice_id
-                  ? `/home/carteira/${selectedCard.institution_id}/cartao/faturas/${importResult.invoice_id}`
-                  : selectedCard?.institution_id != null
-                    ? `/home/carteira/${selectedCard.institution_id}/cartao/faturas`
-                    : '/home/carteira'
-            }
-            style={{
-              padding: '10px 20px',
-              borderRadius: 8,
-              border: 'none',
-              background: 'var(--primary-gradient)',
-              color: '#fff',
-              fontSize: 14,
-              fontWeight: 600,
-              textDecoration: 'none',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-            }}
-          >
-            {importResult.bank_account_id
-              ? 'Ver movimentações da conta'
-              : (importResult.card_id && (importResult.invoice_id || importResult.due_month))
-                ? 'Ver fatura'
-                : 'Ver no Dashboard'}
-          </Link>
-        </div>
-      </div>
+      <ImportResultView
+        importResult={importResult}
+        selectedCard={selectedCard}
+        onImportDone={onImportDone}
+      />
     );
   }
 
@@ -408,181 +350,22 @@ export default function UploadPreview({ result, card, cards = [], categories = [
       </div>
 
       {isCreditCardType && !isBankStatement && (
-        <div style={{
-          background: 'var(--surface-card)',
-          border: `1px solid ${!selectedCard ? 'rgba(229,62,62,0.4)' : 'var(--border-subtle)'}`,
-          borderRadius: 10,
-          padding: '14px 16px',
-          marginBottom: 14,
-          flexShrink: 0,
-        }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>
-            Dados da fatura
-          </div>
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(180px, 1fr))',
-            gap: '12px 16px',
-          }}>
-
-            {/* Cartão — obrigatório */}
-            <label style={{ display: 'grid', gap: 4, fontSize: 12 }}>
-              <span style={{ fontWeight: 600, color: selectedCard ? 'var(--text-secondary)' : 'var(--red-400)' }}>
-                Cartão {!selectedCard && '— obrigatório'}
-              </span>
-              <select
-                value={selectedCard?.id ?? ''}
-                onChange={e => {
-                  const id = e.target.value ? Number(e.target.value) : null;
-                  setSelectedCard(cards.find(c => c.id === id) ?? null);
-                }}
-                style={{
-                  padding: '6px 9px',
-                  borderRadius: 6,
-                  border: `1px solid ${!selectedCard ? 'rgba(229,62,62,0.5)' : 'var(--border-default)'}`,
-                  background: 'var(--surface-panel)',
-                  color: selectedCard ? 'var(--text-primary)' : 'var(--text-muted)',
-                  fontSize: 12,
-                }}
-              >
-                <option value="">Selecione um cartão</option>
-                {cards.map(c => (
-                  <option key={c.id} value={c.id}>{c.name}{c.institution ? ` — ${c.institution}` : ''}</option>
-                ))}
-              </select>
-              {!selectedCard && (
-                <span style={{ color: 'var(--red-400)', fontSize: 11 }}>Obrigatório para importar.</span>
-              )}
-            </label>
-
-            {/* Vencimento */}
-            <label style={{ display: 'grid', gap: 4, fontSize: 12 }}>
-              <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Vencimento</span>
-              <Input
-                type="date"
-                size="sm"
-                value={invoiceData.due_date ?? ''}
-                onChange={e => {
-                  const v = e.target.value;
-                  updateInvoice({ due_date: v || null, due_month: v ? v.slice(0, 7) : invoiceData.due_month });
-                }}
-              />
-            </label>
-
-            {/* Mês de pagamento */}
-            <label style={{ display: 'grid', gap: 4, fontSize: 12 }}>
-              <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Mês de pagamento</span>
-              <Input
-                type="month"
-                size="sm"
-                value={invoiceData.due_month ?? ''}
-                onChange={e => updateInvoice({ due_month: e.target.value })}
-              />
-            </label>
-
-            {/* Período — início */}
-            <label style={{ display: 'grid', gap: 4, fontSize: 12 }}>
-              <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Início do período</span>
-              <Input
-                type="date"
-                size="sm"
-                value={invoiceData.cycle_start_date ?? ''}
-                onChange={e => updateInvoice({ cycle_start_date: e.target.value || null })}
-              />
-            </label>
-
-            {/* Período — fim */}
-            <label style={{ display: 'grid', gap: 4, fontSize: 12 }}>
-              <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Fim do período</span>
-              <Input
-                type="date"
-                size="sm"
-                value={invoiceData.cycle_end_date ?? ''}
-                onChange={e => updateInvoice({ cycle_end_date: e.target.value || null })}
-              />
-            </label>
-
-            {/* Total da fatura */}
-            <label style={{ display: 'grid', gap: 4, fontSize: 12 }}>
-              <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Total da fatura</span>
-              <Input
-                type="number"
-                size="sm"
-                min={0}
-                step={0.01}
-                placeholder="0,00"
-                value={invoiceData.total_amount ?? ''}
-                onChange={e => updateInvoice({ total_amount: e.target.value ? Number(e.target.value) : null })}
-              />
-            </label>
-          </div>
-
-          {/* Resumo visual da fatura */}
-          {selectedCard && (invoiceData.due_date || invoiceData.due_month) && (
-            <div style={{ marginTop: 10, padding: '8px 10px', background: 'rgba(49,130,206,0.07)', borderRadius: 7, fontSize: 12, color: 'var(--text-muted)', display: 'flex', flexWrap: 'wrap', gap: '4px 16px' }}>
-              {invoiceData.due_date && (
-                <span>Vence em <strong style={{ color: 'var(--blue-400)' }}>{formatDate(invoiceData.due_date)}</strong></span>
-              )}
-              {invoiceData.cycle_start_date && invoiceData.cycle_end_date && (
-                <span>Período: <strong style={{ color: 'var(--text-primary)' }}>{formatDate(invoiceData.cycle_start_date)} a {formatDate(invoiceData.cycle_end_date)}</strong></span>
-              )}
-              {invoiceData.total_amount != null && (
-                <span>Total: <strong style={{ color: 'var(--red-400)' }}>{formatCurrency(invoiceData.total_amount)}</strong></span>
-              )}
-            </div>
-          )}
-        </div>
+        <CreditCardInvoiceForm
+          isMobile={isMobile}
+          selectedCard={selectedCard}
+          cards={cards}
+          onSelectCard={setSelectedCard}
+          invoiceData={invoiceData}
+          onUpdateInvoice={updateInvoice}
+        />
       )}
 
       {isBankStatement && (
-        <div style={{
-          background: 'var(--surface-card)',
-          border: '1px solid var(--border-subtle)',
-          borderRadius: 10,
-          padding: '14px 16px',
-          marginBottom: 14,
-          flexShrink: 0,
-        }}>
-          <div style={{
-            fontSize: 12, fontWeight: 700, color: 'var(--text-muted)',
-            textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10,
-          }}>
-            Dados do extrato
-          </div>
-          <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.55, display: 'grid', gap: 6 }}>
-            {bankAccount && (
-              <div><strong style={{ color: 'var(--text-primary)' }}>Conta:</strong>{' '}{bankAccount.name}{bankAccount.institution ? ` — ${bankAccount.institution}` : ''}</div>
-            )}
-            {statement_metadata?.institution != null && statement_metadata.institution !== '' && (
-              <div><strong style={{ color: 'var(--text-primary)' }}>Instituição (arquivo):</strong>{' '}{statement_metadata.institution}</div>
-            )}
-            {statement_metadata?.account_id != null && statement_metadata.account_id !== '' && (
-              <div><strong style={{ color: 'var(--text-primary)' }}>ID conta (OFX):</strong>{' '}{statement_metadata.account_id}</div>
-            )}
-            {(statement_metadata?.period_start || statement_metadata?.period_end) && (
-              <div>
-                <strong style={{ color: 'var(--text-primary)' }}>Período:</strong>{' '}
-                {statement_metadata.period_start ? formatDate(statement_metadata.period_start) : '—'}
-                {' — '}
-                {statement_metadata.period_end ? formatDate(statement_metadata.period_end) : '—'}
-              </div>
-            )}
-            {statement_metadata?.ledger_balance != null && (
-              <div><strong style={{ color: 'var(--text-primary)' }}>Saldo (extrato):</strong>{' '}{formatCurrency(statement_metadata.ledger_balance)}</div>
-            )}
-            {(statement_metadata?.total_inflows != null || statement_metadata?.total_outflows != null) && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 16px' }}>
-                {statement_metadata.total_inflows != null && (
-                  <span><strong style={{ color: 'var(--green-400)' }}>Entradas:</strong>{' '}{formatCurrency(statement_metadata.total_inflows)}</span>
-                )}
-                {statement_metadata.total_outflows != null && (
-                  <span><strong style={{ color: 'var(--red-400)' }}>Saídas:</strong>{' '}{formatCurrency(statement_metadata.total_outflows)}</span>
-                )}
-              </div>
-            )}
-            <div><strong style={{ color: 'var(--text-primary)' }}>Lançamentos:</strong>{' '}{transactions.length}</div>
-          </div>
-        </div>
+        <BankStatementInfo
+          bankAccount={bankAccount}
+          statementMetadata={statement_metadata}
+          transactionsCount={transactions.length}
+        />
       )}
 
       {summary && !isBankStatement && <InvoiceSummaryCards summary={summary} />}
