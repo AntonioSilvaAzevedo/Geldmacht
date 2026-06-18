@@ -21,6 +21,10 @@
 | Perfil | `/home/perfil` | 🚧 |
 | Adicionar (lançamento) | modal global | ✅ |
 
+### Mobile — header e modais _(issue #68)_
+- **Breadcrumb/header escondido no mobile:** na tela de instituição (`/home/carteira/{id}`) o `PageBreadcrumb` só aparece no **desktop**; no mobile o espaço vertical fica para o conteúdo (navegação de volta segue pela bottom tab e pelas abas `InstitutionNav`).
+- **Padrão global de modal (`FormSheet`):** todos os modais de formulário (conta bancária, cartão, lançamento manual, menu Adicionar, pré-requisito, excluir conta) usam o componente único `components/ui/FormSheet.tsx` — **bottom sheet no mobile** / centralizado no desktop, **altura máxima `90dvh`**, **corpo com scroll interno**, **footer fixo** (quando há) e **safe-area** (`env(safe-area-inset-bottom)`). Com o teclado aberto o campo focado continua acessível (viewport com `interactive-widget=resizes-content` + `viewport-fit=cover` no layout raiz). Botões de ação não ficam escondidos atrás da bottom bar nem da barra do navegador.
+
 ---
 
 ## 1. Autenticação ✅

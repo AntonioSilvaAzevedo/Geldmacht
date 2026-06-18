@@ -1,11 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { X } from 'lucide-react';
 
 import { CategoryChoiceSelect } from '@/components/category-choice-select';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { Button } from '@/components/ui/button';
+import { FormSheet } from '@/components/ui/FormSheet';
 import { Input, Select, Textarea } from '@/components/ui/input';
 import { api, type BankAccountConfig, type Category } from '@/lib/api';
 
@@ -28,14 +28,6 @@ export function LancamentoModal({ onClose }: LancamentoModalProps) {
   const [observacoes, setObservacoes] = useState('');
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose();
-    }
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
 
   useEffect(() => {
     let cancel = false;
@@ -118,37 +110,20 @@ export function LancamentoModal({ onClose }: LancamentoModalProps) {
   }
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="lancamento-modal-title"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-      className="fixed inset-0 z-[200] flex items-end justify-center bg-black/55 [animation:gm-fade-in_0.18s_ease-out] sm:items-center sm:p-5"
+    <FormSheet
+      onClose={onClose}
+      title="Adicionar lançamento"
+      titleId="lancamento-modal-title"
+      maxWidthClass="sm:max-w-[480px]"
     >
-      <div className="flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-2xl border border-[var(--border-default)] bg-[var(--surface-card)] [animation:gm-modal-slide-in_0.24s_cubic-bezier(0.2,0.8,0.2,1)] sm:max-w-[480px] sm:rounded-2xl">
-        <div className="flex items-center justify-between border-b border-[var(--separator)] px-5 py-4">
-          <h2 id="lancamento-modal-title" className="text-[17px] font-bold tracking-[-0.01em]">
-            Adicionar lançamento
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Fechar"
-            className="flex size-8 shrink-0 items-center justify-center rounded-full text-[var(--text-secondary)] transition-colors hover:bg-white/[0.06] hover:text-[var(--text-primary)]"
-          >
-            <X className="size-4" />
-          </button>
+      {loadingRefs ? (
+        <div className="flex justify-center py-10">
+          <LoadingSpinner />
         </div>
-
-        <div className="overflow-y-auto px-5 py-5">
-          {loadingRefs ? (
-            <div className="flex justify-center py-10">
-              <LoadingSpinner />
-            </div>
-          ) : loadError ? (
-            <p className="text-[13px] text-[var(--red-400)]">{loadError}</p>
-          ) : (
-            <form onSubmit={(e) => void handleSubmit(e)} className="grid gap-3.5">
+      ) : loadError ? (
+        <p className="text-[13px] text-[var(--red-400)]">{loadError}</p>
+      ) : (
+        <form onSubmit={(e) => void handleSubmit(e)} className="grid gap-3.5">
               <label className="grid gap-1.5 text-xs">
                 <span className="font-semibold text-[var(--text-secondary)]">Tipo</span>
                 <Select size="sm" value={tipo} onChange={(e) => setTipo(e.target.value as 'income' | 'expense')}>
@@ -227,8 +202,6 @@ export function LancamentoModal({ onClose }: LancamentoModalProps) {
               </Button>
             </form>
           )}
-        </div>
-      </div>
-    </div>
+    </FormSheet>
   );
 }

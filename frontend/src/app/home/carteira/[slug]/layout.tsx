@@ -46,11 +46,13 @@ function InstitutionLayoutContent({ children }: { children: ReactNode }) {
 
   return (
     <>
-      <PageBreadcrumb
-        items={[{ href: '/home/carteira', label: 'Carteira' }]}
-        currentPage={displayName}
-        px={px}
-      />
+      {!isMobile && (
+        <PageBreadcrumb
+          items={[{ href: '/home/carteira', label: 'Carteira' }]}
+          currentPage={displayName}
+          px={px}
+        />
+      )}
       <main className="mx-auto flex w-full max-w-[1280px] flex-1 flex-col px-3.5 pb-8 pt-5 sm:px-8 sm:pb-10 sm:pt-6">
         <InstitutionNav className="mb-5" />
         {children}
