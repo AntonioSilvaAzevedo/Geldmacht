@@ -360,7 +360,7 @@ export interface Category {
   id: number;
   user_id: number;
   name: string;
-  scope: 'credit_card' | 'bank';
+  scope: 'global' | 'credit_card' | 'bank';
   color: string | null;
   icon: string | null;
   /** null = aplica em todos os cartões. */

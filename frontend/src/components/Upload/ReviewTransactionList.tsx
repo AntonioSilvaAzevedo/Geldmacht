@@ -39,8 +39,8 @@ export function ReviewTransactionList({
 }: ReviewTransactionListProps) {
   if (isMobile) {
     return (
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <div style={{ display: 'grid', gap: 8 }}>
+      <div className="min-h-0 w-full min-w-0 flex-1 overflow-y-auto">
+        <div className="grid w-full min-w-0 gap-2">
           {filteredIndices.map(i => (
             <ReviewTransactionRow
               key={i}

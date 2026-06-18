@@ -833,138 +833,94 @@ export default function CategoriesPage() {
     setEditTarget(null);
     setFormMode("new-sub");
   }
+  function openNewParent() {
+    setFormMode("new-parent");
+    setEditTarget(null);
+    setParentTarget(null);
+  }
 
   const px = isMobile ? 14 : 24;
 
-  return (
-    <>
-      <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}>
-        <div style={{ padding: `16px ${px}px 40px` }}>
-          {loading ? (
-            <div
-              style={{ display: "flex", justifyContent: "center", padding: 48 }}
-            >
-              <LoadingSpinner />
-            </div>
-          ) : error ? (
-            <div
-              style={{
-                display: "flex",
-                gap: 10,
-                alignItems: "center",
-                padding: "16px 0",
-              }}
-            >
-              <AlertTriangle size={16} color="var(--red-400)" />
-              <p style={{ fontSize: 14, color: "var(--red-400)", margin: 0 }}>
-                {error}
-              </p>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => void load()}
-              >
-                <RefreshCw size={14} /> Tentar novamente
-              </Button>
-            </div>
-          ) : (
-            <>
-              <SummaryStrip cats={categories} />
-
-              {filtered.length > 0 && !formMode && (
-                <div style={{ display: "flex", justifyContent: "flex-end", margin: "4px 0 12px" }}>
-                  <Button
-                    type="button"
-                    variant="primary"
-                    size="sm"
-                    onClick={() => {
-                      setFormMode("new-parent");
-                      setEditTarget(null);
-                      setParentTarget(null);
-                    }}
-                  >
-                    <Plus size={13} /> Nova categoria
-                  </Button>
-                </div>
-              )}
-
-              {formMode && (
-                <CategoryForm
-                  mode={formMode}
-                  target={editTarget}
-                  parentCat={parentTarget}
-                  onSave={handleSave}
-                  onCancel={() => {
-                    setFormMode(null);
-                    setEditTarget(null);
-                    setParentTarget(null);
-                  }}
-                />
-              )}
-
-              {filtered.length === 0 ? (
-                <div
-                  style={{
-                    textAlign: "center",
-                    padding: "40px 24px",
-                    border: "1px dashed rgba(255,255,255,0.1)",
-                    borderRadius: 16,
-                  }}
-                >
-                  <Tags
-                    size={28}
-                    style={{
-                      margin: "0 auto 12px",
-                      display: "block",
-                      opacity: 0.3,
-                    }}
-                  />
-                  <div
-                    style={{
-                      fontSize: 14,
-                      color: "var(--text-secondary)",
-                      marginBottom: 16,
-                    }}
-                  >
-                    Nenhuma categoria cadastrada
-                  </div>
-                  {!formMode && (
-                    <Button
-                      type="button"
-                      variant="primary"
-                      size="sm"
-                      onClick={() => {
-                        setFormMode("new-parent");
-                        setEditTarget(null);
-                        setParentTarget(null);
-                      }}
-                    >
-                      <Plus size={13} /> Criar categoria
-                    </Button>
-                  )}
-                </div>
-              ) : (
-                <div style={{ display: "grid", gap: 10 }}>
-                  {filtered.map((cat, i) => (
-                    <CategoryCard
-                      key={cat.id}
-                      cat={cat}
-                      idx={i}
-                      subs={subsByParent.get(cat.id) ?? []}
-                      onEdit={openEdit}
-                      onDelete={handleDelete}
-                      onAddSub={openNewSub}
-                      onDeleteSub={handleDelete}
-                    />
-                  ))}
-                </div>
-              )}
-            </>
-          )}
-        </div>
+  if (loading) {
+    return (
+      <div className="flex flex-1 items-center justify-center py-12">
+        <LoadingSpinner />
       </div>
-    </>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center gap-2.5 px-4 py-4">
+        <AlertTriangle size={16} color="var(--red-400)" />
+        <p className="m-0 text-sm text-[var(--red-400)]">{error}</p>
+        <Button type="button" variant="ghost" size="sm" onClick={() => void load()}>
+          <RefreshCw size={14} /> Tentar novamente
+        </Button>
+      </div>
+    );
+  }
+
+  const addTile = (
+    <button
+      type="button"
+      onClick={openNewParent}
+      className="flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-[rgba(255,255,255,0.14)] bg-transparent px-4 py-4 text-[14px] font-semibold text-[var(--text-secondary)] transition-colors hover:border-[var(--blue)] hover:text-[var(--blue)]"
+    >
+      <Plus size={16} /> Adicionar categoria
+    </button>
+  );
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="shrink-0" style={{ padding: `16px ${px}px 0` }}>
+        <SummaryStrip cats={categories} />
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto" style={{ padding: `0 ${px}px 40px` }}>
+        {formMode && (
+          <CategoryForm
+            mode={formMode}
+            target={editTarget}
+            parentCat={parentTarget}
+            onSave={handleSave}
+            onCancel={() => {
+              setFormMode(null);
+              setEditTarget(null);
+              setParentTarget(null);
+            }}
+          />
+        )}
+
+        {filtered.length === 0 ? (
+          !formMode && (
+            <div className="rounded-2xl border border-dashed border-[rgba(255,255,255,0.1)] px-6 py-10 text-center">
+              <Tags size={28} className="mx-auto mb-3 block opacity-30" />
+              <div className="mb-5 text-sm text-[var(--text-secondary)]">
+                Nenhuma categoria cadastrada
+              </div>
+              {addTile}
+            </div>
+          )
+        ) : (
+          <div className="grid gap-2.5">
+            {filtered.map((cat, i) => (
+              <CategoryCard
+                key={cat.id}
+                cat={cat}
+                idx={i}
+                subs={subsByParent.get(cat.id) ?? []}
+                onEdit={openEdit}
+                onDelete={handleDelete}
+                onAddSub={openNewSub}
+                onDeleteSub={handleDelete}
+              />
+            ))}
+            {!formMode && addTile}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
