@@ -14,7 +14,7 @@ export default function InstitutionCartaoFaturasPage() {
 
   const [months, setMonths] = useState<AnnualInvoiceMonth[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState(false)
 
   const load = useCallback(async () => {
     if (!card) {
@@ -22,11 +22,11 @@ export default function InstitutionCartaoFaturasPage() {
       return
     }
     setLoading(true)
-    setError(null)
+    setError(false)
     try {
       setMonths(await api.getCardAnnualInvoices(card.id))
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao carregar faturas.')
+    } catch {
+      setError(true)
     } finally {
       setLoading(false)
     }
@@ -49,7 +49,17 @@ export default function InstitutionCartaoFaturasPage() {
       </div>
     )
   }
-  if (error) return <StatePanel variant="error" message={error} />
+  if (error) {
+    return (
+      <StatePanel
+        variant="error"
+        title="Não foi possível carregar as faturas."
+        message="Tente novamente."
+        actionLabel="Tentar novamente"
+        onAction={() => void load()}
+      />
+    )
+  }
 
   return (
     <div>

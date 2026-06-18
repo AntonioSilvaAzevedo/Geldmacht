@@ -60,11 +60,15 @@ Ao cadastrar conta/cartão por aqui, o produto já entra vinculado àquela insti
 5. Lista as transações da conta no período.
 
 ### 2.4. Faturas do cartão — `/home/carteira/{id}/cartao/faturas` ✅ (issue #14)
-1. **Visão anual inteligente:** exibe **apenas os meses com fatura real ou previsão** (não mais os 12 meses fixos). Fonte: `GET /api/cards/{id}/annual-invoices?year=YYYY`.
+> **IDs:** o `{id}` da rota é o **id da instituição** (slug). A busca de faturas usa o **id do cartão** (`cards[0].id`, vindo do `useInstitution()`), **não** o id da instituição/conta. Fonte: `GET /api/cards/{cardId}/annual-invoices?year=YYYY`.
+
+1. **Visão anual inteligente:** exibe **apenas os meses com fatura real ou previsão** (não mais os 12 meses fixos).
 2. **Previsão por parcelas:** as parcelas restantes da fatura real **mais recente** projetam os meses à frente (até `installment_total`), marcados com selo **"Previsto"**. Previsto só aparece **após o último mês real** — nunca soma com fatura real (dedup por mês).
 3. **Previsão por assinaturas:** assinaturas recorrentes ativas (entidade `RecurringExpense`) somam seu valor mensal nos meses previstos do ano (do mês seguinte ao último real até dezembro). _(issue #14 — fase 2)_
 4. Mês **real** → abre o **detalhe da fatura**. Mês **previsto** não é clicável (tela mensal de previstos fica para depois).
-5. Sem fatura nem previsão → estado vazio.
+5. **Estados da tela** _(issue #60)_: **carregando** (spinner), **vazio** (sem fatura nem previsão → "Nenhuma fatura ou previsão."), e **erro** (falha na API → "Não foi possível carregar as faturas." com botão **"Tentar novamente"**). A tela nunca quebra em branco.
+
+> **Robustez (issue #60):** o backend agora aplica **CORS inclusive em respostas de erro** — um middleware global converte exceções não tratadas em `500 {"detail": ...}` que ainda passa pelo `CORSMiddleware`. Causa original do 500: tabela `recurring_expenses` ausente no banco (migration `m3n4o5p6q7r8` não aplicada).
 
 ### 2.5. Detalhe da fatura — `/home/carteira/{id}/cartao/faturas/{invoiceId}` ✅
 Detalhe de uma fatura específica (metadados, ciclo, totais e itens). Cada lançamento tem ações **"Categoria"** (recategorizar) e **"Assinatura"** — esta marca o lançamento como **assinatura recorrente** (`POST /api/cards/{id}/recurring`), gerando previsões nos próximos meses. _(issue #14 — fase 2)_
