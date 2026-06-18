@@ -71,7 +71,9 @@ Ao cadastrar conta/cartão por aqui, o produto já entra vinculado àquela insti
 > **Robustez (issue #60):** o backend agora aplica **CORS inclusive em respostas de erro** — um middleware global converte exceções não tratadas em `500 {"detail": ...}` que ainda passa pelo `CORSMiddleware`. Causa original do 500: tabela `recurring_expenses` ausente no banco (migration `m3n4o5p6q7r8` não aplicada).
 
 ### 2.5. Detalhe da fatura — `/home/carteira/{id}/cartao/faturas/{invoiceId}` ✅
-Detalhe de uma fatura específica (metadados, ciclo, totais e itens). Cada lançamento tem ações **"Categoria"** (recategorizar) e **"Assinatura"** — esta marca o lançamento como **assinatura recorrente** (`POST /api/cards/{id}/recurring`), gerando previsões nos próximos meses. _(issue #14 — fase 2)_
+Detalhe de uma fatura específica (metadados, ciclo, totais e itens). Os lançamentos são agrupados por categoria em **accordions** (componente reutilizável `ExpandableCard`), incluindo o grupo **"Compras parceladas"**. Cada lançamento tem ações **"Categoria"** (recategorizar) e **"Assinatura"** — esta marca o lançamento como **assinatura recorrente** (`POST /api/cards/{id}/recurring`), gerando previsões nos próximos meses. _(issue #14 — fase 2)_
+
+> **Scroll interno em accordions/listas longas** _(issue #62)_: ao expandir uma categoria com muitos lançamentos, o conteúdo do accordion tem **altura máxima responsiva e scroll interno** (`max-h-[min(60vh,420px)] overflow-y-auto overscroll-contain`) — a **página não cresce indefinidamente** e o cabeçalho/total da categoria continuam visíveis. Padronizado no `ExpandableCard` (props `scrollableContent`, `maxContentHeight`, `contentClassName`), valendo também para os accordions do **extrato** (resumo mensal / gastos previstos). Comportamento idêntico em desktop e mobile (mouse e touch), sem scroll horizontal.
 
 ### 2.6. Configurações / excluir conta ✅ (issue #48)
 A **engrenagem** fica no card da instituição na lista (`/home/carteira`) e no topo do **resumo** (`/home/carteira/{id}`). Ao abrir: "Configurações da conta" → **Excluir conta**.
