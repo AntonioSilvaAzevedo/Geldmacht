@@ -62,13 +62,12 @@ Ao cadastrar conta/cartão por aqui, o produto já entra vinculado àquela insti
 ### 2.4. Faturas do cartão — `/home/carteira/{id}/cartao/faturas` ✅ (issue #14)
 1. **Visão anual inteligente:** exibe **apenas os meses com fatura real ou previsão** (não mais os 12 meses fixos). Fonte: `GET /api/cards/{id}/annual-invoices?year=YYYY`.
 2. **Previsão por parcelas:** as parcelas restantes da fatura real **mais recente** projetam os meses à frente (até `installment_total`), marcados com selo **"Previsto"**. Previsto só aparece **após o último mês real** — nunca soma com fatura real (dedup por mês).
-3. Mês **real** → abre o **detalhe da fatura**. Mês **previsto** não é clicável (tela mensal de previstos fica para depois).
-4. Sem fatura nem previsão → estado vazio.
-
-> 🚧 Fase 2 (issue #14): assinaturas recorrentes (entidade `RecurringExpense`) também entrarão na previsão.
+3. **Previsão por assinaturas:** assinaturas recorrentes ativas (entidade `RecurringExpense`) somam seu valor mensal nos meses previstos do ano (do mês seguinte ao último real até dezembro). _(issue #14 — fase 2)_
+4. Mês **real** → abre o **detalhe da fatura**. Mês **previsto** não é clicável (tela mensal de previstos fica para depois).
+5. Sem fatura nem previsão → estado vazio.
 
 ### 2.5. Detalhe da fatura — `/home/carteira/{id}/cartao/faturas/{invoiceId}` ✅
-Detalhe de uma fatura específica (metadados, ciclo, totais e itens).
+Detalhe de uma fatura específica (metadados, ciclo, totais e itens). Cada lançamento tem ações **"Categoria"** (recategorizar) e **"Assinatura"** — esta marca o lançamento como **assinatura recorrente** (`POST /api/cards/{id}/recurring`), gerando previsões nos próximos meses. _(issue #14 — fase 2)_
 
 ### 2.6. Configurações / excluir conta ✅ (issue #48)
 A **engrenagem** fica no card da instituição na lista (`/home/carteira`) e no topo do **resumo** (`/home/carteira/{id}`). Ao abrir: "Configurações da conta" → **Excluir conta**.

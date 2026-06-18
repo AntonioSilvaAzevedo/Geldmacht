@@ -126,6 +126,21 @@ export default function InvoiceDetailPage({ params }: PageProps) {
     }
   }, [recatModal, load]);
 
+  const markRecurring = useCallback(async (tx: Transaction) => {
+    if (!window.confirm(`Marcar "${tx.description}" como assinatura recorrente?`)) return;
+    try {
+      await api.createCardRecurring(cid, {
+        description: tx.description,
+        amount: Math.abs(tx.amount),
+        category_id: tx.category_id ?? undefined,
+        start_month: invoice?.due_month,
+      });
+      window.alert('Assinatura criada. A previsão aparecerá nos próximos meses.');
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : 'Não foi possível criar a assinatura.');
+    }
+  }, [cid, invoice]);
+
   if (loading) return <div className="flex flex-1 items-center justify-center"><LoadingSpinner /></div>;
   if (error) return <StatePanel variant="error" message={error} />;
   if (!invoice) return <StatePanel variant="error" message="Fatura não encontrada." />;
@@ -201,15 +216,26 @@ export default function InvoiceDetailPage({ params }: PageProps) {
                       <span className="font-[family-name:var(--font-mono)] text-[13px] font-semibold text-[var(--red-400)]">
                         {formatCurrency(Math.abs(tx.amount))}
                       </span>
-                      <Button
-                        type="button"
-                        variant="link"
-                        size="sm"
-                        className="mt-0.5 !px-0 !py-0 text-[10px]"
-                        onClick={() => setRecatModal({ txId: tx.id, categoryId: tx.category_id ?? null })}
-                      >
-                        Categoria
-                      </Button>
+                      <div className="mt-0.5 flex items-center gap-2.5">
+                        <Button
+                          type="button"
+                          variant="link"
+                          size="sm"
+                          className="!px-0 !py-0 text-[10px]"
+                          onClick={() => setRecatModal({ txId: tx.id, categoryId: tx.category_id ?? null })}
+                        >
+                          Categoria
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="link"
+                          size="sm"
+                          className="!px-0 !py-0 text-[10px]"
+                          onClick={() => void markRecurring(tx)}
+                        >
+                          Assinatura
+                        </Button>
+                      </div>
                     </div>
                   </li>
                 ))}
