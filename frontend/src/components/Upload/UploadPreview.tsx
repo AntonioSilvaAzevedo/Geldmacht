@@ -15,7 +15,6 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ReviewFooter } from '@/components/Upload/ReviewFooter';
 import { ReviewTransactionList } from '@/components/Upload/ReviewTransactionList';
-import { ImportResultView } from '@/components/Upload/ImportResultView';
 import { CreditCardInvoiceForm } from '@/components/Upload/CreditCardInvoiceForm';
 import { BankStatementInfo } from '@/components/Upload/BankStatementInfo';
 import {
@@ -25,7 +24,6 @@ import {
   type Category,
   type CreditCardConfig,
   type BankAccountConfig,
-  type ImportResponse,
   type ImportKind,
   importTransactions,
 } from '@/lib/api';
@@ -43,10 +41,9 @@ interface Props {
   /** Conta bancária selecionada no fluxo `?type=bank_statement`. */
   bankAccount?: BankAccountConfig | null;
   onBack: () => void;
-  onImportDone: () => void;
 }
 
-export default function UploadPreview({ result, card, cards = [], categories = [], uploadType, importKind, bankAccount, onBack, onImportDone }: Props) {
+export default function UploadPreview({ result, card, cards = [], categories = [], uploadType, importKind, bankAccount, onBack }: Props) {
   const isMobile = useIsMobile();
   const router = useRouter();
   const { transactions, parser_used, source_file } = result;
@@ -96,7 +93,6 @@ export default function UploadPreview({ result, card, cards = [], categories = [
 
   // ── Import state ────────────────────────────────────────────────────────────
   const [importing, setImporting] = useState(false);
-  const [importResult, setImportResult] = useState<ImportResponse | null>(null);
 
   // ── Opções de categoria válidas para o cartão selecionado ──────────────────
   // Inclui categorias globais (card_id=null) + específicas do cartão atual.
@@ -210,11 +206,6 @@ export default function UploadPreview({ result, card, cards = [], categories = [
               ...(resolvedImportKind ? { import_kind: resolvedImportKind } : {}),
             }),
       });
-      if (isBankStatement && bankAccount) {
-        router.push('/home/carteira');
-        return;
-      }
-      setImportResult(res);
       if (isCreditCardImport && selectedCard) {
         const slug = selectedCard.institution_id != null ? String(selectedCard.institution_id) : null;
         if (slug && res.invoice_id) {
@@ -224,23 +215,15 @@ export default function UploadPreview({ result, card, cards = [], categories = [
         } else {
           router.push('/home/carteira');
         }
+        return;
       }
+      router.push('/home/carteira');
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Erro ao importar. Tente novamente.');
     } finally {
       setImporting(false);
     }
   };
-
-  if (importResult) {
-    return (
-      <ImportResultView
-        importResult={importResult}
-        selectedCard={selectedCard}
-        onImportDone={onImportDone}
-      />
-    );
-  }
 
   // ── Render principal ────────────────────────────────────────────────────────
   return (

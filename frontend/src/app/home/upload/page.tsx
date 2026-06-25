@@ -185,12 +185,6 @@ function UploadPageInner() {
     }
   };
 
-  const handleImportDone = () => {
-    setSelectedFile(null);
-    setUploadResult(null);
-    setStage('idle');
-  };
-
   const fileAccept = isBankStatementType ? ACCEPT_BANK_STATEMENT.join(',') : ACCEPT_CARD.join(',');
 
   if (
@@ -257,7 +251,6 @@ function UploadPageInner() {
         importKind={isBankStatementType ? 'bank_statement' : undefined}
         bankAccount={selectedBank}
         onBack={clearFile}
-        onImportDone={handleImportDone}
       />
     );
   }

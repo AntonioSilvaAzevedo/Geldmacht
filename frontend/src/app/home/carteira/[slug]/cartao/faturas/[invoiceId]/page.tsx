@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { CreditCard, Upload } from 'lucide-react';
 
 import { CategoryBadges } from '@/components/category-badges';
+import { Input } from '@/components/ui/input';
 import { useInstitution } from '@/components/carteira/institution-context';
 import { ExpandableCard } from '@/components/ui/expandable-card';
 import CategoryIcon from '@/components/CategoryIcon';
@@ -53,8 +54,8 @@ export default function InvoiceDetailPage({ params }: PageProps) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [recatModal, setRecatModal] = useState<{ txId: number; categoryId: number | null } | null>(null);
-  const [recatSaving, setRecatSaving] = useState(false);
+  const [editModal, setEditModal] = useState<{ txId: number; categoryId: number | null; description: string } | null>(null);
+  const [editSaving, setEditSaving] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -112,34 +113,22 @@ export default function InvoiceDetailPage({ params }: PageProps) {
     }),
   [categories, catById]);
 
-  const saveRecat = useCallback(async () => {
-    if (!recatModal) return;
-    setRecatSaving(true);
+  const saveEdit = useCallback(async () => {
+    if (!editModal) return;
+    setEditSaving(true);
     try {
-      await api.updateTransaction(recatModal.txId, { category_id: recatModal.categoryId ?? undefined });
-      await load();
-      setRecatModal(null);
-    } catch (err) {
-      window.alert(err instanceof Error ? err.message : 'Não foi possível alterar a categoria.');
-    } finally {
-      setRecatSaving(false);
-    }
-  }, [recatModal, load]);
-
-  const markRecurring = useCallback(async (tx: Transaction) => {
-    if (!window.confirm(`Marcar "${tx.description}" como assinatura recorrente?`)) return;
-    try {
-      await api.createCardRecurring(cid, {
-        description: tx.description,
-        amount: Math.abs(tx.amount),
-        category_id: tx.category_id ?? undefined,
-        start_month: invoice?.due_month,
+      await api.updateTransaction(editModal.txId, {
+        description: editModal.description.trim(),
+        category_id: editModal.categoryId ?? undefined,
       });
-      window.alert('Assinatura criada. A previsão aparecerá nos próximos meses.');
+      await load();
+      setEditModal(null);
     } catch (err) {
-      window.alert(err instanceof Error ? err.message : 'Não foi possível criar a assinatura.');
+      window.alert(err instanceof Error ? err.message : 'Não foi possível salvar o lançamento.');
+    } finally {
+      setEditSaving(false);
     }
-  }, [cid, invoice]);
+  }, [editModal, load]);
 
   if (loading) return <div className="flex flex-1 items-center justify-center"><LoadingSpinner /></div>;
   if (error) return <StatePanel variant="error" message={error} />;
@@ -207,36 +196,18 @@ export default function InvoiceDetailPage({ params }: PageProps) {
             >
               <ul className="divide-y divide-[var(--separator)]">
                 {group.transactions.map((tx) => (
-                  <li key={tx.id} className="flex items-start gap-3 px-5 py-3">
+                  <li
+                    key={tx.id}
+                    onClick={() => setEditModal({ txId: tx.id, categoryId: tx.category_id ?? null, description: tx.description })}
+                    className="flex cursor-pointer items-start gap-3 px-5 py-3 transition-colors hover:bg-white/[0.02]"
+                  >
                     <div className="min-w-0 flex-1">
                       <div className="text-[13px] font-medium text-[var(--text-primary)]">{tx.description}</div>
                       <div className="mt-0.5 text-[11px] text-[var(--text-tertiary)]">{formatDate(tx.date)}</div>
                     </div>
-                    <div className="flex shrink-0 flex-col items-end">
-                      <span className="font-[family-name:var(--font-mono)] text-[13px] font-semibold text-[var(--red-400)]">
-                        {formatCurrency(Math.abs(tx.amount))}
-                      </span>
-                      <div className="mt-0.5 flex items-center gap-2.5">
-                        <Button
-                          type="button"
-                          variant="link"
-                          size="sm"
-                          className="!px-0 !py-0 text-[10px]"
-                          onClick={() => setRecatModal({ txId: tx.id, categoryId: tx.category_id ?? null })}
-                        >
-                          Categoria
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="link"
-                          size="sm"
-                          className="!px-0 !py-0 text-[10px]"
-                          onClick={() => void markRecurring(tx)}
-                        >
-                          Assinatura
-                        </Button>
-                      </div>
-                    </div>
+                    <span className="shrink-0 font-[family-name:var(--font-mono)] text-[13px] font-semibold text-[var(--red-400)]">
+                      {formatCurrency(Math.abs(tx.amount))}
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -274,28 +245,38 @@ export default function InvoiceDetailPage({ params }: PageProps) {
         </div>
       )}
 
-      {recatModal && (
+      {editModal && (
         <div
           role="dialog"
           aria-modal="true"
-          onClick={(e) => { if (e.target === e.currentTarget && !recatSaving) setRecatModal(null); }}
+          onClick={(e) => { if (e.target === e.currentTarget && !editSaving) setEditModal(null); }}
           className="fixed inset-0 z-[100] flex items-center justify-center bg-black/65 p-[var(--inset-screen)]"
         >
           <div
             onClick={(e) => e.stopPropagation()}
             className="w-full max-w-[400px] rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--surface-card)] p-[var(--space-5)] shadow-[var(--shadow-modal)]"
           >
-            <h2 className="mb-[var(--space-4)] text-[17px] font-bold">Alterar categoria</h2>
+            <h2 className="mb-[var(--space-4)] text-[17px] font-bold">Editar lançamento</h2>
+            <label htmlFor="edit-tx-description" className="mb-1.5 block text-[12px] font-medium text-[var(--text-secondary)]">
+              Descrição
+            </label>
+            <Input
+              id="edit-tx-description"
+              value={editModal.description}
+              onChange={(e) => setEditModal((m) => (m ? { ...m, description: e.target.value } : null))}
+              placeholder="Descrição do lançamento"
+            />
+            <div className="mt-[var(--space-4)] mb-1.5 text-[12px] font-medium text-[var(--text-secondary)]">Categoria</div>
             <CategoryBadges
-              value={recatModal.categoryId}
+              value={editModal.categoryId}
               options={categoryChoiceOptions}
-              onChange={(id) => setRecatModal((r) => (r ? { ...r, categoryId: id } : null))}
+              onChange={(id) => setEditModal((m) => (m ? { ...m, categoryId: id } : null))}
             />
             <div className="mt-[22px] flex justify-end gap-2.5">
-              <Button type="button" variant="outline" size="default" disabled={recatSaving} onClick={() => setRecatModal(null)}>
+              <Button type="button" variant="outline" size="default" disabled={editSaving} onClick={() => setEditModal(null)}>
                 Cancelar
               </Button>
-              <Button type="button" variant="primary" loading={recatSaving} onClick={() => void saveRecat()}>
+              <Button type="button" variant="primary" loading={editSaving} onClick={() => void saveEdit()}>
                 Salvar
               </Button>
             </div>
