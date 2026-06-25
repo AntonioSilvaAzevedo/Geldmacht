@@ -16,6 +16,7 @@ interface ExpandableCardProps {
   scrollableContent?: boolean
   maxContentHeight?: string
   contentClassName?: string
+  titleWrap?: boolean
 }
 
 export function ExpandableCard({
@@ -29,6 +30,7 @@ export function ExpandableCard({
   scrollableContent = true,
   maxContentHeight = 'max-h-[min(60vh,420px)]',
   contentClassName,
+  titleWrap = false,
 }: ExpandableCardProps) {
   const [open, setOpen] = useState(defaultOpen)
 
@@ -47,7 +49,12 @@ export function ExpandableCard({
       >
         {leading}
         <div className="min-w-0 flex-1">
-          <div className="truncate text-[15px] font-semibold tracking-[-0.01em] text-[var(--text-primary)]">
+          <div
+            className={cn(
+              'text-[15px] font-semibold tracking-[-0.01em] text-[var(--text-primary)]',
+              titleWrap ? 'break-words' : 'truncate',
+            )}
+          >
             {title}
           </div>
           {subtitle != null && (

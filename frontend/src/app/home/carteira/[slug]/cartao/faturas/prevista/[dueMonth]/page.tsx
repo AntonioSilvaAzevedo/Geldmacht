@@ -9,6 +9,7 @@ import StatePanel from '@/components/StatePanel';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { api, type PredictedInvoiceItem, type PredictedInvoiceResponse } from '@/lib/api';
 import { formatCurrency } from '@/lib/formatters';
+import { cn } from '@/lib/utils';
 import { useInstitution } from '@/components/carteira/institution-context';
 
 interface PageProps { params: Promise<{ slug: string; dueMonth: string }> }
@@ -16,24 +17,48 @@ interface PageProps { params: Promise<{ slug: string; dueMonth: string }> }
 function ItemList({ items }: { items: PredictedInvoiceItem[] }) {
   return (
     <ul className="divide-y divide-[var(--separator)]">
-      {items.map((item, index) => (
-        <li key={`${item.description}-${index}`} className="flex items-start gap-3 px-5 py-3">
-          <div className="min-w-0 flex-1">
-            <div className="text-[13px] font-medium text-[var(--text-primary)]">{item.description}</div>
-            <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-[var(--text-tertiary)]">
-              <span className="rounded-full bg-[var(--surface-2)] px-1.5 py-0.5 font-semibold uppercase tracking-[0.04em]">
-                {item.origin === 'installment'
-                  ? `Parcela ${item.installment_current}/${item.installment_total}`
-                  : 'Recorrente'}
-              </span>
-              {item.category_name ? <span>{item.category_name}</span> : null}
+      {items.map((item, index) => {
+        const isLastInstallment =
+          item.origin === 'installment'
+          && item.installment_current != null
+          && item.installment_current === item.installment_total;
+        return (
+          <li
+            key={`${item.description}-${index}`}
+            className={cn(
+              'flex items-start gap-3 px-5 py-3',
+              isLastInstallment && 'bg-[rgba(48,209,88,0.06)]',
+            )}
+          >
+            <div className="min-w-0 flex-1">
+              <div className="text-[13px] font-medium text-[var(--text-primary)]">{item.description}</div>
+              <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-[var(--text-tertiary)]">
+                <span
+                  className={cn(
+                    'rounded-full px-1.5 py-0.5 font-semibold uppercase tracking-[0.04em]',
+                    isLastInstallment
+                      ? 'bg-[rgba(48,209,88,0.12)] text-[var(--green-400)]'
+                      : 'bg-[var(--surface-2)]',
+                  )}
+                >
+                  {item.origin === 'installment'
+                    ? `Parcela ${item.installment_current}/${item.installment_total}`
+                    : 'Recorrente'}
+                </span>
+                {isLastInstallment && (
+                  <span className="inline-flex items-center rounded-full bg-[rgba(48,209,88,0.12)] px-2 py-0.5 text-[10px] font-semibold text-[var(--green-400)]">
+                    Última parcela
+                  </span>
+                )}
+                {item.category_name ? <span>{item.category_name}</span> : null}
+              </div>
             </div>
-          </div>
-          <span className="shrink-0 font-[family-name:var(--font-mono)] text-[13px] font-semibold text-[var(--text-secondary)]">
-            {formatCurrency(item.amount)}
-          </span>
-        </li>
-      ))}
+            <span className="shrink-0 font-[family-name:var(--font-mono)] text-[13px] font-semibold text-[var(--text-secondary)]">
+              {formatCurrency(item.amount)}
+            </span>
+          </li>
+        );
+      })}
     </ul>
   );
 }

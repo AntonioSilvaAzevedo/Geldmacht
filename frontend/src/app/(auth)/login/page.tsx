@@ -79,7 +79,7 @@ function LoginForm() {
       if (result?.error) {
         setError('E-mail ou senha incorretos. Tente novamente.');
       } else {
-        window.location.href = '/home';
+        window.location.href = '/home/carteira';
       }
     } catch {
       setError('Erro de conexão. Tente novamente.');

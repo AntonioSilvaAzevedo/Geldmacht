@@ -30,7 +30,7 @@ export default auth((req) => {
 
   if (isLoggedIn && !pathname.startsWith('/home') && !isAuthRoute && !pathname.startsWith('/api')) {
     if (pathname === '/' || isLegacyAppPath(pathname)) {
-      const target = pathname === '/' ? '/home' : `/home${pathname}`;
+      const target = pathname === '/' ? '/home/carteira' : `/home${pathname}`;
       return NextResponse.redirect(new URL(`${target}${search}`, req.url));
     }
   }
@@ -39,7 +39,7 @@ export default auth((req) => {
     return NextResponse.redirect(new URL('/login', req.url));
   }
   if (isLoggedIn && isAuthRoute) {
-    return NextResponse.redirect(new URL('/home', req.url));
+    return NextResponse.redirect(new URL('/home/carteira', req.url));
   }
 });
 
