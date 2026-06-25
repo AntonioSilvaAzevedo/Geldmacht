@@ -5,16 +5,7 @@ import type { ReactNode } from 'react';
  */
 export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        background: '#000',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '24px 16px',
-      }}
-    >
+    <div className="flex min-h-[100dvh] items-center justify-center bg-black px-4 py-6">
       {children}
     </div>
   );

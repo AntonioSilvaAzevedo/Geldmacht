@@ -5,7 +5,7 @@ import { LancamentoModalProvider } from '@/components/Lancamento/lancamento-moda
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ height: '100vh', overflow: 'hidden', display: 'flex', background: '#000' }}>
+    <div className="flex h-[100dvh] overflow-hidden bg-black">
       <AuthVersionGate />
       <LancamentoModalProvider>
         <Sidebar />
