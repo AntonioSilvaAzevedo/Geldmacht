@@ -74,6 +74,15 @@ export default function BottomTabBar() {
       if (!target || typeof target.scrollTop !== 'number') return;
 
       const y = target.scrollTop;
+      const maxY = target.scrollHeight - target.clientHeight;
+
+      if (y <= 8 || maxY - y <= 8) {
+        setHidden(false);
+        lastY = y;
+        primed = true;
+        return;
+      }
+
       if (!primed) {
         lastY = y;
         primed = true;
@@ -83,7 +92,7 @@ export default function BottomTabBar() {
       const delta = y - lastY;
       if (Math.abs(delta) < 8) return;
 
-      setHidden(delta > 0 && y > 64);
+      if (delta > 0) setHidden(true);
       lastY = y;
     }
 

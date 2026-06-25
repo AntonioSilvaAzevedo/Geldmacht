@@ -174,7 +174,7 @@ export function ExtratoPanel({ accounts, activeAccountId, setActiveAccountId }: 
             <Button
               variant="outline"
               size="sm"
-              type="button"
+              nativeButton={false}
               className="inline-flex shrink-0 items-center gap-1.5"
               render={<Link href={`/home/upload?type=bank_statement&bankAccountId=${activeAccountId}`} />}
             >
