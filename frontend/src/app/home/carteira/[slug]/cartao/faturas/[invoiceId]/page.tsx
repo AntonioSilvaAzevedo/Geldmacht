@@ -13,6 +13,7 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import { Button } from '@/components/ui/button';
 import { api, type CardInvoiceDetail, type Category } from '@/lib/api';
 import { formatCurrency, formatDate } from '@/lib/formatters';
+import { cn } from '@/lib/utils';
 import type { Transaction } from '@/types/financial';
 
 interface PageProps { params: Promise<{ slug: string; invoiceId: string }> }
@@ -136,6 +137,9 @@ export default function InvoiceDetailPage({ params }: PageProps) {
   const monthLabel = MONTH_FULL[monthStr] ?? invoice.due_month;
   const importHref = `/home/upload?type=credit_card&cardId=${cid}`;
   const installmentsTotal = installments.reduce((s, tx) => s + Math.abs(tx.amount), 0);
+  const hasTransactions = invoice.transactions.length > 0;
+  const invoiceTotal = invoice.summary.total_invoice;
+  const invoiceCredits = invoice.summary.total_other_credits;
 
   function txCount(n: number) {
     return `${n} ${n === 1 ? 'lançamento' : 'lançamentos'}`;
@@ -143,13 +147,36 @@ export default function InvoiceDetailPage({ params }: PageProps) {
 
   return (
     <div>
-      <header className="mb-5">
-        <h1 className="text-[28px] font-bold tracking-[-0.02em] text-[var(--text-primary)]">
-          {monthLabel}
-        </h1>
-        <p className="mt-1 font-[family-name:var(--font-mono)] text-[15px] text-[var(--text-secondary)]">
-          {yearStr}
-        </p>
+      <header className="mb-5 flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="text-[28px] font-bold tracking-[-0.02em] text-[var(--text-primary)]">
+            {monthLabel}
+          </h1>
+          <p className="mt-1 font-[family-name:var(--font-mono)] text-[15px] text-[var(--text-secondary)]">
+            {yearStr}
+          </p>
+        </div>
+
+        {hasTransactions && (
+          <div className="shrink-0 text-right">
+            <div className="text-[11px] font-medium uppercase tracking-[0.04em] text-[var(--text-tertiary)]">
+              Total da fatura
+            </div>
+            <div className="mt-0.5 font-[family-name:var(--font-mono)] text-[20px] font-bold tracking-[-0.01em] text-[var(--text-primary)]">
+              {formatCurrency(invoiceTotal)}
+            </div>
+            {invoiceCredits > 0 && (
+              <div className="mt-2">
+                <div className="text-[11px] font-medium uppercase tracking-[0.04em] text-[var(--text-tertiary)]">
+                  Entradas
+                </div>
+                <div className="mt-0.5 font-[family-name:var(--font-mono)] text-[13px] font-semibold text-[var(--green-400)]">
+                  {formatCurrency(invoiceCredits)}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </header>
 
       {invoice.transactions.length === 0 ? (
@@ -179,6 +206,7 @@ export default function InvoiceDetailPage({ params }: PageProps) {
               title={group.label}
               subtitle={txCount(group.transactions.length)}
               value={formatCurrency(group.total)}
+              titleWrap
             >
               <ul className="divide-y divide-[var(--separator)]">
                 {group.transactions.map((tx) => (
@@ -210,21 +238,43 @@ export default function InvoiceDetailPage({ params }: PageProps) {
               title="Compras parceladas"
               subtitle={txCount(installments.length)}
               value={formatCurrency(installmentsTotal)}
+              titleWrap
             >
               <ul className="divide-y divide-[var(--separator)]">
-                {installments.map((tx) => (
-                  <li key={tx.id} className="flex items-start gap-3 px-5 py-3">
-                    <div className="min-w-0 flex-1">
-                      <div className="text-[13px] font-medium text-[var(--text-primary)]">{tx.description}</div>
-                      <div className="mt-0.5 text-[11px] text-[var(--text-tertiary)]">
-                        Parcela {tx.installment_current} de {tx.installment_total}
+                {installments.map((tx) => {
+                  const isLastInstallment = tx.installment_current === tx.installment_total;
+                  return (
+                    <li
+                      key={tx.id}
+                      className={cn(
+                        'flex items-start gap-3 px-5 py-3',
+                        isLastInstallment && 'bg-[rgba(48,209,88,0.06)]',
+                      )}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[13px] font-medium text-[var(--text-primary)]">{tx.description}</div>
+                        <div className="mt-1 flex flex-wrap items-center gap-2">
+                          <span
+                            className={cn(
+                              'text-[11px]',
+                              isLastInstallment ? 'text-[var(--green-400)]' : 'text-[var(--text-tertiary)]',
+                            )}
+                          >
+                            Parcela {tx.installment_current} de {tx.installment_total}
+                          </span>
+                          {isLastInstallment && (
+                            <span className="inline-flex items-center rounded-full bg-[rgba(48,209,88,0.12)] px-2 py-0.5 text-[10px] font-semibold text-[var(--green-400)]">
+                              Última parcela
+                            </span>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                    <span className="shrink-0 font-[family-name:var(--font-mono)] text-[13px] font-semibold text-[var(--red-400)]">
-                      {formatCurrency(Math.abs(tx.amount))}
-                    </span>
-                  </li>
-                ))}
+                      <span className="shrink-0 font-[family-name:var(--font-mono)] text-[13px] font-semibold text-[var(--red-400)]">
+                        {formatCurrency(Math.abs(tx.amount))}
+                      </span>
+                    </li>
+                  );
+                })}
               </ul>
             </ExpandableCard>
           )}
