@@ -158,6 +158,10 @@ Dois fluxos **separados** (não se misturam):
 
 > **Refator (#54 → #57):** o `UploadPreview` (antes ~1232 linhas, inline-style) foi decomposto em componentes de responsabilidade única — `ReviewTransactionList` (lista) + `ReviewTransactionRow` (linha/card de um lançamento, reutilizável), `ReviewFooter`, `CreditCardInvoiceForm`, `BankStatementInfo` — ficando como orquestrador enxuto. Na #57 a tela foi simplificada: removidos `ReviewFilters` (chips + busca) e o uso dos cards de resumo na revisão, os blocos de destino reduzidos ao mínimo, e a lista passou a rolar internamente também no mobile (lista `flex-1` com scroll próprio; rodapé em fluxo acima da bottom tab bar).
 
+> **Parser determinístico hoje (#84):** a leitura de arquivos é feita por **parsers específicos por banco** (`geldmacht-api/app/parsers/`: Nubank PF/PJ, Itaú, Mercado Pago, Fatura Nubank + OFX genérico) atrás de `detect_parser`. Formatos suportados: **PDF** (`pdfplumber`), **Excel** (`openpyxl`) e **OFX**. Não há CSV/TXT/imagem/PDF escaneado nem IA.
+
+> **Proposta investigativa — Importação universal (spike #84):** spike avaliou universalizar a leitura de faturas/extratos. **Recomendação: OFX como padrão do sistema — para extrato (já funciona) e fatura (estender, issue própria)**; **CSV/Excel via parser universal determinístico** (heurística de colunas); e **IA apenas como fallback para PDF de banco desconhecido / imagem / escaneado**, atrás de feature flag em dev, com **validação rígida (Pydantic), reconciliação total×soma, revisão humana, dedup, API key só no back-end (env), consentimento e ZDR/sem-treino**. **Sem implementação de IA** nesta fase. Análise completa (custo/latência/segurança/LGPD, comparativo Claude × OpenAI) em [`docs/spikes/84-ia-parser-universal.md`](spikes/84-ia-parser-universal.md).
+
 ---
 
 ## 7. Outras telas
