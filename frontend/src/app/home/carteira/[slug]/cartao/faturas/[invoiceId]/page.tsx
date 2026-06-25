@@ -1,8 +1,7 @@
 'use client';
 
 import { use, useCallback, useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { CreditCard, Upload } from 'lucide-react';
+import { CreditCard } from 'lucide-react';
 
 import { CategoryBadges } from '@/components/category-badges';
 import { Input } from '@/components/ui/input';
@@ -44,7 +43,6 @@ function isSystemic(tx: Transaction): boolean {
 }
 
 export default function InvoiceDetailPage({ params }: PageProps) {
-  const router = useRouter();
   const { invoiceId } = use(params);
   const { cards } = useInstitution();
   const cid = cards[0]?.id ?? 0;
@@ -145,25 +143,13 @@ export default function InvoiceDetailPage({ params }: PageProps) {
 
   return (
     <div>
-      <header className="mb-5 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-[28px] font-bold tracking-[-0.02em] text-[var(--text-primary)]">
-            {monthLabel}
-          </h1>
-          <p className="mt-1 font-[family-name:var(--font-mono)] text-[15px] text-[var(--text-secondary)]">
-            {yearStr}
-          </p>
-        </div>
-        <Button
-          variant="primary"
-          size="sm"
-          type="button"
-          className="inline-flex shrink-0 items-center gap-1.5"
-          onClick={() => router.push(importHref)}
-        >
-          <Upload className="size-[13px] shrink-0" />
-          Importar fatura
-        </Button>
+      <header className="mb-5">
+        <h1 className="text-[28px] font-bold tracking-[-0.02em] text-[var(--text-primary)]">
+          {monthLabel}
+        </h1>
+        <p className="mt-1 font-[family-name:var(--font-mono)] text-[15px] text-[var(--text-secondary)]">
+          {yearStr}
+        </p>
       </header>
 
       {invoice.transactions.length === 0 ? (
