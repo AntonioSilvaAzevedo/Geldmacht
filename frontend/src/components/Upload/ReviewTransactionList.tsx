@@ -8,7 +8,6 @@ import { type PreviewTransaction } from '@/lib/api';
 
 interface ReviewTransactionListProps {
   isMobile: boolean;
-  isBankStatement: boolean;
   transactions: PreviewTransaction[];
   filteredIndices: number[];
   selected: Set<number>;
@@ -24,7 +23,6 @@ interface ReviewTransactionListProps {
 
 export function ReviewTransactionList({
   isMobile,
-  isBankStatement,
   transactions,
   filteredIndices,
   selected,
@@ -47,7 +45,6 @@ export function ReviewTransactionList({
               tx={transactions[i]}
               index={i}
               isMobile
-              isBankStatement={isBankStatement}
               isSelected={selected.has(i)}
               onToggle={onToggle}
               description={descriptions[i] ?? transactions[i].description}
@@ -95,9 +92,8 @@ export function ReviewTransactionList({
             </th>
             <th style={{ padding: '10px 12px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 500 }}>Data</th>
             <th style={{ padding: '10px 12px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 500 }}>Descrição</th>
-            <th style={{ padding: '10px 12px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 500 }}>{isBankStatement ? 'Tipo' : 'Parcela'}</th>
-            <th style={{ padding: '10px 12px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 500 }}>Categoria</th>
-            <th style={{ padding: '10px 12px', textAlign: 'right', color: 'var(--text-muted)', fontWeight: 500 }}>Valor</th>
+            <th style={{ padding: '10px 14px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 500 }}>Categoria</th>
+            <th style={{ padding: '10px 14px', textAlign: 'right', color: 'var(--text-muted)', fontWeight: 500 }}>Valor</th>
           </tr>
         </thead>
         <tbody>
@@ -107,7 +103,6 @@ export function ReviewTransactionList({
               tx={transactions[i]}
               index={i}
               isMobile={false}
-              isBankStatement={isBankStatement}
               isSelected={selected.has(i)}
               onToggle={onToggle}
               description={descriptions[i] ?? transactions[i].description}

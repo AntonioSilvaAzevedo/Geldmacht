@@ -21,6 +21,8 @@
 | Perfil | `/home/perfil` | 🚧 |
 | Adicionar (lançamento) | modal global | ✅ |
 
+> **Nav enxuta (issue #73):** a **sidebar** e a **bottom tab (mobile)** exibem apenas **Carteira**, **Categorias** e **Adicionar lançamento**. Os itens **Início**, **Proventos** e **Configurações** ficam **ocultos** (rotas continuam existindo; o acesso ao perfil segue no rodapé da sidebar).
+
 ### Mobile — header e modais _(issue #68)_
 - **Breadcrumb/header escondido no mobile:** na tela de instituição (`/home/carteira/{id}`) o `PageBreadcrumb` só aparece no **desktop**; no mobile o espaço vertical fica para o conteúdo (navegação de volta segue pela bottom tab e pelas abas `InstitutionNav`).
 - **Padrão global de modal (`FormSheet`):** todos os modais de formulário (conta bancária, cartão, lançamento manual, menu Adicionar, pré-requisito, excluir conta) usam o componente único `components/ui/FormSheet.tsx` — **bottom sheet no mobile** / centralizado no desktop, **altura máxima `90dvh`**, **corpo com scroll interno**, **footer fixo** (quando há) e **safe-area** (`env(safe-area-inset-bottom)`). Com o teclado aberto o campo focado continua acessível (viewport com `interactive-widget=resizes-content` + `viewport-fit=cover` no layout raiz). Botões de ação não ficam escondidos atrás da bottom bar nem da barra do navegador.
@@ -90,6 +92,8 @@ Ao cadastrar conta/cartão por aqui, o produto já entra vinculado àquela insti
 ### 2.5. Detalhe da fatura — `/home/carteira/{id}/cartao/faturas/{invoiceId}` ✅
 Detalhe de uma fatura específica (metadados, ciclo, totais e itens). Os lançamentos são agrupados por categoria em **accordions** (componente reutilizável `ExpandableCard`), incluindo o grupo **"Compras parceladas"**. Cada lançamento tem ações **"Categoria"** (recategorizar) e **"Assinatura"** — esta marca o lançamento como **assinatura recorrente** (`POST /api/cards/{id}/recurring`), gerando previsões nos próximos meses. _(issue #14 — fase 2)_
 
+> **Recategorizar na fatura** _(issue #73)_: a ação "Categoria" abre um modal com os mesmos **badges** (`CategoryBadges`) da revisão; ao salvar (`PATCH /api/transactions/{id}`) os **totais e agrupamentos por categoria são recarregados**. Só **despesas não-sistêmicas** entram no agrupamento por categoria (estornos/créditos e parcelados não).
+
 > **Scroll interno em accordions/listas longas** _(issue #62)_: ao expandir uma categoria com muitos lançamentos, o conteúdo do accordion tem **altura máxima responsiva e scroll interno** (`max-h-[min(60vh,420px)] overflow-y-auto overscroll-contain`) — a **página não cresce indefinidamente** e o cabeçalho/total da categoria continuam visíveis. Padronizado no `ExpandableCard` (props `scrollableContent`, `maxContentHeight`, `contentClassName`), valendo também para os accordions do **extrato** (resumo mensal / gastos previstos). Comportamento idêntico em desktop e mobile (mouse e touch), sem scroll horizontal.
 
 ### 2.6. Configurações / excluir conta ✅ (issue #48)
@@ -133,7 +137,8 @@ Dois fluxos **separados** (não se misturam):
    - **Destino compacto:** um único bloco confirma para onde a importação vai — **"Conta corrente de destino"** (extrato) ou **"Cartão de destino"** (fatura, seletor de cartão). Os metadados da fatura (vencimento, ciclo, total) vêm detectados do arquivo e não são mais editáveis na tela.
    - **Sem cards secundários** (resumo da fatura — Total/Estornos/Maior gasto/Parcelas) e **sem busca por descrição nem chips de filtro** na revisão.
    - A **lista rola internamente** e o **botão final de importar fica sempre visível** num rodapé fixo no fim (no mobile, acima da bottom tab bar — não fica mais escondido). Listas grandes não escondem a ação final.
-   - **Categorizar e renomear** _(issue #71)_: cada lançamento permite **escolher uma categoria** (o seletor lista as **categorias globais** do usuário — antes filtrava por `scope` e ficava vazio em faturas) e **renomear o título** (edição inline; o nome editado é enviado na importação).
+   - **Categorizar e renomear** _(issue #71)_: cada lançamento permite **escolher uma categoria** (categorias **globais** do usuário) e **renomear o título** (edição inline; o nome editado é enviado na importação).
+   - **Categorização rápida por badges** _(issue #73)_: a categoria é escolhida com **chips clicáveis** (`CategoryBadges`), substituindo o seletor dropdown. No **desktop**, a coluna **Parcela/Tipo foi fundida com Categoria** numa única coluna — lançamentos **sistêmicos** (parcelados/pagamentos) mostram ali o selo bloqueado (`Parcela X/Y · Bloqueado`); os demais mostram os chips de categoria. O conteúdo da revisão tem **largura máxima** (`max-w-[1120px]`, centralizado) para os itens ficarem bem divididos em monitores grandes. No **mobile**, os chips ficam no card. Mostra "Sem categoria" + categorias (todas quando poucas; senão as principais + **"Mais categorias"**, que abre um **bottom sheet `FormSheet` com busca**). A selecionada fica destacada, com `cursor-pointer`, sem scroll horizontal.
    - **Mobile** _(issue #71)_: cards de lançamento **cabem na largura da tela** (sem scroll lateral); o **contador de selecionados** fica numa linha **acima da lista** (saiu do rodapé) e o rodapé mostra só **Cancelar/Importar**, sempre visíveis e com safe-area.
 4. Ao concluir, redireciona para o extrato/fatura correspondente (`/home/carteira/{institution_id}/...`).
 

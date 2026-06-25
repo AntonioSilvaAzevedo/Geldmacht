@@ -246,10 +246,10 @@ export default function UploadPreview({ result, card, cards = [], categories = [
   return (
     <div
       className={cn(
-        'flex min-h-0 flex-1 flex-col',
+        'mx-auto flex min-h-0 w-full flex-1 flex-col',
         isMobile
           ? 'px-3.5 pt-5 pb-[calc(56px+env(safe-area-inset-bottom))]'
-          : 'px-8 py-7',
+          : 'max-w-[1120px] px-8 py-7',
       )}
     >
       <div className={cn('shrink-0', isMobile ? 'mb-3.5' : 'mb-5')}>
@@ -287,7 +287,6 @@ export default function UploadPreview({ result, card, cards = [], categories = [
 
       <ReviewTransactionList
         isMobile={isMobile}
-        isBankStatement={isBankStatement}
         transactions={transactions}
         filteredIndices={allIndices}
         selected={selected}

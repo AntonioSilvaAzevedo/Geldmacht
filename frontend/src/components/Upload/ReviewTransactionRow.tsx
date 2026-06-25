@@ -1,36 +1,28 @@
-import { type ComponentProps } from 'react';
+import { type ComponentProps, type CSSProperties } from 'react';
 import { AlertTriangle, CheckSquare, Square, TrendingDown, TrendingUp } from 'lucide-react';
 
 import EditableDescription from '@/components/EditableDescription';
-import { CategoryChoiceSelect } from '@/components/category-choice-select';
+import { CategoryBadges } from '@/components/category-badges';
 import { type PreviewTransaction } from '@/lib/api';
 import { formatCurrency, formatDate } from '@/lib/formatters';
-
-function previewMovementLabel(tx: PreviewTransaction): string {
-  if (tx.transaction_type === 'income') return 'Entrada';
-  if (tx.transaction_type === 'expense') return 'Saída';
-  return tx.amount >= 0 ? 'Entrada' : 'Saída';
-}
 
 export interface ReviewTransactionRowProps {
   tx: PreviewTransaction;
   index: number;
   isMobile: boolean;
-  isBankStatement: boolean;
   isSelected: boolean;
   onToggle: (index: number) => void;
   description: string;
   onDescriptionChange: (index: number, value: string) => void;
   categoryId: number | null;
   onCategoryChange: (index: number, id: number | null) => void;
-  categoryOptions: ComponentProps<typeof CategoryChoiceSelect>['options'];
+  categoryOptions: ComponentProps<typeof CategoryBadges>['options'];
 }
 
 export function ReviewTransactionRow({
   tx,
   index,
   isMobile,
-  isBankStatement,
   isSelected,
   onToggle,
   description,
@@ -60,6 +52,7 @@ export function ReviewTransactionRow({
           borderRadius: 10,
           padding: '12px 12px 10px',
           display: 'grid',
+          gridTemplateColumns: 'minmax(0, 1fr)',
           gap: 8,
           minWidth: 0,
           maxWidth: '100%',
@@ -67,7 +60,7 @@ export function ReviewTransactionRow({
           opacity: tx.is_internal_transfer && !isSelected ? 0.7 : 1,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, minWidth: 0 }}>
           <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', minWidth: 0, flex: 1 }}>
             <span style={{ color: isSelected ? 'var(--blue-400)' : 'var(--text-muted)', flexShrink: 0, marginTop: 2 }}>
               {isSelected ? <CheckSquare size={17} /> : <Square size={17} />}
@@ -132,6 +125,8 @@ export function ReviewTransactionRow({
 
         <div onClick={e => e.stopPropagation()} style={{
           display: 'grid', gap: 4,
+          gridTemplateColumns: 'minmax(0, 1fr)',
+          minWidth: 0,
           paddingTop: 4,
           borderTop: '1px dashed var(--border-subtle)',
         }}>
@@ -154,11 +149,10 @@ export function ReviewTransactionRow({
               {systemicLabel} · Bloqueado
             </span>
           ) : (
-            <CategoryChoiceSelect
+            <CategoryBadges
               value={categoryId}
               options={categoryOptions}
               onChange={id => onCategoryChange(index, id)}
-              maxWidth="100%"
             />
           )}
         </div>
@@ -168,41 +162,34 @@ export function ReviewTransactionRow({
 
   const isTransfer = tx.is_internal_transfer;
 
+  const rowBg = isSelected
+    ? 'rgba(49,130,206,0.05)'
+    : isTransfer
+      ? 'rgba(255,255,255,0.01)'
+      : 'transparent';
+  const cell: CSSProperties = { padding: '12px 14px', verticalAlign: 'middle' };
+
   return (
     <tr
       onClick={() => onToggle(index)}
       style={{
         borderBottom: '1px solid var(--border-subtle)',
-        background: isSelected
-          ? 'rgba(49,130,206,0.05)'
-          : isTransfer
-          ? 'rgba(255,255,255,0.01)'
-          : 'transparent',
+        background: rowBg,
         cursor: 'pointer',
         opacity: isTransfer && !isSelected ? 0.55 : 1,
-        transition: 'background 0.1s',
-      }}
-      onMouseEnter={e => {
-        if (!isSelected) (e.currentTarget as HTMLTableRowElement).style.background = 'rgba(255,255,255,0.03)';
-      }}
-      onMouseLeave={e => {
-        (e.currentTarget as HTMLTableRowElement).style.background = isSelected ? 'rgba(49,130,206,0.05)' : isTransfer ? 'rgba(255,255,255,0.01)' : 'transparent';
       }}
     >
-      <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+      <td style={{ ...cell, textAlign: 'center', width: 40 }}>
         <span style={{ color: isSelected ? 'var(--blue-400)' : 'var(--text-muted)' }}>
           {isSelected ? <CheckSquare size={15} /> : <Square size={15} />}
         </span>
       </td>
 
-      <td style={{ padding: '10px 12px', color: 'var(--text-muted)', whiteSpace: 'nowrap', fontFamily: 'var(--font-mono)', fontSize: 12 }}>
+      <td style={{ ...cell, color: 'var(--text-muted)', whiteSpace: 'nowrap', fontFamily: 'var(--font-mono)', fontSize: 12, width: 92 }}>
         {formatDate(tx.date)}
       </td>
 
-      <td
-        style={{ padding: '10px 12px', color: 'var(--text-primary)', maxWidth: 300 }}
-        onClick={e => e.stopPropagation()}
-      >
+      <td style={{ ...cell, color: 'var(--text-primary)', maxWidth: 260, minWidth: 150 }} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           {isTransfer && (
             <span title="Transferência interna">
@@ -216,68 +203,37 @@ export function ReviewTransactionRow({
         </div>
       </td>
 
-      <td
-        style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}
-        title={isBankStatement && tx.source_reference ? `Ref.: ${tx.source_reference}` : undefined}
-      >
-        {isBankStatement ? (
-          <span style={{
-            fontSize: 11,
-            fontWeight: 600,
-            color: previewMovementLabel(tx) === 'Entrada' ? 'var(--green-400)' : 'var(--red-400)',
-          }}>
-            {previewMovementLabel(tx)}
-          </span>
-        ) : tx.installment_current != null && tx.installment_total != null ? (
-          <span style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            padding: '2px 7px',
-            borderRadius: 5,
-            background: 'rgba(49,130,206,0.12)',
-            border: '1px solid rgba(49,130,206,0.2)',
-            color: 'var(--blue-400)',
-            fontSize: 11,
-            fontWeight: 600,
-            fontFamily: 'var(--font-mono)',
-          }}>
-            {tx.installment_current}/{tx.installment_total}
-          </span>
-        ) : (
-          <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>—</span>
-        )}
-      </td>
-
-      <td style={{ padding: '8px 12px' }} onClick={e => e.stopPropagation()}>
+      <td style={{ ...cell, width: '99%' }} onClick={e => e.stopPropagation()}>
         {systemicLabel ? (
           <span
             title="Este lançamento é sistêmico e não pode ser categorizado manualmente."
             style={{
               display: 'inline-flex',
               alignItems: 'center',
-              padding: '3px 8px',
-              borderRadius: 6,
+              padding: '4px 10px',
+              borderRadius: 999,
               background: 'rgba(255,255,255,0.04)',
               border: '1px dashed var(--border-default)',
               color: 'var(--text-muted)',
               fontSize: 11,
               fontWeight: 600,
-              maxWidth: 150,
+              whiteSpace: 'nowrap',
             }}
           >
-            {systemicLabel}
+            {isInstallment ? `Parcela ${tx.installment_current}/${tx.installment_total}` : systemicLabel} · Bloqueado
           </span>
         ) : (
-          <CategoryChoiceSelect
+          <CategoryBadges
             value={categoryId}
             options={categoryOptions}
             onChange={id => onCategoryChange(index, id)}
-            maxWidth={200}
+            maxInline={3}
+            inlineThreshold={4}
           />
         )}
       </td>
 
-      <td style={{ padding: '10px 12px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' }}>
+      <td style={{ ...cell, textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' }}>
         <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
           {tx.amount > 0
             ? <TrendingUp size={12} color="var(--green-400)" />
