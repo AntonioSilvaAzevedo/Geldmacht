@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -55,6 +56,40 @@ function TabIcon({ icon, active }: { icon: Exclude<IconName, 'plus'>; active: bo
 export default function BottomTabBar() {
   const pathname = usePathname();
   const { open: openLancamento } = useLancamentoModal();
+  const [hidden, setHidden] = useState(false);
+
+  useEffect(() => {
+    setHidden(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    const container = document.querySelector('.app-main-content');
+    if (!container) return;
+
+    let lastY = 0;
+    let primed = false;
+
+    function onScroll(event: Event) {
+      const target = event.target as HTMLElement | null;
+      if (!target || typeof target.scrollTop !== 'number') return;
+
+      const y = target.scrollTop;
+      if (!primed) {
+        lastY = y;
+        primed = true;
+        return;
+      }
+
+      const delta = y - lastY;
+      if (Math.abs(delta) < 8) return;
+
+      setHidden(delta > 0 && y > 64);
+      lastY = y;
+    }
+
+    container.addEventListener('scroll', onScroll, { capture: true, passive: true });
+    return () => container.removeEventListener('scroll', onScroll, { capture: true });
+  }, []);
 
   function isActive(href: string) {
     if (href === '/home/carteira') {
@@ -67,7 +102,10 @@ export default function BottomTabBar() {
 
   return (
     <nav
-      className="is-mobile-only fixed inset-x-0 bottom-0 z-50 border-t border-white/[0.08] bg-[rgba(28,28,30,0.92)] pb-[env(safe-area-inset-bottom)] backdrop-blur-xl"
+      className={cn(
+        'is-mobile-only fixed inset-x-0 bottom-0 z-50 border-t border-white/[0.08] bg-[rgba(28,28,30,0.92)] pb-[env(safe-area-inset-bottom)] backdrop-blur-xl transition-transform duration-300 ease-out will-change-transform',
+        hidden && 'translate-y-full',
+      )}
       aria-label="Navegação"
     >
       <div className="relative flex h-[56px] w-full items-stretch">
