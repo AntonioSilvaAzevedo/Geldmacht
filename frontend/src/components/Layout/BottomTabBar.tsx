@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useLancamentoModal } from '@/components/Lancamento/lancamento-modal-context';
 
-type IconName = 'home' | 'wallet' | 'plus' | 'grid';
+type IconName = 'wallet' | 'plus' | 'grid';
 
 interface NavItem {
   href: string;
@@ -15,7 +15,6 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { href: '/home', label: 'Início', icon: 'home' },
   { href: '/home/carteira', label: 'Carteira', icon: 'wallet' },
   { href: 'lancamento', label: 'Adicionar', icon: 'plus' },
   { href: '/home/categorias', label: 'Categorias', icon: 'grid' },
@@ -34,13 +33,6 @@ function TabIcon({ icon, active }: { icon: Exclude<IconName, 'plus'>; active: bo
     className: cn('transition-colors duration-200', active ? 'text-[var(--blue,#0A84FF)]' : 'text-white/40'),
   };
   switch (icon) {
-    case 'home':
-      return (
-        <svg {...props}>
-          <path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z" />
-          <path d="M9 21V12h6v9" />
-        </svg>
-      );
     case 'wallet':
       return (
         <svg {...props}>
@@ -65,7 +57,6 @@ export default function BottomTabBar() {
   const { open: openLancamento } = useLancamentoModal();
 
   function isActive(href: string) {
-    if (href === '/home') return pathname === '/home';
     if (href === '/home/carteira') {
       return pathname.startsWith('/home/carteira') || pathname.startsWith('/home/cartao');
     }
@@ -82,7 +73,7 @@ export default function BottomTabBar() {
       <div className="relative flex h-[56px] w-full items-stretch">
         <span
           aria-hidden
-          className="pointer-events-none absolute inset-y-0 left-0 w-1/4 p-1 transition-[transform,opacity] duration-300 ease-out"
+          className="pointer-events-none absolute inset-y-0 left-0 w-1/3 p-1 transition-[transform,opacity] duration-300 ease-out"
           style={{ transform: `translateX(${Math.max(activeIndex, 0) * 100}%)`, opacity: activeIndex < 0 ? 0 : 1 }}
         >
           <span className="block h-full w-full rounded-2xl bg-white/[0.07]" />

@@ -4,7 +4,7 @@ import { use, useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { CreditCard, Upload } from 'lucide-react';
 
-import { CategoryChoiceSelect } from '@/components/category-choice-select';
+import { CategoryBadges } from '@/components/category-badges';
 import { useInstitution } from '@/components/carteira/institution-context';
 import { ExpandableCard } from '@/components/ui/expandable-card';
 import CategoryIcon from '@/components/CategoryIcon';
@@ -286,10 +286,9 @@ export default function InvoiceDetailPage({ params }: PageProps) {
             className="w-full max-w-[400px] rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--surface-card)] p-[var(--space-5)] shadow-[var(--shadow-modal)]"
           >
             <h2 className="mb-[var(--space-4)] text-[17px] font-bold">Alterar categoria</h2>
-            <CategoryChoiceSelect
+            <CategoryBadges
               value={recatModal.categoryId}
               options={categoryChoiceOptions}
-              emptyLabel="Sem categoria"
               onChange={(id) => setRecatModal((r) => (r ? { ...r, categoryId: id } : null))}
             />
             <div className="mt-[22px] flex justify-end gap-2.5">

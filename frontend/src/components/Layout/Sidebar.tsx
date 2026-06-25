@@ -11,14 +11,11 @@ import { useLancamentoModal } from "@/components/Lancamento/lancamento-modal-con
 
 // ── Nav config ────────────────────────────────────────────────────────────────
 const NAV_PRINCIPAL = [
-  { href: "/home", label: "Início" },
   { href: "/home/carteira", label: "Carteira" },
-  { href: "/home/proventos", label: "Proventos" },
 ];
 
 const NAV_ANALISE = [
   { href: "/home/categorias", label: "Categorias" },
-  { href: "/home/configuracoes", label: "Configurações" },
 ];
 
 // ── Icons (SVG inline — sem dependência externa) ──────────────────────────────
