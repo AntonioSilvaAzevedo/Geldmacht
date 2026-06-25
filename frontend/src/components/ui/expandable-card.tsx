@@ -45,7 +45,7 @@ export function ExpandableCard({
         type="button"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center gap-3 px-5 py-4 text-left outline-none transition-colors duration-150 hover:bg-white/[0.02] focus-visible:ring-[3px] focus-visible:ring-[rgba(10,132,255,0.45)]"
+        className="flex w-full cursor-pointer items-center gap-3 px-5 py-4 text-left outline-none transition-colors duration-150 hover:bg-white/[0.02] focus-visible:ring-[3px] focus-visible:ring-[rgba(10,132,255,0.45)]"
       >
         {leading}
         <div className="min-w-0 flex-1">

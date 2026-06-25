@@ -70,6 +70,12 @@ export interface Transaction {
   category_parent_id?: number | null;
   category_parent_name?: string | null;
   category_invoice_budget_limit?: number | null;
+  tags?: Tag[];
+}
+
+export interface Tag {
+  id: number;
+  name: string;
 }
 
 export type Transactions = Transaction[];
