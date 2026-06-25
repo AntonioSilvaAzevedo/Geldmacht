@@ -98,7 +98,7 @@ function RegisterForm() {
         setError('Conta criada. Entre manualmente na página de login.');
         return;
       }
-      window.location.href = '/home';
+      window.location.href = '/home/carteira';
     } catch {
       setError('Erro de conexão. Tente novamente.');
     } finally {

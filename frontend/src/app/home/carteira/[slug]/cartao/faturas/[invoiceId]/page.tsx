@@ -147,36 +147,32 @@ export default function InvoiceDetailPage({ params }: PageProps) {
 
   return (
     <div>
-      <header className="mb-5 flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h1 className="text-[28px] font-bold tracking-[-0.02em] text-[var(--text-primary)]">
+      <header className="mb-5 flex flex-col gap-1">
+        <div className="flex items-baseline justify-between gap-4">
+          <h1 className="min-w-0 text-[28px] font-bold tracking-[-0.02em] text-[var(--text-primary)]">
             {monthLabel}
           </h1>
-          <p className="mt-1 font-[family-name:var(--font-mono)] text-[15px] text-[var(--text-secondary)]">
+          {hasTransactions && (
+            <span className="shrink-0 font-[family-name:var(--font-mono)] text-[20px] font-bold tracking-[-0.01em] text-[var(--text-primary)]">
+              {formatCurrency(invoiceTotal)}
+            </span>
+          )}
+        </div>
+        <div className="flex items-baseline justify-between gap-4">
+          <p className="font-[family-name:var(--font-mono)] text-[15px] text-[var(--text-secondary)]">
             {yearStr}
           </p>
+          {hasTransactions && invoiceCredits > 0 && (
+            <span className="flex shrink-0 items-baseline gap-1.5">
+              <span className="text-[11px] font-medium uppercase tracking-[0.04em] text-[var(--text-tertiary)]">
+                Entradas
+              </span>
+              <span className="font-[family-name:var(--font-mono)] text-[13px] font-semibold text-[var(--green-400)]">
+                {formatCurrency(invoiceCredits)}
+              </span>
+            </span>
+          )}
         </div>
-
-        {hasTransactions && (
-          <div className="shrink-0 text-right">
-            <div className="text-[11px] font-medium uppercase tracking-[0.04em] text-[var(--text-tertiary)]">
-              Total da fatura
-            </div>
-            <div className="mt-0.5 font-[family-name:var(--font-mono)] text-[20px] font-bold tracking-[-0.01em] text-[var(--text-primary)]">
-              {formatCurrency(invoiceTotal)}
-            </div>
-            {invoiceCredits > 0 && (
-              <div className="mt-2">
-                <div className="text-[11px] font-medium uppercase tracking-[0.04em] text-[var(--text-tertiary)]">
-                  Entradas
-                </div>
-                <div className="mt-0.5 font-[family-name:var(--font-mono)] text-[13px] font-semibold text-[var(--green-400)]">
-                  {formatCurrency(invoiceCredits)}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
       </header>
 
       {invoice.transactions.length === 0 ? (
