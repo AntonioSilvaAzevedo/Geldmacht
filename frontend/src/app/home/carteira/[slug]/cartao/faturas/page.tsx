@@ -86,7 +86,11 @@ export default function InstitutionCartaoFaturasPage() {
               month={m.label}
               amount={m.total}
               predicted={m.predicted}
-              href={m.invoice_id ? `/home/carteira/${slug}/cartao/faturas/${m.invoice_id}` : undefined}
+              href={
+                m.invoice_id
+                  ? `/home/carteira/${slug}/cartao/faturas/${m.invoice_id}`
+                  : `/home/carteira/${slug}/cartao/faturas/prevista/${m.due_month}`
+              }
             />
           ))}
         </div>

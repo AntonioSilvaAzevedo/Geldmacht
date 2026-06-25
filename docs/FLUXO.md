@@ -84,9 +84,13 @@ Ao cadastrar conta/cartão por aqui, o produto já entra vinculado àquela insti
 > **IDs:** o `{id}` da rota é o **id da instituição** (slug). A busca de faturas usa o **id do cartão** (`cards[0].id`, vindo do `useInstitution()`), **não** o id da instituição/conta. Fonte: `GET /api/cards/{cardId}/annual-invoices?year=YYYY`.
 
 1. **Visão anual inteligente:** exibe **apenas os meses com fatura real ou previsão** (não mais os 12 meses fixos).
-2. **Previsão por parcelas:** as parcelas restantes da fatura real **mais recente** projetam os meses à frente (até `installment_total`), marcados com selo **"Previsto"**. Previsto só aparece **após o último mês real** — nunca soma com fatura real (dedup por mês).
+2. **Previsão por parcelas:** as parcelas restantes da fatura real **mais recente** projetam os meses à frente (até `installment_total`), marcados com selo **"Prevista"**. Previsto só aparece **após o último mês real** — nunca soma com fatura real (dedup por mês).
 3. **Previsão por assinaturas:** assinaturas recorrentes ativas (entidade `RecurringExpense`) somam seu valor mensal nos meses previstos do ano (do mês seguinte ao último real até dezembro). _(issue #14 — fase 2)_
-4. Mês **real** → abre o **detalhe da fatura**. Mês **previsto** não é clicável (tela mensal de previstos fica para depois).
+4. Mês **real** → abre o **detalhe da fatura**. Mês **previsto** → abre a **fatura prevista** (ver 2.5.1).
+
+> **Regra de recálculo das previsões (issue #82):** a base das previsões é **sempre a fatura real mais recente** do cartão (`latest_month = max(due_month)` em `services/invoice_projection.py`). Ao importar uma fatura mais atual, `latest_month` avança e os meses seguintes são **recalculados automaticamente** a partir dela — a previsão nunca fica presa numa fatura antiga. Meses que já têm fatura real são **deduplicados** (`if month in real_by_month: continue`), então previsto e real **não se somam** no mesmo mês. Parcelas e recorrentes ativas continuam sendo consideradas.
+
+> **Estado visual das previstas (issue #82):** na listagem, faturas previstas usam estilo **neutral/discreto** (borda tracejada, valores em `text-tertiary`) com label **"Prevista"**, mas seguem **clicáveis** (`cursor-pointer`). Faturas reais mantêm o visual normal.
 5. **Estados da tela** _(issue #60)_: **carregando** (spinner), **vazio** (sem fatura nem previsão → "Nenhuma fatura ou previsão."), e **erro** (falha na API → "Não foi possível carregar as faturas." com botão **"Tentar novamente"**). A tela nunca quebra em branco.
 
 > **Robustez (issue #60):** o backend agora aplica **CORS inclusive em respostas de erro** — um middleware global converte exceções não tratadas em `500 {"detail": ...}` que ainda passa pelo `CORSMiddleware`. Causa original do 500: tabela `recurring_expenses` ausente no banco (migration `m3n4o5p6q7r8` não aplicada).
@@ -97,6 +101,14 @@ Detalhe de uma fatura específica (metadados, ciclo, totais e itens). Os lançam
 > **Editar lançamento na fatura** _(issue #77)_: os links **"Categoria"** e **"Assinatura"** abaixo de cada lançamento foram **removidos**. Agora o **clique direto no lançamento** (`cursor-pointer`) abre o modal **"Editar lançamento"**, que permite **editar a descrição/título** e **alterar a categoria** (badges `CategoryBadges`). Ao salvar (`PATCH /api/transactions/{id}` com `description` + `category_id`), a alteração persiste no back-end e a fatura é recarregada — **descrição, totais e agrupamentos por categoria atualizam**. Só **despesas não-sistêmicas** entram no agrupamento por categoria (estornos/créditos e parcelados não); o grupo "Compras parceladas" não é editável.
 
 > **Scroll interno em accordions/listas longas** _(issue #62)_: ao expandir uma categoria com muitos lançamentos, o conteúdo do accordion tem **altura máxima responsiva e scroll interno** (`max-h-[min(60vh,420px)] overflow-y-auto overscroll-contain`) — a **página não cresce indefinidamente** e o cabeçalho/total da categoria continuam visíveis. Padronizado no `ExpandableCard` (props `scrollableContent`, `maxContentHeight`, `contentClassName`), valendo também para os accordions do **extrato** (resumo mensal / gastos previstos). Comportamento idêntico em desktop e mobile (mouse e touch), sem scroll horizontal.
+
+### 2.5.1. Fatura prevista — `/home/carteira/{id}/cartao/faturas/prevista/{anoMes}` ✅ (issue #82)
+Ao clicar num mês **previsto** da listagem, abre uma tela **read-only** que mostra **a composição da previsão** daquele mês — sem se confundir com fatura real importada.
+
+1. **Fonte:** `GET /api/cards/{cardId}/predicted-invoices/{anoMes}` retorna os itens previstos + **total previsto**. Retorna **404** se o mês não for previsto (já é real, ou anterior/igual ao último mês real, ou sem itens).
+2. **Composição por origem:** os itens são agrupados em **Compras parceladas** (parcelas restantes da fatura real mais recente, com selo `Parcela X/Y`) e **Recorrentes** (assinaturas ativas, selo `Recorrente`), cada um com valor e categoria quando disponível. Reaproveita o `ExpandableCard`.
+3. **Clareza de previsão:** banner indicando que é **projeção baseada na fatura real mais recente** e que os itens **ainda não foram importados**; label **"Prevista"** no título. Sem ações de edição (diferente da fatura real).
+4. **Navegação:** link **"Faturas"** volta para a listagem. Responsivo em desktop/mobile, sem scroll horizontal.
 
 ### 2.6. Configurações / excluir conta ✅ (issue #48)
 A **engrenagem** fica no card da instituição na lista (`/home/carteira`) e no topo do **resumo** (`/home/carteira/{id}`). Ao abrir: "Configurações da conta" → **Excluir conta**.
