@@ -1,10 +1,11 @@
-import { type ComponentProps, type CSSProperties } from 'react';
+import { type ComponentProps } from 'react';
 import { AlertTriangle, CheckSquare, Square, TrendingDown, TrendingUp } from 'lucide-react';
 
 import EditableDescription from '@/components/EditableDescription';
 import { CategoryBadges } from '@/components/category-badges';
 import { type PreviewTransaction } from '@/lib/api';
 import { formatCurrency, formatDate } from '@/lib/formatters';
+import { cn } from '@/lib/utils';
 
 export interface ReviewTransactionRowProps {
   tx: PreviewTransaction;
@@ -18,6 +19,9 @@ export interface ReviewTransactionRowProps {
   onCategoryChange: (index: number, id: number | null) => void;
   categoryOptions: ComponentProps<typeof CategoryBadges>['options'];
 }
+
+const SYSTEMIC_CHIP =
+  'inline-flex w-fit items-center whitespace-nowrap rounded-md border border-dashed border-[var(--border-default)] bg-white/[0.04] px-2.5 py-1.5 text-[12px] font-semibold text-[var(--text-muted)]';
 
 export function ReviewTransactionRow({
   tx,
@@ -41,113 +45,73 @@ export function ReviewTransactionRow({
     : isInstallment
       ? 'Compra parcelada'
       : null;
+  const isTransfer = tx.is_internal_transfer;
+
+  const amount = (
+    <span className="inline-flex items-center gap-1">
+      {tx.amount > 0
+        ? <TrendingUp size={12} className="text-[var(--green-400)]" aria-hidden />
+        : <TrendingDown size={12} className="text-[var(--red-400)]" aria-hidden />}
+      <span className={tx.amount >= 0 ? 'value-positive' : 'value-negative'}>
+        {formatCurrency(tx.amount)}
+      </span>
+    </span>
+  );
 
   if (isMobile) {
     return (
       <div
         onClick={() => onToggle(index)}
-        style={{
-          background: isSelected ? 'rgba(49,130,206,0.08)' : 'var(--surface-card)',
-          border: `1px solid ${isSelected ? 'rgba(49,130,206,0.35)' : 'var(--border-subtle)'}`,
-          borderRadius: 10,
-          padding: '12px 12px 10px',
-          display: 'grid',
-          gridTemplateColumns: 'minmax(0, 1fr)',
-          gap: 8,
-          minWidth: 0,
-          maxWidth: '100%',
-          cursor: 'pointer',
-          opacity: tx.is_internal_transfer && !isSelected ? 0.7 : 1,
-        }}
+        className={cn(
+          'grid max-w-full min-w-0 cursor-pointer grid-cols-[minmax(0,1fr)] gap-2 rounded-[10px] border px-3 pt-3 pb-2.5',
+          isSelected
+            ? 'border-[rgba(49,130,206,0.35)] bg-[rgba(49,130,206,0.08)]'
+            : 'border-[var(--border-subtle)] bg-[var(--surface-card)]',
+          isTransfer && !isSelected && 'opacity-70',
+        )}
       >
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, minWidth: 0 }}>
-          <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', minWidth: 0, flex: 1 }}>
-            <span style={{ color: isSelected ? 'var(--blue-400)' : 'var(--text-muted)', flexShrink: 0, marginTop: 2 }}>
+        <div className="flex min-w-0 items-start justify-between gap-2.5">
+          <div className="flex min-w-0 flex-1 items-start gap-2.5">
+            <span className={cn('mt-0.5 shrink-0', isSelected ? 'text-[var(--blue-400)]' : 'text-[var(--text-muted)]')}>
               {isSelected ? <CheckSquare size={17} /> : <Square size={17} />}
             </span>
-            <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: 11,
-                color: 'var(--text-muted)',
-                marginBottom: 3,
-              }}>
+            <div className="min-w-0 flex-1">
+              <div className="mb-[3px] font-[family-name:var(--font-mono)] text-[11px] text-[var(--text-muted)]">
                 {formatDate(tx.date)}
               </div>
-              <div onClick={e => e.stopPropagation()}>
+              <div
+                onClick={e => e.stopPropagation()}
+                className="text-[13.5px] font-medium text-[var(--text-primary)]"
+              >
                 <EditableDescription
                   value={description}
                   onSave={val => onDescriptionChange(index, val)}
-                  textStyle={{ fontSize: 13.5, fontWeight: 500, color: 'var(--text-primary)' }}
                 />
               </div>
             </div>
           </div>
-          <div style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: 14,
-            fontWeight: 700,
-            whiteSpace: 'nowrap',
-            flexShrink: 0,
-          }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-              {tx.amount > 0
-                ? <TrendingUp size={12} color="var(--green-400)" />
-                : <TrendingDown size={12} color="var(--red-400)" />
-              }
-              <span className={tx.amount >= 0 ? 'value-positive' : 'value-negative'}>
-                {formatCurrency(tx.amount)}
-              </span>
-            </span>
+          <div className="shrink-0 font-[family-name:var(--font-mono)] text-[14px] font-bold whitespace-nowrap">
+            {amount}
           </div>
         </div>
 
         {isInstallment && (
-          <div style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 5,
-            fontSize: 11,
-            color: 'var(--blue-400)',
-          }}>
-            <span style={{
-              padding: '2px 7px',
-              borderRadius: 5,
-              background: 'rgba(49,130,206,0.12)',
-              border: '1px solid rgba(49,130,206,0.20)',
-              fontFamily: 'var(--font-mono)',
-              fontWeight: 600,
-            }}>
+          <div className="inline-flex items-center gap-[5px] text-[11px] text-[var(--blue-400)]">
+            <span className="rounded-[5px] border border-[rgba(49,130,206,0.20)] bg-[rgba(49,130,206,0.12)] px-[7px] py-0.5 font-[family-name:var(--font-mono)] font-semibold">
               Parcela {tx.installment_current}/{tx.installment_total}
             </span>
           </div>
         )}
 
-        <div onClick={e => e.stopPropagation()} style={{
-          display: 'grid', gap: 4,
-          gridTemplateColumns: 'minmax(0, 1fr)',
-          minWidth: 0,
-          paddingTop: 4,
-          borderTop: '1px dashed var(--border-subtle)',
-        }}>
-          <span style={{ fontSize: 10.5, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+        <div
+          onClick={e => e.stopPropagation()}
+          className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-1 border-t border-dashed border-[var(--border-subtle)] pt-1"
+        >
+          <span className="text-[10.5px] tracking-[0.06em] text-[var(--text-muted)] uppercase">
             Categoria
           </span>
           {systemicLabel ? (
-            <span style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              padding: '6px 10px',
-              borderRadius: 6,
-              background: 'rgba(255,255,255,0.04)',
-              border: '1px dashed var(--border-default)',
-              color: 'var(--text-muted)',
-              fontSize: 12,
-              fontWeight: 600,
-              width: 'fit-content',
-            }}>
-              {systemicLabel} · Bloqueado
-            </span>
+            <span className={SYSTEMIC_CHIP}>{systemicLabel} · Bloqueado</span>
           ) : (
             <CategoryBadges
               value={categoryId}
@@ -160,40 +124,35 @@ export function ReviewTransactionRow({
     );
   }
 
-  const isTransfer = tx.is_internal_transfer;
-
-  const rowBg = isSelected
-    ? 'rgba(49,130,206,0.05)'
-    : isTransfer
-      ? 'rgba(255,255,255,0.01)'
-      : 'transparent';
-  const cell: CSSProperties = { padding: '12px 14px', verticalAlign: 'middle' };
+  const cell = 'px-3.5 py-3 align-middle';
 
   return (
     <tr
       onClick={() => onToggle(index)}
-      style={{
-        borderBottom: '1px solid var(--border-subtle)',
-        background: rowBg,
-        cursor: 'pointer',
-        opacity: isTransfer && !isSelected ? 0.55 : 1,
-      }}
+      className={cn(
+        'cursor-pointer border-b border-[var(--border-subtle)]',
+        isSelected
+          ? 'bg-[rgba(49,130,206,0.05)]'
+          : isTransfer
+            ? 'bg-white/[0.01] opacity-[0.55]'
+            : 'bg-transparent',
+      )}
     >
-      <td style={{ ...cell, textAlign: 'center', width: 40 }}>
-        <span style={{ color: isSelected ? 'var(--blue-400)' : 'var(--text-muted)' }}>
+      <td className={cn(cell, 'w-10 text-center')}>
+        <span className={isSelected ? 'text-[var(--blue-400)]' : 'text-[var(--text-muted)]'}>
           {isSelected ? <CheckSquare size={15} /> : <Square size={15} />}
         </span>
       </td>
 
-      <td style={{ ...cell, color: 'var(--text-muted)', whiteSpace: 'nowrap', fontFamily: 'var(--font-mono)', fontSize: 12, width: 92 }}>
+      <td className={cn(cell, 'w-[92px] font-[family-name:var(--font-mono)] text-[12px] whitespace-nowrap text-[var(--text-muted)]')}>
         {formatDate(tx.date)}
       </td>
 
-      <td style={{ ...cell, color: 'var(--text-primary)', maxWidth: 260, minWidth: 150 }} onClick={e => e.stopPropagation()}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+      <td className={cn(cell, 'max-w-[260px] min-w-[150px] text-[var(--text-primary)]')} onClick={e => e.stopPropagation()}>
+        <div className="flex items-center gap-1.5">
           {isTransfer && (
             <span title="Transferência interna">
-              <AlertTriangle size={13} color="var(--amber-400)" style={{ flexShrink: 0 }} />
+              <AlertTriangle size={13} className="shrink-0 text-[var(--amber-400)]" aria-hidden />
             </span>
           )}
           <EditableDescription
@@ -203,22 +162,11 @@ export function ReviewTransactionRow({
         </div>
       </td>
 
-      <td style={{ ...cell, width: '99%' }} onClick={e => e.stopPropagation()}>
+      <td className={cn(cell, 'w-[99%]')} onClick={e => e.stopPropagation()}>
         {systemicLabel ? (
           <span
             title="Este lançamento é sistêmico e não pode ser categorizado manualmente."
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              padding: '4px 10px',
-              borderRadius: 999,
-              background: 'rgba(255,255,255,0.04)',
-              border: '1px dashed var(--border-default)',
-              color: 'var(--text-muted)',
-              fontSize: 11,
-              fontWeight: 600,
-              whiteSpace: 'nowrap',
-            }}
+            className="inline-flex items-center rounded-full border border-dashed border-[var(--border-default)] bg-white/[0.04] px-2.5 py-1 text-[11px] font-semibold whitespace-nowrap text-[var(--text-muted)]"
           >
             {isInstallment ? `Parcela ${tx.installment_current}/${tx.installment_total}` : systemicLabel} · Bloqueado
           </span>
@@ -233,16 +181,8 @@ export function ReviewTransactionRow({
         )}
       </td>
 
-      <td style={{ ...cell, textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' }}>
-        <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
-          {tx.amount > 0
-            ? <TrendingUp size={12} color="var(--green-400)" />
-            : <TrendingDown size={12} color="var(--red-400)" />
-          }
-          <span className={tx.amount >= 0 ? 'value-positive' : 'value-negative'}>
-            {formatCurrency(tx.amount)}
-          </span>
-        </span>
+      <td className={cn(cell, 'text-right font-[family-name:var(--font-mono)] text-[13px] font-semibold whitespace-nowrap')}>
+        <span className="flex items-center justify-end gap-1">{amount}</span>
       </td>
     </tr>
   );
