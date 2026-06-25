@@ -129,6 +129,22 @@ export interface AnnualInvoiceMonth {
   invoice_id: number | null;
 }
 
+export interface PredictedInvoiceItem {
+  description: string;
+  amount: number;
+  origin: 'installment' | 'recurring';
+  installment_current: number | null;
+  installment_total: number | null;
+  category_name: string | null;
+}
+
+export interface PredictedInvoiceResponse {
+  due_month: string;
+  label: string;
+  total: number;
+  items: PredictedInvoiceItem[];
+}
+
 export interface RecurringExpenseConfig {
   id: number;
   card_id: number;
@@ -626,6 +642,9 @@ export const api = {
 
   getCardAnnualInvoices: (id: number, year?: number): Promise<AnnualInvoiceMonth[]> =>
     request<AnnualInvoiceMonth[]>(`${BASE}/api/cards/${id}/annual-invoices${year ? `?year=${year}` : ''}`),
+
+  getPredictedInvoice: (id: number, dueMonth: string): Promise<PredictedInvoiceResponse> =>
+    request<PredictedInvoiceResponse>(`${BASE}/api/cards/${id}/predicted-invoices/${dueMonth}`),
 
   listCardRecurring: (id: number): Promise<RecurringExpenseConfig[]> =>
     request<RecurringExpenseConfig[]>(`${BASE}/api/cards/${id}/recurring`),
