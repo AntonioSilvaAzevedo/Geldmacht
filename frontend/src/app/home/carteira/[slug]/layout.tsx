@@ -11,13 +11,9 @@ import {
 import { InstitutionNav } from '@/components/carteira/institution-nav'
 import LoadingSpinner from '@/components/LoadingSpinner'
 import { Button } from '@/components/ui/button'
-import { PageBreadcrumb } from '@/components/ui/breadcrumb'
-import { useIsMobile } from '@/hooks/useIsMobile'
 
 function InstitutionLayoutContent({ children }: { children: ReactNode }) {
-  const isMobile = useIsMobile()
-  const px = isMobile ? 14 : 32
-  const { displayName, loading, error, refetch } = useInstitution()
+  const { loading, error, refetch } = useInstitution()
 
   if (loading) {
     return (
@@ -45,19 +41,10 @@ function InstitutionLayoutContent({ children }: { children: ReactNode }) {
   }
 
   return (
-    <>
-      {!isMobile && (
-        <PageBreadcrumb
-          items={[{ href: '/home/carteira', label: 'Carteira' }]}
-          currentPage={displayName}
-          px={px}
-        />
-      )}
-      <main className="mx-auto flex w-full max-w-[1280px] flex-1 flex-col px-3.5 pb-8 pt-5 sm:px-8 sm:pb-10 sm:pt-6">
-        <InstitutionNav className="mb-5" />
-        {children}
-      </main>
-    </>
+    <main className="mx-auto flex w-full max-w-[1280px] flex-1 flex-col px-3.5 pb-8 pt-5 sm:px-8 sm:pb-10 sm:pt-6">
+      <InstitutionNav className="mb-5" />
+      {children}
+    </main>
   )
 }
 

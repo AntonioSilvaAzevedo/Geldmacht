@@ -24,7 +24,7 @@
 > **Nav enxuta (issue #73):** a **sidebar** e a **bottom tab (mobile)** exibem apenas **Carteira**, **Categorias** e **Adicionar lançamento**. Os itens **Início**, **Proventos** e **Configurações** ficam **ocultos** (rotas continuam existindo; o acesso ao perfil segue no rodapé da sidebar).
 
 ### Mobile — header e modais _(issue #68)_
-- **Breadcrumb/header escondido no mobile:** na tela de instituição (`/home/carteira/{id}`) o `PageBreadcrumb` só aparece no **desktop**; no mobile o espaço vertical fica para o conteúdo (navegação de volta segue pela bottom tab e pelas abas `InstitutionNav`).
+- **Breadcrumb/header removido da tela de instituição _(issue #80)_:** a `PageBreadcrumb` foi retirada do fluxo `/home/carteira/{id}` em **desktop e mobile** — a navegação acontece pelas abas `InstitutionNav` (Resumo / Conta corrente / Cartão de crédito) e pela bottom tab. O componente `components/ui/breadcrumb.tsx` segue disponível como primitivo do design system, mas sem uso neste fluxo.
 - **Padrão global de modal (`FormSheet`):** todos os modais de formulário (conta bancária, cartão, lançamento manual, menu Adicionar, pré-requisito, excluir conta) usam o componente único `components/ui/FormSheet.tsx` — **bottom sheet no mobile** / centralizado no desktop, **altura máxima `90dvh`**, **corpo com scroll interno**, **footer fixo** (quando há) e **safe-area** (`env(safe-area-inset-bottom)`). Com o teclado aberto o campo focado continua acessível (viewport com `interactive-widget=resizes-content` + `viewport-fit=cover` no layout raiz). Botões de ação não ficam escondidos atrás da bottom bar nem da barra do navegador.
 
 ---
@@ -63,13 +63,15 @@ A Carteira é organizada por **instituição** (banco/corretora). Desde a issue 
 4. Clicar num card → abre o **resumo da instituição** (`/home/carteira/{id}`).
 
 ### 2.2. Resumo da instituição — `/home/carteira/{id}` ✅ (issue #44)
-O slug da rota é o **id** da instituição. A tela mostra três seções:
+O slug da rota é o **id** da instituição. É a **tela inicial** ao abrir uma conta pela carteira e corresponde à aba **`Resumo`** do `InstitutionNav`. Mostra três seções:
 
 1. **Conta corrente** — lista contas vinculadas; se vazia, botão "Cadastrar conta corrente" (modal com a instituição já fixada). Com contas → link "Ver conta corrente (n)" para o extrato.
 2. **Cartão de crédito** — lista cartões vinculados; se vazio, "Cadastrar cartão de crédito" (modal com a instituição já fixada). Com cartões → link "Ver cartão de crédito (n)" para as faturas.
 3. **Investimentos** — 🚧 placeholder "Funcionalidade ainda não disponível".
 
 Ao cadastrar conta/cartão por aqui, o produto já entra vinculado àquela instituição e o resumo é recarregado.
+
+> **Navegação por abas (issue #80):** o `InstitutionNav` exibe as abas **`Resumo` → `Conta corrente` → `Cartão de crédito`**. `Resumo` é **sempre exibida** (mesmo em conta sem vínculos) e aponta para `/home/carteira/{id}`; `Conta corrente` aparece quando há contas (rota `…/extrato`) e `Cartão de crédito` quando há cartões (rota `…/cartao/faturas`). A aba ativa é resolvida pela rota atual. A **engrenagem** de configurações continua no topo do Resumo.
 
 ### 2.3. Extrato (conta corrente) — `/home/carteira/{id}/extrato` ✅
 1. Abas por conta (quando há mais de uma na instituição).

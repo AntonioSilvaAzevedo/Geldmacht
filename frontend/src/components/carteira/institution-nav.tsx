@@ -15,6 +15,12 @@ export function InstitutionNav({ className }: InstitutionNavProps) {
   const { slug, accounts, cards } = useInstitution()
 
   const tabs = [
+    {
+      id: 'resumo',
+      label: 'Resumo',
+      href: `/home/carteira/${slug}`,
+      active: pathname === `/home/carteira/${slug}`,
+    },
     ...(accounts.length > 0
       ? [{
           id: 'conta-corrente',
@@ -33,12 +39,10 @@ export function InstitutionNav({ className }: InstitutionNavProps) {
       : []),
   ]
 
-  if (tabs.length === 0) return null
-
   return (
     <div
       className={cn(
-        'inline-flex gap-1 self-start rounded-[10px] bg-[var(--surface-2)] p-[3px]',
+        'inline-flex gap-1 self-center rounded-[10px] bg-[var(--surface-2)] p-[3px]',
         className,
       )}
     >
