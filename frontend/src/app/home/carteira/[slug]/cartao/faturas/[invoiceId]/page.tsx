@@ -1,7 +1,7 @@
 'use client';
 
 import { use, useCallback, useEffect, useMemo, useState } from 'react';
-import { CreditCard } from 'lucide-react';
+import { CreditCard, X } from 'lucide-react';
 
 import { CategoryBadges } from '@/components/category-badges';
 import { Input } from '@/components/ui/input';
@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { api, type CardInvoiceDetail, type Category } from '@/lib/api';
 import { formatCurrency, formatDate } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
-import type { Transaction } from '@/types/financial';
+import type { Tag, Transaction } from '@/types/financial';
 
 interface PageProps { params: Promise<{ slug: string; invoiceId: string }> }
 
@@ -23,6 +23,8 @@ const MONTH_FULL: Record<string, string> = {
   '05': 'Maio', '06': 'Junho', '07': 'Julho', '08': 'Agosto',
   '09': 'Setembro', '10': 'Outubro', '11': 'Novembro', '12': 'Dezembro',
 };
+
+const MAX_TAGS = 2;
 
 interface CategoryGroup {
   key: string;
@@ -51,21 +53,25 @@ export default function InvoiceDetailPage({ params }: PageProps) {
 
   const [invoice, setInvoice] = useState<CardInvoiceDetail | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [allTags, setAllTags] = useState<Tag[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [editModal, setEditModal] = useState<{ txId: number; categoryId: number | null; description: string } | null>(null);
+  const [editModal, setEditModal] = useState<{ txId: number; categoryId: number | null; description: string; tags: string[] } | null>(null);
+  const [tagInput, setTagInput] = useState('');
   const [editSaving, setEditSaving] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [inv, cats] = await Promise.all([
+      const [inv, cats, tags] = await Promise.all([
         api.getCardInvoiceDetail(cid, iid),
         api.listCategories('credit_card', cid),
+        api.listTags(),
       ]);
       setInvoice(inv);
       setCategories(cats);
+      setAllTags(tags);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao carregar fatura.');
     } finally {
@@ -112,6 +118,32 @@ export default function InvoiceDetailPage({ params }: PageProps) {
     }),
   [categories, catById]);
 
+  const openEdit = useCallback((tx: Transaction) => {
+    setTagInput('');
+    setEditModal({
+      txId: tx.id,
+      categoryId: tx.category_id ?? null,
+      description: tx.description,
+      tags: (tx.tags ?? []).map((t) => t.name),
+    });
+  }, []);
+
+  const addTag = useCallback((name: string) => {
+    const cleaned = name.trim().replace(/\s+/g, ' ');
+    if (!cleaned) return;
+    setEditModal((m) => {
+      if (!m) return m;
+      if (m.tags.length >= MAX_TAGS) return m;
+      if (m.tags.some((t) => t.toLowerCase() === cleaned.toLowerCase())) return m;
+      return { ...m, tags: [...m.tags, cleaned] };
+    });
+    setTagInput('');
+  }, []);
+
+  const removeTag = useCallback((name: string) => {
+    setEditModal((m) => (m ? { ...m, tags: m.tags.filter((t) => t !== name) } : m));
+  }, []);
+
   const saveEdit = useCallback(async () => {
     if (!editModal) return;
     setEditSaving(true);
@@ -120,6 +152,7 @@ export default function InvoiceDetailPage({ params }: PageProps) {
         description: editModal.description.trim(),
         category_id: editModal.categoryId ?? undefined,
       });
+      await api.setTransactionTags(editModal.txId, editModal.tags);
       await load();
       setEditModal(null);
     } catch (err) {
@@ -208,16 +241,30 @@ export default function InvoiceDetailPage({ params }: PageProps) {
                 {group.transactions.map((tx) => (
                   <li
                     key={tx.id}
-                    onClick={() => setEditModal({ txId: tx.id, categoryId: tx.category_id ?? null, description: tx.description })}
-                    className="flex cursor-pointer items-start gap-3 px-5 py-3 transition-colors hover:bg-white/[0.02]"
+                    onClick={() => openEdit(tx)}
+                    className="flex cursor-pointer flex-col gap-1 px-5 py-3 transition-colors hover:bg-white/[0.02]"
                   >
-                    <div className="min-w-0 flex-1">
-                      <div className="text-[13px] font-medium text-[var(--text-primary)]">{tx.description}</div>
-                      <div className="mt-0.5 text-[11px] text-[var(--text-tertiary)]">{formatDate(tx.date)}</div>
+                    <div className="flex items-start gap-3">
+                      <div className="min-w-0 flex-1 text-[13px] font-medium text-[var(--text-primary)]">{tx.description}</div>
+                      <span className="shrink-0 font-[family-name:var(--font-mono)] text-[13px] font-semibold text-[var(--red-400)]">
+                        {formatCurrency(Math.abs(tx.amount))}
+                      </span>
                     </div>
-                    <span className="shrink-0 font-[family-name:var(--font-mono)] text-[13px] font-semibold text-[var(--red-400)]">
-                      {formatCurrency(Math.abs(tx.amount))}
-                    </span>
+                    <div className="flex items-center gap-3">
+                      <span className="shrink-0 text-[11px] text-[var(--text-tertiary)]">{formatDate(tx.date)}</span>
+                      {tx.tags && tx.tags.length > 0 && (
+                        <div className="flex min-w-0 flex-1 flex-wrap justify-end gap-1.5">
+                          {tx.tags.map((tag) => (
+                            <span
+                              key={tag.id}
+                              className="inline-flex max-w-[140px] items-center truncate rounded-full bg-[rgba(191,90,242,0.14)] px-2 py-0.5 text-[10px] font-medium text-[var(--purple-400)]"
+                            >
+                              {tag.name}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -299,11 +346,72 @@ export default function InvoiceDetailPage({ params }: PageProps) {
               placeholder="Descrição do lançamento"
             />
             <div className="mt-[var(--space-4)] mb-1.5 text-[12px] font-medium text-[var(--text-secondary)]">Categoria</div>
-            <CategoryBadges
-              value={editModal.categoryId}
-              options={categoryChoiceOptions}
-              onChange={(id) => setEditModal((m) => (m ? { ...m, categoryId: id } : null))}
+            <ExpandableCard
+              title={
+                editModal.categoryId != null
+                  ? categoryChoiceOptions.find((o) => o.id === editModal.categoryId)?.label ?? 'Categoria'
+                  : 'Sem categoria'
+              }
+              titleWrap
+              maxContentHeight="max-h-[240px]"
+              contentClassName="p-3"
+            >
+              <CategoryBadges
+                value={editModal.categoryId}
+                options={categoryChoiceOptions}
+                onChange={(id) => setEditModal((m) => (m ? { ...m, categoryId: id } : null))}
+              />
+            </ExpandableCard>
+
+            <div className="mt-[var(--space-4)] mb-1.5 flex items-center justify-between">
+              <span className="text-[12px] font-medium text-[var(--text-secondary)]">Tags</span>
+              <span className="text-[11px] text-[var(--text-tertiary)]">{editModal.tags.length}/{MAX_TAGS}</span>
+            </div>
+            <Input
+              value={tagInput}
+              onChange={(e) => setTagInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addTag(tagInput); } }}
+              placeholder={editModal.tags.length >= MAX_TAGS ? 'Limite de tags atingido' : 'Digite e tecle Enter'}
+              disabled={editModal.tags.length >= MAX_TAGS}
             />
+            {editModal.tags.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {editModal.tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="inline-flex items-center gap-1 rounded-full bg-[rgba(191,90,242,0.16)] py-0.5 pl-2.5 pr-1.5 text-[12px] font-medium text-[var(--purple-400)]"
+                  >
+                    {tag}
+                    <button
+                      type="button"
+                      aria-label={`Remover tag ${tag}`}
+                      onClick={() => removeTag(tag)}
+                      className="flex size-4 cursor-pointer items-center justify-center rounded-full text-[var(--purple-400)] hover:bg-[rgba(191,90,242,0.28)]"
+                    >
+                      <X className="size-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+            {editModal.tags.length < MAX_TAGS
+              && allTags.filter((t) => !editModal.tags.some((x) => x.toLowerCase() === t.name.toLowerCase())).length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {allTags
+                  .filter((t) => !editModal.tags.some((x) => x.toLowerCase() === t.name.toLowerCase()))
+                  .map((tag) => (
+                    <button
+                      key={tag.id}
+                      type="button"
+                      onClick={() => addTag(tag.name)}
+                      className="inline-flex cursor-pointer items-center rounded-full bg-[var(--surface-3)] px-2.5 py-0.5 text-[12px] font-medium text-[var(--text-secondary)] transition-colors hover:bg-white/[0.06]"
+                    >
+                      {tag.name}
+                    </button>
+                  ))}
+              </div>
+            )}
+
             <div className="mt-[22px] flex justify-end gap-2.5">
               <Button type="button" variant="outline" size="default" disabled={editSaving} onClick={() => setEditModal(null)}>
                 Cancelar

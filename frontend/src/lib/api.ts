@@ -7,7 +7,7 @@
 
 import { getSession, signOut } from 'next-auth/react';
 import { config } from '@/config/env';
-import type { Transaction } from '@/types/financial';
+import type { Tag, Transaction } from '@/types/financial';
 
 const BASE = config.apiUrl;
 
@@ -724,6 +724,17 @@ export const api = {
     request<Transaction>(`${ENDPOINTS.transactions}/${id}`, {
       method: 'PATCH',
       body:   JSON.stringify(patch),
+    }),
+
+  /** Lista as tags do usuário, para reuso na seleção de tags de lançamentos. */
+  listTags: (): Promise<Tag[]> =>
+    request<Tag[]>(`${BASE}/api/tags`),
+
+  /** Substitui o conjunto de tags de um lançamento pela lista de nomes enviada. */
+  setTransactionTags: (id: number, names: string[]): Promise<Tag[]> =>
+    request<Tag[]>(`${ENDPOINTS.transactions}/${id}/tags`, {
+      method: 'PUT',
+      body:   JSON.stringify({ names }),
     }),
 
   /**
