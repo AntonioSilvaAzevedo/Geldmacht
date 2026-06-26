@@ -51,13 +51,13 @@ export function FormSheet({
         if (dismissable && !closeDisabled && e.target === e.currentTarget) onClose();
       }}
       className={cn(
-        'fixed inset-0 flex items-end justify-center bg-black/55 [animation:gm-fade-in_0.18s_ease-out] sm:items-center sm:p-5',
+        'fixed inset-0 flex items-start justify-center bg-black/55 px-3 pt-[calc(env(safe-area-inset-top)+12px)] pb-[calc(env(safe-area-inset-bottom)+12px)] [animation:gm-fade-in_0.18s_ease-out] sm:items-center sm:p-5',
         zClassName,
       )}
     >
       <div
         className={cn(
-          'flex max-h-[90dvh] w-full flex-col overflow-hidden rounded-t-2xl border border-[var(--border-default)] bg-[var(--surface-card)] [animation:gm-modal-slide-in_0.24s_cubic-bezier(0.2,0.8,0.2,1)] sm:rounded-2xl',
+          'flex max-h-[calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1.5rem)] w-full flex-col overflow-hidden rounded-2xl border border-[var(--border-default)] bg-[var(--surface-card)] [animation:gm-modal-slide-down_0.24s_cubic-bezier(0.2,0.8,0.2,1)] sm:max-h-[90dvh] sm:[animation:gm-modal-slide-in_0.24s_cubic-bezier(0.2,0.8,0.2,1)]',
           maxWidthClass,
         )}
       >
@@ -89,7 +89,6 @@ export function FormSheet({
         <div
           className={cn(
             'min-h-0 flex-1 overflow-y-auto px-5 py-5',
-            footer == null && 'pb-[calc(1.25rem+env(safe-area-inset-bottom))]',
             bodyClassName,
           )}
         >
@@ -97,7 +96,7 @@ export function FormSheet({
         </div>
 
         {footer != null && (
-          <div className="shrink-0 border-t border-[var(--separator)] px-5 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+          <div className="shrink-0 border-t border-[var(--separator)] px-5 py-4">
             {footer}
           </div>
         )}
