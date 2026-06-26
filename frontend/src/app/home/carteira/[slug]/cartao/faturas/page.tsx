@@ -1,65 +1,48 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Suspense, use, useCallback, useState, useTransition } from 'react'
 
 import { useInstitution } from '@/components/carteira/institution-context'
 import { CreditCardInvoiceCard } from '@/components/Cards/CreditCardInvoiceCard'
-import LoadingSpinner from '@/components/LoadingSpinner'
+import { InvoiceListSkeleton } from '@/components/skeletons/InvoiceListSkeleton'
 import StatePanel from '@/components/StatePanel'
 import { api, type AnnualInvoiceMonth } from '@/lib/api'
 
-export default function InstitutionCartaoFaturasPage() {
-  const { slug, cards } = useInstitution()
-  const card = cards[0]
+type InvoicesResult =
+  | { ok: true; months: AnnualInvoiceMonth[] }
+  | { ok: false }
 
-  const [months, setMonths] = useState<AnnualInvoiceMonth[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(false)
+function loadInvoices(cardId: number): Promise<InvoicesResult> {
+  return api
+    .getCardAnnualInvoices(cardId)
+    .then((months) => ({ ok: true as const, months }))
+    .catch(() => ({ ok: false as const }))
+}
 
-  const load = useCallback(async () => {
-    if (!card) {
-      setLoading(false)
-      return
-    }
-    setLoading(true)
-    setError(false)
-    try {
-      setMonths(await api.getCardAnnualInvoices(card.id))
-    } catch {
-      setError(true)
-    } finally {
-      setLoading(false)
-    }
-  }, [card])
+interface FaturasContentProps {
+  promise: Promise<InvoicesResult>
+  slug: string
+  onReload: () => void
+}
 
-  useEffect(() => { void load() }, [load])
+function FaturasContent({ promise, slug, onReload }: FaturasContentProps) {
+  const res = use(promise)
 
-  const year = useMemo(() => {
-    const first = months[0]?.due_month
-    return first ? Number(first.slice(0, 4)) : new Date().getFullYear()
-  }, [months])
-
-  if (!card) {
-    return <StatePanel variant="error" message="Nenhum cartão nesta instituição." />
-  }
-  if (loading) {
-    return (
-      <div className="flex flex-1 items-center justify-center">
-        <LoadingSpinner />
-      </div>
-    )
-  }
-  if (error) {
+  if (!res.ok) {
     return (
       <StatePanel
         variant="error"
         title="Não foi possível carregar as faturas."
         message="Tente novamente."
         actionLabel="Tentar novamente"
-        onAction={() => void load()}
+        onAction={onReload}
       />
     )
   }
+
+  const months = res.months
+  const first = months[0]?.due_month
+  const year = first ? Number(first.slice(0, 4)) : new Date().getFullYear()
 
   return (
     <div>
@@ -96,5 +79,29 @@ export default function InstitutionCartaoFaturasPage() {
         </div>
       )}
     </div>
+  )
+}
+
+export default function InstitutionCartaoFaturasPage() {
+  const { slug, cards } = useInstitution()
+  const card = cards[0]
+  const [promise, setPromise] = useState<Promise<InvoicesResult>>(() =>
+    card ? loadInvoices(card.id) : Promise.resolve({ ok: false }),
+  )
+  const [, startTransition] = useTransition()
+
+  const reload = useCallback(() => {
+    if (!card) return
+    startTransition(() => setPromise(loadInvoices(card.id)))
+  }, [card])
+
+  if (!card) {
+    return <StatePanel variant="error" message="Nenhum cartão nesta instituição." />
+  }
+
+  return (
+    <Suspense fallback={<InvoiceListSkeleton />}>
+      <FaturasContent promise={promise} slug={slug} onReload={reload} />
+    </Suspense>
   )
 }
