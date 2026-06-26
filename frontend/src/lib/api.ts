@@ -385,8 +385,16 @@ export interface Category {
   parent_id: number | null;
   /** null = sem limite. > 0 quando definido. */
   invoice_budget_limit: number | null;
+  system_key: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface CategorySuggestion {
+  key: string;
+  name: string;
+  description: string;
+  icon: string | null;
 }
 
 export interface CategoryPayload {
@@ -714,6 +722,12 @@ export const api = {
 
   deleteCategory: (id: number): Promise<{ deleted: boolean }> =>
     request<{ deleted: boolean }>(`${BASE}/api/categories/${id}`, { method: 'DELETE' }),
+
+  listCategorySuggestions: (): Promise<CategorySuggestion[]> =>
+    request<CategorySuggestion[]>(`${BASE}/api/categories/suggestions`),
+
+  acceptCategorySuggestion: (key: string): Promise<Category> =>
+    request<Category>(`${BASE}/api/categories/suggestions/${key}`, { method: 'POST' }),
 
   /** Dados agregados para o Dashboard Anual. */
   getDashboardMonthly: () =>

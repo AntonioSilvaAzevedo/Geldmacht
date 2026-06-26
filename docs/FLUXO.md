@@ -141,6 +141,12 @@ Visão geral de todos os cartões: limite/fatura, **Adicionar cartão**, editar 
 2. Usadas para classificar lançamentos manuais e itens importados (inclusive na **revisão de importação**, ver seção 6).
 3. **UI (issue #71):** o `SummaryStrip` fica fixo no topo e a **lista de categorias rola internamente** (a página não rola inteira). Abaixo da lista há uma **ação tracejada "Adicionar categoria"** (padrão do tile "Adicionar conta" da carteira), que substitui o antigo botão "Nova categoria". Sem categorias → estado vazio com a mesma ação tracejada.
 
+> **Categorias sugeridas pelo sistema — `Recorrentes` (issue #79):** a tela exibe um bloco **"Sugestões do sistema"** no topo da lista quando há sugestões não usadas. A 1ª sugestão é **`Recorrentes`** (assinaturas, aluguel, mensalidades, cobranças mensais). Em **"Usar categoria"** (`POST /api/categories/suggestions/recorrentes`, **idempotente**), ela vira **categoria global** do usuário com `system_key="recorrentes"` (campo novo em `Category` que identifica a categoria de forma estável, não por nome) e passa a aparecer normalmente na categorização (fatura/revisão). Não duplica se já existir; some das sugestões após ativada. Fonte das sugestões: `GET /api/categories/suggestions`.
+>
+> **Lançamento de fatura como `Recorrentes` → recorrência de 12 meses:** ao categorizar um lançamento da fatura como `Recorrentes` (no modal de edição ou na importação), o backend cria/atualiza uma **`RecurringExpense` vinculada ao lançamento de origem** (`source_transaction_id`), com `start_month` = mês da fatura e `end_month` = **+12 meses**, descrição/valor do lançamento. **Descategorizar remove** a recorrência (`sync_recurrence_for_transaction` em `services/recurrence_service.py`, chamado no `PATCH /transactions/{id}` e na importação). Lançamentos **sistêmicos** (parcelados/pagamento) não geram recorrência.
+>
+> **Impacto nas faturas futuras:** a projeção (`invoice_projection.py`) passa a respeitar `end_month` (recorrências sem `end_month` — ex.: as manuais antigas — seguem abertas). Faturas previstas somam **parceladas + recorrentes**; a **dedup com a fatura real** por mês já existente continua valendo (recorrente não soma no mês que já tem fatura real). Primeira versão **apenas fatura/cartão de crédito**.
+
 ---
 
 ## 5. Adicionar — menu de escolha ✅ (issue #54)
