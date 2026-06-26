@@ -7,6 +7,7 @@ import StatePanel from '@/components/StatePanel';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import CreditCardForm from '@/components/Cards/CreditCardForm';
 import { Button } from '@/components/ui/button';
+import { FormSheet } from '@/components/ui/FormSheet';
 import { api, type CardInvoice, type CreditCardConfig } from '@/lib/api';
 import { getOpeningDay } from '@/lib/cardDates';
 
@@ -145,97 +146,20 @@ export default function CardsPage() {
 
         {/* Modal de confirmação de exclusão */}
         {deleteTarget && (
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="delete-modal-title"
-            style={{
-              position: 'fixed',
-              inset: 0,
-              background: 'rgba(0,0,0,0.65)',
-              zIndex: 999,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: 24,
-            }}
-            onClick={e => { if (e.target === e.currentTarget && !deleteLoading) setDeleteTarget(null); }}
-          >
-            <div style={{
-              background: 'var(--surface-card)',
-              border: '1px solid var(--border-subtle)',
-              borderRadius: 16,
-              padding: 28,
-              maxWidth: 460,
-              width: '100%',
-              boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
-            }}>
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, marginBottom: 20 }}>
-                <div style={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: '50%',
-                  background: 'rgba(229,62,62,0.15)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0,
-                  marginTop: 2,
-                }}>
-                  <AlertTriangle size={20} color="var(--red-400)" />
-                </div>
-                <div>
-                  <h2 id="delete-modal-title" style={{ fontSize: 17, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4 }}>
-                    Excluir cartão?
-                  </h2>
-                  <p style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.5 }}>
-                    Essa ação não poderá ser desfeita.
-                  </p>
-                </div>
-              </div>
-
-              <p style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 18, lineHeight: 1.65 }}>
-                Ao excluir este cartão,{' '}
-                <strong style={{ color: 'var(--text-primary)' }}>
-                  todas as faturas e lançamentos vinculados
-                </strong>{' '}
-                a ele também serão excluídos permanentemente.
-              </p>
-
-              <div style={{
-                background: 'var(--surface-panel)',
-                border: '1px solid var(--border-subtle)',
-                borderRadius: 10,
-                padding: '12px 16px',
-                marginBottom: 22,
-                display: 'grid',
-                gap: 8,
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13 }}>
-                  <span style={{ color: 'var(--text-muted)' }}>Cartão</span>
-                  <strong style={{ color: 'var(--text-primary)' }}>{deleteTarget.card.name}</strong>
-                </div>
-                {deleteTarget.loadingInfo ? (
-                  <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', padding: '4px 0' }}>
-                    Carregando informações...
-                  </div>
-                ) : deleteTarget.invoices ? (
-                  <>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13 }}>
-                      <span style={{ color: 'var(--text-muted)' }}>Faturas vinculadas</span>
-                      <strong style={{ color: 'var(--red-400)' }}>{deleteTarget.invoices.length}</strong>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13 }}>
-                      <span style={{ color: 'var(--text-muted)' }}>Lançamentos vinculados</span>
-                      <strong style={{ color: 'var(--red-400)' }}>
-                        {deleteTarget.invoices.reduce((sum, inv) => sum + inv.transactions_count, 0)}
-                      </strong>
-                    </div>
-                  </>
-                ) : null}
-              </div>
-
-              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <FormSheet
+            onClose={() => setDeleteTarget(null)}
+            title="Excluir cartão?"
+            titleId="delete-modal-title"
+            titleIcon={
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[rgba(229,62,62,0.15)]">
+                <AlertTriangle size={18} color="var(--red-400)" />
+              </span>
+            }
+            maxWidthClass="sm:max-w-[460px]"
+            zClassName="z-[999]"
+            closeDisabled={deleteLoading}
+            footer={
+              <div className="flex justify-end gap-2.5">
                 <Button
                   variant="outline"
                   size="sm"
@@ -254,8 +178,39 @@ export default function CardsPage() {
                   {deleteLoading ? 'Excluindo...' : 'Excluir cartão e faturas'}
                 </Button>
               </div>
+            }
+          >
+            <p className="mb-2 text-[13px] text-[var(--text-muted)]">Essa ação não poderá ser desfeita.</p>
+            <p className="mb-[18px] text-[14px] leading-relaxed text-[var(--text-secondary)]">
+              Ao excluir este cartão,{' '}
+              <strong className="text-[var(--text-primary)]">todas as faturas e lançamentos vinculados</strong>{' '}
+              a ele também serão excluídos permanentemente.
+            </p>
+            <div className="grid gap-2 rounded-[10px] border border-[var(--border-subtle)] bg-[var(--surface-panel)] px-4 py-3">
+              <div className="flex items-center justify-between text-[13px]">
+                <span className="text-[var(--text-muted)]">Cartão</span>
+                <strong className="text-[var(--text-primary)]">{deleteTarget.card.name}</strong>
+              </div>
+              {deleteTarget.loadingInfo ? (
+                <div className="py-1 text-center text-[12px] text-[var(--text-muted)]">
+                  Carregando informações...
+                </div>
+              ) : deleteTarget.invoices ? (
+                <>
+                  <div className="flex items-center justify-between text-[13px]">
+                    <span className="text-[var(--text-muted)]">Faturas vinculadas</span>
+                    <strong className="text-[var(--red-400)]">{deleteTarget.invoices.length}</strong>
+                  </div>
+                  <div className="flex items-center justify-between text-[13px]">
+                    <span className="text-[var(--text-muted)]">Lançamentos vinculados</span>
+                    <strong className="text-[var(--red-400)]">
+                      {deleteTarget.invoices.reduce((sum, inv) => sum + inv.transactions_count, 0)}
+                    </strong>
+                  </div>
+                </>
+              ) : null}
             </div>
-          </div>
+          </FormSheet>
         )}
 
         {/* Conteúdo principal */}

@@ -29,29 +29,12 @@ export default function ModalDialog({
       role="dialog"
       aria-modal="true"
       aria-labelledby={ariaLabelledBy}
-      style={{
-        position: 'fixed', inset: 0,
-        background: 'rgba(0,0,0,0.55)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        zIndex, padding: 20,
-        animation: 'gm-fade-in 0.18s ease-out',
-      }}
+      style={{ zIndex }}
+      className="fixed inset-0 flex items-start justify-center bg-black/55 px-3 pt-[calc(env(safe-area-inset-top)+12px)] pb-[calc(env(safe-area-inset-bottom)+12px)] [animation:gm-fade-in_0.18s_ease-out] sm:items-center sm:p-5"
     >
       <div
         onClick={e => e.stopPropagation()}
-        style={{
-          background: 'var(--surface-card)',
-          border: '1px solid var(--border-default)',
-          borderRadius: 16,
-          width: '100%',
-          maxWidth: 520,
-          boxShadow: '0 32px 80px rgba(0,0,0,0.55)',
-          maxHeight: '90vh',
-          overflow: 'hidden',
-          display: 'flex',
-          flexDirection: 'column',
-          animation: 'gm-modal-slide-in 0.22s cubic-bezier(0.2, 0.8, 0.2, 1)',
-        }}
+        className="flex max-h-[calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1.5rem)] w-full max-w-[520px] flex-col overflow-y-auto overscroll-contain rounded-2xl border border-[var(--border-default)] bg-[var(--surface-card)] shadow-[0_32px_80px_rgba(0,0,0,0.55)] [animation:gm-modal-slide-down_0.24s_cubic-bezier(0.2,0.8,0.2,1)] sm:max-h-[90dvh] sm:[animation:gm-modal-slide-in_0.22s_cubic-bezier(0.2,0.8,0.2,1)]"
       >
         {children}
       </div>

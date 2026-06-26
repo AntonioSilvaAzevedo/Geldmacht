@@ -7,6 +7,7 @@ import { CategoryBadges } from '@/components/category-badges';
 import { Input } from '@/components/ui/input';
 import { useInstitution } from '@/components/carteira/institution-context';
 import { ExpandableCard } from '@/components/ui/expandable-card';
+import { FormSheet } from '@/components/ui/FormSheet';
 import CategoryIcon from '@/components/CategoryIcon';
 import StatePanel from '@/components/StatePanel';
 import { InvoiceDetailSkeleton } from '@/components/skeletons/InvoiceDetailSkeleton';
@@ -322,17 +323,24 @@ function InvoiceDetailContent({ promise, cid, onReload }: InvoiceDetailContentPr
       )}
 
       {editModal && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          onClick={(e) => { if (e.target === e.currentTarget && !editSaving) setEditModal(null); }}
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/65 p-[var(--inset-screen)]"
+        <FormSheet
+          onClose={() => setEditModal(null)}
+          title="Editar lançamento"
+          titleId="edit-tx-title"
+          maxWidthClass="sm:max-w-[400px]"
+          zClassName="z-[100]"
+          closeDisabled={editSaving}
+          footer={
+            <div className="flex justify-end gap-2.5">
+              <Button type="button" variant="outline" size="default" disabled={editSaving} onClick={() => setEditModal(null)}>
+                Cancelar
+              </Button>
+              <Button type="button" variant="primary" loading={editSaving} onClick={() => void saveEdit()}>
+                Salvar
+              </Button>
+            </div>
+          }
         >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-[400px] rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--surface-card)] p-[var(--space-5)] shadow-[var(--shadow-modal)]"
-          >
-            <h2 className="mb-[var(--space-4)] text-[17px] font-bold">Editar lançamento</h2>
             <label htmlFor="edit-tx-description" className="mb-1.5 block text-[12px] font-medium text-[var(--text-secondary)]">
               Descrição
             </label>
@@ -415,16 +423,7 @@ function InvoiceDetailContent({ promise, cid, onReload }: InvoiceDetailContentPr
               </div>
             )}
 
-            <div className="mt-[22px] flex justify-end gap-2.5">
-              <Button type="button" variant="outline" size="default" disabled={editSaving} onClick={() => setEditModal(null)}>
-                Cancelar
-              </Button>
-              <Button type="button" variant="primary" loading={editSaving} onClick={() => void saveEdit()}>
-                Salvar
-              </Button>
-            </div>
-          </div>
-        </div>
+        </FormSheet>
       )}
     </div>
   );
