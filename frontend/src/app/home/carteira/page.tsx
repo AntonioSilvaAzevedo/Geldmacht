@@ -7,10 +7,10 @@
 
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, use, useCallback, useMemo, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { Landmark, Plus } from 'lucide-react';
-import LoadingSpinner from '@/components/LoadingSpinner';
+import { CarteiraSkeleton } from '@/components/skeletons/CarteiraSkeleton';
 import { Button } from '@/components/ui/button';
 import {
   api,
@@ -84,52 +84,78 @@ function getAbbr(name: string): string {
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
+type CarteiraResult =
+  | { ok: true; accounts: BankAccountConfig[]; cards: CreditCardConfig[]; dashboards: Map<number, CardDashboard> }
+  | { ok: false; error: string };
+
+async function loadCarteira(): Promise<CarteiraResult> {
+  try {
+    const [accounts, cards] = await Promise.all([
+      api.listBankAccounts(false),
+      api.listCards(),
+    ]);
+    const dashboards = new Map<number, CardDashboard>();
+    const results = await Promise.allSettled(cards.map((card) => api.getCardDashboard(card.id)));
+    results.forEach((result, index) => {
+      if (result.status === 'fulfilled') dashboards.set(cards[index].id, result.value);
+    });
+    return { ok: true, accounts, cards, dashboards };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'Erro ao carregar carteira.' };
+  }
+}
+
 export default function CarteiraPage() {
   const isMobile = useIsMobile();
-  const [accounts, setAccounts]     = useState<BankAccountConfig[]>([]);
-  const [cards, setCards]           = useState<CreditCardConfig[]>([]);
-  const [dashboards, setDashboards] = useState<Map<number, CardDashboard>>(new Map());
-  const [loading, setLoading]       = useState(true);
-  const [error, setError]           = useState<string | null>(null);
   const [showBankModal, setShowBankModal] = useState(false);
+  const [promise, setPromise] = useState(() => loadCarteira());
+  const [, startTransition] = useTransition();
 
-  const load = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [accs, cds] = await Promise.all([
-        api.listBankAccounts(false),
-        api.listCards(),
-      ]);
-      setAccounts(accs);
-      setCards(cds);
-
-      // Carrega dashboards dos cartões em paralelo (ignora falhas individuais)
-      const map = new Map<number, CardDashboard>();
-      await Promise.allSettled(
-        cds.map(async card => {
-          try { map.set(card.id, await api.getCardDashboard(card.id)); }
-          catch { /* skip */ }
-        }),
-      );
-      setDashboards(map);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao carregar carteira.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => { void load(); }, []);
+  const reload = useCallback(() => {
+    startTransition(() => setPromise(loadCarteira()));
+  }, []);
 
   async function handleCreateBankAccount(payload: BankAccountModalData) {
     const institutionId = payload.institution ? await ensureInstitutionId(payload.institution) : null;
     await api.createBankAccount({ ...payload, institution_id: institutionId ?? undefined, currency: 'BRL', is_active: true });
     setShowBankModal(false);
-    await load();
+    reload();
   }
 
+  const padding = isMobile ? '16px 14px 32px' : '24px 32px 40px';
+
+  return (
+    <>
+      <main style={{ padding, flex: 1, maxWidth: 860, margin: '0 auto', width: '100%' }}>
+        <Suspense fallback={<CarteiraSkeleton isMobile={isMobile} />}>
+          <CarteiraContent
+            promise={promise}
+            isMobile={isMobile}
+            onReload={reload}
+            onRequestAdd={() => setShowBankModal(true)}
+          />
+        </Suspense>
+      </main>
+      {showBankModal && (
+        <BankAccountModal onClose={() => setShowBankModal(false)} onSubmit={handleCreateBankAccount} />
+      )}
+    </>
+  );
+}
+
+interface CarteiraContentProps {
+  promise: Promise<CarteiraResult>;
+  isMobile: boolean;
+  onReload: () => void;
+  onRequestAdd: () => void;
+}
+
+function CarteiraContent({ promise, isMobile, onReload, onRequestAdd }: CarteiraContentProps) {
+  const res = use(promise);
+
   const institutions = useMemo<InstitutionGroup[]>(() => {
+    if (!res.ok) return [];
+    const { accounts, cards, dashboards } = res;
     const map = new Map<number, InstitutionGroup>();
 
     const upsert = (id: number | null, institutionName: string | null): InstitutionGroup => {
@@ -154,79 +180,56 @@ export default function CarteiraPage() {
       if (b.name === 'Sem instituição') return -1;
       return a.name.localeCompare(b.name, 'pt-BR');
     });
-  }, [accounts, cards, dashboards]);
+  }, [res]);
 
-  // ── Loading / Error ──
-  if (loading) {
+  if (!res.ok) {
     return (
       <>
-<main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <LoadingSpinner />
-        </main>
+        <p style={{ color: 'var(--red-400)', fontSize: 14, marginBottom: 12 }}>{res.error}</p>
+        <Button variant="outline" type="button" onClick={onReload} className="inline-flex shrink-0">
+          Tentar novamente
+        </Button>
       </>
     );
   }
-
-  if (error) {
-    return (
-      <>
-<main style={{ padding: 24 }}>
-          <p style={{ color: 'var(--red-400)', fontSize: 14, marginBottom: 12 }}>{error}</p>
-          <Button variant="outline" type="button" onClick={() => void load()} className="inline-flex shrink-0">
-            Tentar novamente
-          </Button>
-        </main>
-      </>
-    );
-  }
-
-  const padding = isMobile ? '16px 14px 32px' : '24px 32px 40px';
 
   return (
     <>
-<main style={{ padding, flex: 1, maxWidth: 860, margin: '0 auto', width: '100%' }}>
-
-        {/* Empty state */}
-        {institutions.length === 0 && (
-          <div style={{
-            textAlign: 'center', padding: '48px 24px',
-            border: '1px dashed var(--border-default)', borderRadius: 16,
-          }}>
-            <Landmark size={36} color="var(--text-muted)" style={{ margin: '0 auto 12px', display: 'block' }} />
-            <h2 style={{ fontSize: 17, marginBottom: 8 }}>Nenhuma conta bancária cadastrada</h2>
-            <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 20, lineHeight: 1.5 }}>
-              Cadastre um banco ou conta bancária para vincular conta corrente, cartão de crédito, faturas e investimentos.
-            </p>
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
-              <Button type="button" variant="outline" onClick={() => setShowBankModal(true)}>
-                Cadastrar conta bancária
-              </Button>
-            </div>
+      {institutions.length === 0 && (
+        <div style={{
+          textAlign: 'center', padding: '48px 24px',
+          border: '1px dashed var(--border-default)', borderRadius: 16,
+        }}>
+          <Landmark size={36} color="var(--text-muted)" style={{ margin: '0 auto 12px', display: 'block' }} />
+          <h2 style={{ fontSize: 17, marginBottom: 8 }}>Nenhuma conta bancária cadastrada</h2>
+          <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 20, lineHeight: 1.5 }}>
+            Cadastre um banco ou conta bancária para vincular conta corrente, cartão de crédito, faturas e investimentos.
+          </p>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+            <Button type="button" variant="outline" onClick={onRequestAdd}>
+              Cadastrar conta bancária
+            </Button>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Institution cards grid */}
-        {institutions.length > 0 && (
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)',
-            gap: 12,
-          }}>
-            {institutions.map(inst => (
-              <InstitutionCard key={inst.id ?? inst.name} institution={inst} onDeleted={() => void load()} />
-            ))}
-            <button
-              type="button"
-              onClick={() => setShowBankModal(true)}
-              className="flex min-h-[100px] w-full items-center justify-center gap-2 rounded-[16px] border border-dashed border-[var(--border-default)] text-[13px] font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
-            >
-              <Plus size={15} /> Adicionar conta
-            </button>
-          </div>
-        )}
-      </main>
-      {showBankModal && (
-        <BankAccountModal onClose={() => setShowBankModal(false)} onSubmit={handleCreateBankAccount} />
+      {institutions.length > 0 && (
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)',
+          gap: 12,
+        }}>
+          {institutions.map(inst => (
+            <InstitutionCard key={inst.id ?? inst.name} institution={inst} onDeleted={onReload} />
+          ))}
+          <button
+            type="button"
+            onClick={onRequestAdd}
+            className="flex min-h-[100px] w-full items-center justify-center gap-2 rounded-[16px] border border-dashed border-[var(--border-default)] text-[13px] font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)] cursor-pointer"
+          >
+            <Plus size={15} /> Adicionar conta
+          </button>
+        </div>
       )}
     </>
   );
