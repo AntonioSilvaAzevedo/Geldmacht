@@ -13,15 +13,25 @@ import { InstitutionNavSkeleton } from '@/components/skeletons/InstitutionNavSke
 import { SummarySkeleton } from '@/components/skeletons/SummarySkeleton'
 import { Button } from '@/components/ui/button'
 
+function ShellMain({ nav, children }: { nav: ReactNode; children: ReactNode }) {
+  return (
+    <main className="institution-shell mx-auto flex min-h-0 w-full max-w-[1280px] flex-1 flex-col">
+      {nav}
+      <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-3.5 pb-[calc(56px+env(safe-area-inset-bottom)+12px)] sm:px-8 sm:pb-10">
+        {children}
+      </div>
+    </main>
+  )
+}
+
 function InstitutionLayoutContent({ children }: { children: ReactNode }) {
   const { loading, error, refetch } = useInstitution()
 
   if (loading) {
     return (
-      <main className="mx-auto flex w-full max-w-[1280px] flex-1 flex-col px-3.5 pb-8 pt-5 sm:px-8 sm:pb-10 sm:pt-6">
-        <InstitutionNavSkeleton className="mb-5" />
+      <ShellMain nav={<InstitutionNavSkeleton className="mb-5 mt-5 shrink-0 sm:mt-6" />}>
         <SummarySkeleton />
-      </main>
+      </ShellMain>
     )
   }
 
@@ -43,10 +53,9 @@ function InstitutionLayoutContent({ children }: { children: ReactNode }) {
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-[1280px] flex-1 flex-col px-3.5 pb-8 pt-5 sm:px-8 sm:pb-10 sm:pt-6">
-      <InstitutionNav className="mb-5" />
+    <ShellMain nav={<InstitutionNav className="mb-5 mt-5 shrink-0 sm:mt-6" />}>
       {children}
-    </main>
+    </ShellMain>
   )
 }
 

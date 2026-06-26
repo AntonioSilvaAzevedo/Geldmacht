@@ -274,6 +274,11 @@ body {
   }
 }
 
+.app-main-content > main.institution-shell {
+  overflow: hidden;
+  padding: 0 !important;
+}
+
 @media (max-width: 768px) {
   .sidebar-desktop { display: none !important; }
   .is-mobile-only  { display: inline-flex !important; }
