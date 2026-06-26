@@ -362,6 +362,12 @@ export default function InvoiceDetailPage({ params }: PageProps) {
                 onChange={(id) => setEditModal((m) => (m ? { ...m, categoryId: id } : null))}
               />
             </ExpandableCard>
+            {editModal.categoryId != null
+              && categories.find((c) => c.id === editModal.categoryId)?.system_key === 'recorrentes' && (
+              <p className="mt-1.5 text-[11px] text-[var(--text-tertiary)]">
+                Será projetada como recorrente nos próximos 12 meses nas faturas futuras.
+              </p>
+            )}
 
             <div className="mt-[var(--space-4)] mb-1.5 flex items-center justify-between">
               <span className="text-[12px] font-medium text-[var(--text-secondary)]">Tags</span>

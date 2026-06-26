@@ -8,6 +8,7 @@ import {
   api,
   type Category,
   type CategoryPayload,
+  type CategorySuggestion,
   type CategoryUpdatePayload,
 } from "@/lib/api";
 import { formatCurrency } from "@/lib/formatters";
@@ -17,6 +18,7 @@ import {
   Pencil,
   Plus,
   RefreshCw,
+  Sparkles,
   Tags,
   Trash2,
 } from "lucide-react";
@@ -736,24 +738,43 @@ function IconBtn({
 export default function CategoriesPage() {
   const isMobile = useIsMobile();
   const [categories, setCategories] = useState<Category[]>([]);
+  const [suggestions, setSuggestions] = useState<CategorySuggestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [formMode, setFormMode] = useState<FormMode>(null);
   const [editTarget, setEditTarget] = useState<Category | null>(null);
   const [parentTarget, setParentTarget] = useState<Category | null>(null);
+  const [acceptingKey, setAcceptingKey] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const cats = await api.listCategories();
+      const [cats, sugg] = await Promise.all([
+        api.listCategories(),
+        api.listCategorySuggestions(),
+      ]);
       setCategories(cats);
+      setSuggestions(sugg);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erro ao carregar.");
     } finally {
       setLoading(false);
     }
   }, []);
+
+  async function acceptSuggestion(key: string) {
+    setAcceptingKey(key);
+    try {
+      const created = await api.acceptCategorySuggestion(key);
+      setCategories((prev) => (prev.some((c) => c.id === created.id) ? prev : [...prev, created]));
+      setSuggestions((prev) => prev.filter((s) => s.key !== key));
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : "Não foi possível usar a categoria.");
+    } finally {
+      setAcceptingKey(null);
+    }
+  }
 
   useEffect(() => {
     void load();
@@ -897,6 +918,39 @@ export default function CategoriesPage() {
               setParentTarget(null);
             }}
           />
+        )}
+
+        {!formMode && suggestions.length > 0 && (
+          <div className="mb-3">
+            <div className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]">
+              <Sparkles size={13} /> Sugestões do sistema
+            </div>
+            <div className="grid gap-2.5">
+              {suggestions.map((s) => (
+                <div
+                  key={s.key}
+                  className="flex items-center gap-3 rounded-2xl border border-dashed border-[rgba(255,255,255,0.14)] bg-transparent px-4 py-3.5"
+                >
+                  <div className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-[rgba(10,132,255,0.1)]">
+                    <Sparkles size={16} className="text-[var(--blue-400)]" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[14px] font-semibold text-[var(--text-primary)]">{s.name}</div>
+                    <div className="mt-0.5 text-[12px] text-[var(--text-secondary)]">{s.description}</div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    loading={acceptingKey === s.key}
+                    onClick={() => void acceptSuggestion(s.key)}
+                  >
+                    Usar categoria
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
 
         {filtered.length === 0 ? (
