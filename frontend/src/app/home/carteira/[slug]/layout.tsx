@@ -9,7 +9,8 @@ import {
   useInstitution,
 } from '@/components/carteira/institution-context'
 import { InstitutionNav } from '@/components/carteira/institution-nav'
-import LoadingSpinner from '@/components/LoadingSpinner'
+import { InstitutionNavSkeleton } from '@/components/skeletons/InstitutionNavSkeleton'
+import { SummarySkeleton } from '@/components/skeletons/SummarySkeleton'
 import { Button } from '@/components/ui/button'
 
 function InstitutionLayoutContent({ children }: { children: ReactNode }) {
@@ -17,8 +18,9 @@ function InstitutionLayoutContent({ children }: { children: ReactNode }) {
 
   if (loading) {
     return (
-      <main className="flex flex-1 items-center justify-center">
-        <LoadingSpinner />
+      <main className="mx-auto flex w-full max-w-[1280px] flex-1 flex-col px-3.5 pb-8 pt-5 sm:px-8 sm:pb-10 sm:pt-6">
+        <InstitutionNavSkeleton className="mb-5" />
+        <SummarySkeleton />
       </main>
     )
   }

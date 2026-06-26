@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useCallback, useEffect, useMemo, useState } from 'react';
+import { Suspense, use, useCallback, useMemo, useState, useTransition } from 'react';
 import { CreditCard, X } from 'lucide-react';
 
 import { CategoryBadges } from '@/components/category-badges';
@@ -9,7 +9,7 @@ import { useInstitution } from '@/components/carteira/institution-context';
 import { ExpandableCard } from '@/components/ui/expandable-card';
 import CategoryIcon from '@/components/CategoryIcon';
 import StatePanel from '@/components/StatePanel';
-import LoadingSpinner from '@/components/LoadingSpinner';
+import { InvoiceDetailSkeleton } from '@/components/skeletons/InvoiceDetailSkeleton';
 import { Button } from '@/components/ui/button';
 import { api, type CardInvoiceDetail, type Category } from '@/lib/api';
 import { formatCurrency, formatDate } from '@/lib/formatters';
@@ -34,6 +34,23 @@ interface CategoryGroup {
   transactions: Transaction[];
 }
 
+type InvoiceResult =
+  | { ok: true; invoice: CardInvoiceDetail; categories: Category[]; allTags: Tag[] }
+  | { ok: false; error: string };
+
+function loadInvoiceData(cid: number, iid: number): Promise<InvoiceResult> {
+  return Promise.all([
+    api.getCardInvoiceDetail(cid, iid),
+    api.listCategories('credit_card', cid),
+    api.listTags(),
+  ])
+    .then(([invoice, categories, allTags]) => ({ ok: true as const, invoice, categories, allTags }))
+    .catch((err) => ({
+      ok: false as const,
+      error: err instanceof Error ? err.message : 'Erro ao carregar fatura.',
+    }));
+}
+
 function isInstallment(tx: Transaction): boolean {
   return tx.amount < 0
     && tx.installment_current != null
@@ -45,41 +62,26 @@ function isSystemic(tx: Transaction): boolean {
   return tx.is_payment === true || isInstallment(tx);
 }
 
-export default function InvoiceDetailPage({ params }: PageProps) {
-  const { invoiceId } = use(params);
-  const { cards } = useInstitution();
-  const cid = cards[0]?.id ?? 0;
-  const iid = Number(invoiceId);
+function txCount(n: number) {
+  return `${n} ${n === 1 ? 'lançamento' : 'lançamentos'}`;
+}
 
-  const [invoice, setInvoice] = useState<CardInvoiceDetail | null>(null);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [allTags, setAllTags] = useState<Tag[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+interface InvoiceDetailContentProps {
+  promise: Promise<InvoiceResult>;
+  cid: number;
+  onReload: () => void;
+}
+
+function InvoiceDetailContent({ promise, cid, onReload }: InvoiceDetailContentProps) {
+  const res = use(promise);
+
   const [editModal, setEditModal] = useState<{ txId: number; categoryId: number | null; description: string; tags: string[] } | null>(null);
   const [tagInput, setTagInput] = useState('');
   const [editSaving, setEditSaving] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [inv, cats, tags] = await Promise.all([
-        api.getCardInvoiceDetail(cid, iid),
-        api.listCategories('credit_card', cid),
-        api.listTags(),
-      ]);
-      setInvoice(inv);
-      setCategories(cats);
-      setAllTags(tags);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao carregar fatura.');
-    } finally {
-      setLoading(false);
-    }
-  }, [cid, iid]);
-
-  useEffect(() => { void load(); }, [load]);
+  const invoice = res.ok ? res.invoice : null;
+  const categories = useMemo(() => (res.ok ? res.categories : []), [res]);
+  const allTags = res.ok ? res.allTags : [];
 
   const catById = useMemo(() => {
     const m = new Map<number, Category>();
@@ -153,17 +155,16 @@ export default function InvoiceDetailPage({ params }: PageProps) {
         category_id: editModal.categoryId ?? undefined,
       });
       await api.setTransactionTags(editModal.txId, editModal.tags);
-      await load();
+      onReload();
       setEditModal(null);
     } catch (err) {
       window.alert(err instanceof Error ? err.message : 'Não foi possível salvar o lançamento.');
     } finally {
       setEditSaving(false);
     }
-  }, [editModal, load]);
+  }, [editModal, onReload]);
 
-  if (loading) return <div className="flex flex-1 items-center justify-center"><LoadingSpinner /></div>;
-  if (error) return <StatePanel variant="error" message={error} />;
+  if (!res.ok) return <StatePanel variant="error" message={res.error} actionLabel="Tentar novamente" onAction={onReload} />;
   if (!invoice) return <StatePanel variant="error" message="Fatura não encontrada." />;
 
   const [yearStr, monthStr] = invoice.due_month.split('-');
@@ -173,10 +174,6 @@ export default function InvoiceDetailPage({ params }: PageProps) {
   const hasTransactions = invoice.transactions.length > 0;
   const invoiceTotal = invoice.summary.total_invoice;
   const invoiceCredits = invoice.summary.total_other_credits;
-
-  function txCount(n: number) {
-    return `${n} ${n === 1 ? 'lançamento' : 'lançamentos'}`;
-  }
 
   return (
     <div>
@@ -430,5 +427,25 @@ export default function InvoiceDetailPage({ params }: PageProps) {
         </div>
       )}
     </div>
+  );
+}
+
+export default function InvoiceDetailPage({ params }: PageProps) {
+  const { invoiceId } = use(params);
+  const { cards } = useInstitution();
+  const cid = cards[0]?.id ?? 0;
+  const iid = Number(invoiceId);
+
+  const [promise, setPromise] = useState(() => loadInvoiceData(cid, iid));
+  const [, startTransition] = useTransition();
+
+  const reload = useCallback(() => {
+    startTransition(() => setPromise(loadInvoiceData(cid, iid)));
+  }, [cid, iid]);
+
+  return (
+    <Suspense fallback={<InvoiceDetailSkeleton />}>
+      <InvoiceDetailContent promise={promise} cid={cid} onReload={reload} />
+    </Suspense>
   );
 }
