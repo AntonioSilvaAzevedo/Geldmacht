@@ -269,18 +269,41 @@ function UploadPageInner() {
           color: 'var(--text-primary)',
           marginBottom: 6,
         }}>
-          {isBankStatementType ? 'Importar extrato bancário' : 'Importar extrato'}
+          {isBankStatementType
+            ? 'Importar extrato bancário'
+            : isCreditCardType
+              ? 'Importar fatura'
+              : 'Importar arquivo'}
         </h1>
         <p style={{ color: 'var(--text-secondary)', fontSize: isMobile ? 13 : 14, lineHeight: 1.45 }}>
           {isBankStatementType
             ? 'Selecione a conta bancária e envie o arquivo OFX exportado pelo seu banco. Os lançamentos serão revisados antes de salvar.'
             : isCreditCardType && card
-              ? `Envie a fatura do cartão ${card.name} para revisar e importar os lançamentos.`
+              ? `Envie a fatura do cartão de crédito ${card.name} para revisar e importar os lançamentos.`
               : isCreditCardType
                 ? 'Envie a fatura do cartão de crédito. Você selecionará o cartão na próxima etapa.'
-                : 'Envie um extrato bancário (PDF) ou planilha (Excel) para extrair e revisar os lançamentos antes de salvar.'}
+                : 'Envie um arquivo para extrair e revisar os lançamentos antes de salvar.'}
         </p>
       </div>
+
+      {isCreditCardType && (
+        <div style={{
+          marginBottom: 18,
+          padding: '12px 16px',
+          borderRadius: 12,
+          border: '1px solid rgba(214,158,46,0.30)',
+          background: 'rgba(214,158,46,0.08)',
+          display: 'flex',
+          gap: 10,
+          alignItems: 'flex-start',
+        }}>
+          <AlertCircle size={18} style={{ flexShrink: 0, marginTop: 1, color: 'var(--amber-400)' }} />
+          <p style={{ margin: 0, fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+            Importe preferencialmente <strong style={{ color: 'var(--text-primary)' }}>após o fechamento</strong> da fatura.
+            Importar uma fatura ainda aberta pode trazer lançamentos parciais e exigir reimportação depois — ao reimportar, os lançamentos são mesclados, sem duplicar.
+          </p>
+        </div>
+      )}
 
       {isBankStatementType && (
         <div style={{
