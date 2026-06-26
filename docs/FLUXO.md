@@ -64,14 +64,22 @@ A Carteira é organizada por **instituição** (banco/corretora). Desde a issue 
 3. **Adicionar conta** (tile tracejado) → modal de conta bancária. Ao salvar, faz **get-or-create** da instituição pelo nome digitado e cria a conta já vinculada (`institution_id`). O **cartão de crédito não é criado aqui** — apenas dentro do resumo da instituição.
 4. Clicar num card → abre o **resumo da instituição** (`/home/carteira/{id}`).
 
-### 2.2. Resumo da instituição — `/home/carteira/{id}` ✅ (issue #44)
-O slug da rota é o **id** da instituição. É a **tela inicial** ao abrir uma conta pela carteira e corresponde à aba **`Resumo`** do `InstitutionNav`. Mostra três seções:
+### 2.2. Resumo da instituição — `/home/carteira/{id}` ✅ (issue #44, redesenhado na #90)
+O slug da rota é o **id** da instituição. É a **tela inicial** ao abrir uma conta pela carteira e corresponde à aba **`Resumo`** do `InstitutionNav`.
 
-1. **Conta corrente** — lista contas vinculadas; se vazia, botão "Cadastrar conta corrente" (modal com a instituição já fixada). Com contas → link "Ver conta corrente (n)" para o extrato.
-2. **Cartão de crédito** — lista cartões vinculados; se vazio, "Cadastrar cartão de crédito" (modal com a instituição já fixada). Com cartões → link "Ver cartão de crédito (n)" para as faturas.
-3. **Investimentos** — 🚧 placeholder "Funcionalidade ainda não disponível".
+**Redesign #90 — de central de links para resumo financeiro:** os antigos cards de navegação (Conta corrente / Cartão de crédito / Investimentos) foram **removidos**. A tela mostra um topo enxuto com apenas o **período do mês atual por extenso** (ex. `Junho 2026`) ao lado da engrenagem, e **5 indicadores** em estilo dashboard (chip de ícone colorido + valor em cor semântica e números tabulares) escopados **àquela instituição** (suas contas e cartões):
 
-Ao cadastrar conta/cartão por aqui, o produto já entra vinculado àquela instituição e o resumo é recarregado.
+1. **Saldo disponível** — `Conta corrente`. **Adiado nesta versão:** sempre `R$ 0,00` (não há saldo armazenado; `bank_account` não tem coluna de saldo e o `ledger_balance` do OFX não é persistido). Issue futura.
+2. **Receitas do mês** — soma dos lançamentos **positivos** das contas da instituição no mês atual, **excluindo transferências internas**. Empty: `Nenhuma entrada neste mês`.
+3. **Despesas do mês** — soma absoluta dos lançamentos **negativos** das contas da instituição no mês atual, excluindo transferências internas. Empty: `Nenhuma saída neste mês`.
+4. **Parcelamentos ativos** — compras parceladas dos cartões da instituição que ainda têm parcelas futuras (singular/plural). Empty: `Nenhum parcelamento ativo`.
+5. **Futuro comprometido** — soma de `valor_parcela × parcelas_restantes` das compras parceladas ativas. Empty: `Nenhum valor futuro comprometido`.
+
+**Agrupamento de parcelas:** sem `installmentGroupId`, usa fallback `(card_id, descrição normalizada, installment_total)` (o parser remove o sufixo `- Parcela X/Y`); por grupo considera a **maior `installment_current`**, ativo quando `current < total`, `restantes = total − current`. Não duplica parcelas da mesma compra.
+
+**Backend:** `GET /api/summary?institution_id={id}` (autenticado) → `summary_service.get_financial_summary`, schema `FinancialSummary`. Sem `institution_id` o cálculo é global (não usado nesta tela). Valores em BRL (`formatCurrency`).
+
+A **engrenagem** (`AccountSettingsMenu`) segue no topo (excluir conta). **Investimentos** saiu desta versão (a issue exclui investimentos). Navegação para extrato/faturas continua pelas abas do `InstitutionNav`. **Sem botões de cadastro nesta tela** — adicionar conta/cartão a uma instituição existente não tem ponto de entrada aqui (a criação inicial acontece em `/home/carteira`).
 
 > **Navegação por abas (issue #80):** o `InstitutionNav` exibe as abas **`Resumo` → `Conta corrente` → `Cartão de crédito`**. `Resumo` é **sempre exibida** (mesmo em conta sem vínculos) e aponta para `/home/carteira/{id}`; `Conta corrente` aparece quando há contas (rota `…/extrato`) e `Cartão de crédito` quando há cartões (rota `…/cartao/faturas`). A aba ativa é resolvida pela rota atual. A **engrenagem** de configurações continua no topo do Resumo.
 
@@ -193,7 +201,7 @@ Dois fluxos **separados** (não se misturam):
 ---
 
 ## 8. Backend — endpoints (resumo)
-`auth` · `upload` · `bank-accounts` · `institutions` · `import` (transactions) · `transactions` · `cards` · `categories` · `dashboard` · `release-notes` · `onboarding`.
+`auth` · `upload` · `bank-accounts` · `institutions` · `import` (transactions) · `transactions` · `cards` · `categories` · `dashboard` · `summary` (`GET /api/summary?institution_id={id}` — resumo financeiro do mês da instituição, §2.2) · `release-notes` · `onboarding`.
 
 Modelo de dados central da Carteira: `Institution` 1—N `BankAccount` / `CreditCard` (via `institution_id`); `Transaction` ligada a conta ou cartão; `Invoice` para faturas.
 

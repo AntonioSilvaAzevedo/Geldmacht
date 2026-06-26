@@ -1,134 +1,117 @@
 'use client'
 
-import { useState, type ReactNode } from 'react'
-import Link from 'next/link'
+import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { CreditCard, Landmark, Plus, TrendingUp } from 'lucide-react'
+import { ArrowDownRight, ArrowUpRight, CalendarClock, CreditCard, Wallet } from 'lucide-react'
 
 import { useInstitution } from '@/components/carteira/institution-context'
 import { AccountSettingsMenu } from '@/components/carteira/AccountSettingsMenu'
-import { BankAccountModal, type BankAccountModalData } from '@/components/carteira/BankAccountModal'
-import { CardFormModal, type CardFormData } from '@/components/Cards/CardFormModal'
-import { Button } from '@/components/ui/button'
-import { api } from '@/lib/api'
-
-type ActiveModal = 'conta' | 'cartao' | null
+import LoadingSpinner from '@/components/LoadingSpinner'
+import SummaryCard from '@/components/summary/SummaryCard'
+import { api, type FinancialSummary } from '@/lib/api'
+import { formatCurrency } from '@/lib/formatters'
 
 export default function InstitutionIndexPage() {
   const router = useRouter()
-  const { slug, institutionId, displayName, accounts, cards, loading, refetch } = useInstitution()
-  const [activeModal, setActiveModal] = useState<ActiveModal>(null)
+  const { institutionId, displayName, loading } = useInstitution()
+  const [summary, setSummary] = useState<FinancialSummary | null>(null)
+  const [summaryLoading, setSummaryLoading] = useState(true)
 
-  async function handleCreateAccount(payload: BankAccountModalData) {
-    await api.createBankAccount({
-      ...payload,
-      institution: displayName,
-      institution_id: institutionId ?? undefined,
-      currency: 'BRL',
-      is_active: true,
-    })
-    setActiveModal(null)
-    refetch()
-  }
+  const loadSummary = useCallback(async () => {
+    setSummaryLoading(true)
+    try {
+      setSummary(await api.getSummary(institutionId ?? undefined))
+    } finally {
+      setSummaryLoading(false)
+    }
+  }, [institutionId])
 
-  async function handleCreateCard(payload: CardFormData) {
-    await api.createCard({ ...payload, institution_id: institutionId ?? undefined })
-    setActiveModal(null)
-    refetch()
-  }
+  useEffect(() => {
+    void loadSummary()
+  }, [loadSummary])
 
   if (loading) return null
 
+  const count = summary?.active_installments_count ?? 0
+
+  const cards = summary
+    ? [
+        {
+          label: 'Saldo disponível',
+          value: formatCurrency(summary.available_balance),
+          helper: 'Conta corrente',
+          icon: <Wallet size={16} />,
+          accent: 'var(--blue)',
+        },
+        {
+          label: 'Futuro comprometido',
+          value: formatCurrency(summary.future_committed_amount),
+          helper:
+            summary.future_committed_amount > 0
+              ? 'Próximos meses'
+              : 'Nenhum valor futuro comprometido',
+          icon: <CalendarClock size={16} />,
+          accent: 'var(--orange)',
+        },
+        {
+          label: 'Parcelamentos ativos',
+          value: `${count} ${count === 1 ? 'compra' : 'compras'}`,
+          helper: count > 0 ? 'Cartão de crédito' : 'Nenhum parcelamento ativo',
+          icon: <CreditCard size={16} />,
+          accent: 'var(--purple)',
+        },
+        {
+          label: 'Receitas do mês',
+          value: formatCurrency(summary.monthly_income),
+          helper: summary.monthly_income > 0 ? 'Entradas confirmadas' : 'Nenhuma entrada neste mês',
+          icon: <ArrowUpRight size={16} />,
+          accent: 'var(--green)',
+        },
+        {
+          label: 'Despesas do mês',
+          value: formatCurrency(summary.monthly_expenses),
+          helper: summary.monthly_expenses > 0 ? 'Saídas confirmadas' : 'Nenhuma saída neste mês',
+          icon: <ArrowDownRight size={16} />,
+          accent: 'var(--red)',
+        },
+      ]
+    : []
+
   return (
-    <div className="flex flex-col gap-3">
-      {institutionId != null && (
-        <div className="flex justify-end">
-          <AccountSettingsMenu
-            institutionId={institutionId}
-            institutionName={displayName}
-            onDeleted={() => router.push('/home/carteira')}
-          />
-        </div>
-      )}
-      <ProductArea
-        icon={<Landmark size={18} />}
-        title="Conta corrente"
-        count={accounts.length}
-        href={`/home/carteira/${slug}/extrato`}
-        emptyText="Nenhuma conta corrente cadastrada"
-        actionLabel="Cadastrar conta corrente"
-        onAction={() => setActiveModal('conta')}
-      />
-      <ProductArea
-        icon={<CreditCard size={18} />}
-        title="Cartão de crédito"
-        count={cards.length}
-        href={`/home/carteira/${slug}/cartao/faturas`}
-        emptyText="Nenhum cartão de crédito cadastrado"
-        actionLabel="Cadastrar cartão de crédito"
-        onAction={() => setActiveModal('cartao')}
-      />
-      <ProductArea
-        icon={<TrendingUp size={18} />}
-        title="Investimentos"
-        count={0}
-        emptyText="Funcionalidade ainda não disponível"
-        comingSoon
-      />
-
-      {activeModal === 'conta' && (
-        <BankAccountModal
-          institutionName={displayName}
-          onClose={() => setActiveModal(null)}
-          onSubmit={handleCreateAccount}
-        />
-      )}
-      {activeModal === 'cartao' && (
-        <CardFormModal
-          institutionName={displayName}
-          onClose={() => setActiveModal(null)}
-          onSubmit={handleCreateCard}
-        />
-      )}
-    </div>
-  )
-}
-
-interface ProductAreaProps {
-  icon: ReactNode
-  title: string
-  count: number
-  href?: string
-  emptyText: string
-  actionLabel?: string
-  onAction?: () => void
-  comingSoon?: boolean
-}
-
-function ProductArea({ icon, title, count, href, emptyText, actionLabel, onAction, comingSoon }: ProductAreaProps) {
-  return (
-    <div className="rounded-[16px] border border-[var(--border-default)] bg-[var(--surface-card)] p-5">
-      <div className="mb-3 flex items-center gap-2 text-[var(--text-secondary)]">
-        {icon}
-        <span className="text-[13px] font-semibold uppercase tracking-[0.04em]">{title}</span>
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center gap-3">
+        {summary && (
+          <div className="text-[15px] font-medium text-[var(--text-secondary)]">
+            {summary.period_label}
+          </div>
+        )}
+        {institutionId != null && (
+          <div className="ml-auto">
+            <AccountSettingsMenu
+              institutionId={institutionId}
+              institutionName={displayName}
+              onDeleted={() => router.push('/home/carteira')}
+            />
+          </div>
+        )}
       </div>
-      {comingSoon ? (
-        <p className="text-[13px] text-[var(--text-tertiary)]">{emptyText}</p>
-      ) : count > 0 && href ? (
-        <Link
-          href={href}
-          className="inline-flex items-center gap-1.5 text-[14px] font-medium text-[var(--blue)] no-underline transition-opacity hover:opacity-[0.85]"
-        >
-          Ver {title.toLowerCase()} ({count})
-        </Link>
+
+      {summaryLoading && !summary ? (
+        <div className="flex items-center justify-center py-12">
+          <LoadingSpinner />
+        </div>
       ) : (
-        <div className="flex flex-col items-start gap-3">
-          <p className="text-[13px] text-[var(--text-secondary)]">{emptyText}</p>
-          {actionLabel && onAction && (
-            <Button type="button" variant="outline" size="sm" onClick={onAction} className="inline-flex gap-1.5">
-              <Plus size={14} /> {actionLabel}
-            </Button>
-          )}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {cards.map((c) => (
+            <SummaryCard
+              key={c.label}
+              label={c.label}
+              value={c.value}
+              helper={c.helper}
+              icon={c.icon}
+              accent={c.accent}
+            />
+          ))}
         </div>
       )}
     </div>

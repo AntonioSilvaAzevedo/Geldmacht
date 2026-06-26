@@ -397,6 +397,15 @@ export interface CategorySuggestion {
   icon: string | null;
 }
 
+export interface FinancialSummary {
+  period_label: string;
+  available_balance: number;
+  monthly_income: number;
+  monthly_expenses: number;
+  active_installments_count: number;
+  future_committed_amount: number;
+}
+
 export interface CategoryPayload {
   name: string;
   scope?: 'credit_card' | 'bank';
@@ -732,6 +741,11 @@ export const api = {
   /** Dados agregados para o Dashboard Anual. */
   getDashboardMonthly: () =>
     request(ENDPOINTS.dashboardMonthly),
+
+  getSummary: (institutionId?: number): Promise<FinancialSummary> =>
+    request<FinancialSummary>(
+      `${BASE}/api/summary${institutionId != null ? `?institution_id=${institutionId}` : ''}`,
+    ),
 
   /** Edita descrição e/ou categoria de uma transação salva. */
   updateTransaction: (id: number, patch: { description?: string; category?: string; category_id?: number }): Promise<Transaction> =>
