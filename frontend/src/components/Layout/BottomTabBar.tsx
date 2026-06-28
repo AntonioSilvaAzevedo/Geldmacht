@@ -72,6 +72,7 @@ export default function BottomTabBar() {
     function onScroll(event: Event) {
       const target = event.target as HTMLElement | null;
       if (!target || typeof target.scrollTop !== 'number') return;
+      if (target.closest('[data-expandable-content]')) return;
 
       const y = target.scrollTop;
       const maxY = target.scrollHeight - target.clientHeight;
@@ -93,6 +94,7 @@ export default function BottomTabBar() {
       if (Math.abs(delta) < 8) return;
 
       if (delta > 0) setHidden(true);
+      else setHidden(false);
       lastY = y;
     }
 

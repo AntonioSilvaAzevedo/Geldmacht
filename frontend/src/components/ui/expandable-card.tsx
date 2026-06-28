@@ -75,6 +75,7 @@ export function ExpandableCard({
       </button>
       {open && (
         <div
+          data-expandable-content
           className={cn(
             'border-t border-[var(--separator)]',
             scrollableContent && 'overflow-y-auto overscroll-contain',

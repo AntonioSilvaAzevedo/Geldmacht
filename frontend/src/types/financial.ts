@@ -49,6 +49,8 @@ export interface Transaction {
   source: string | null;
   /** income | expense | transfer | payment | adjustment */
   transaction_type: string | null;
+  /** Classificação econômica do extrato: income | expense | internal_transfer | credit_card_payment */
+  movement_type?: string | null;
   /** Referência externa do extrato (ex.: FITID OFX). */
   source_reference?: string | null;
   notes: string | null;
