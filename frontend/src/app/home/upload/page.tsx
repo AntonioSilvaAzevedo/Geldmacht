@@ -305,8 +305,8 @@ function UploadPageInner() {
         }}>
           <AlertCircle size={18} style={{ flexShrink: 0, marginTop: 1, color: 'var(--amber-400)' }} />
           <p style={{ margin: 0, fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-            Importe preferencialmente <strong style={{ color: 'var(--text-primary)' }}>após o fechamento</strong> da fatura.
-            Importar uma fatura ainda aberta pode trazer lançamentos parciais e exigir reimportação depois — ao reimportar, os lançamentos são mesclados, sem duplicar.
+            <strong style={{ color: 'var(--text-primary)' }}>OFX</strong> é o formato preferencial e pode ser importado a qualquer momento.
+            Para <strong style={{ color: 'var(--text-primary)' }}>PDF</strong>, recomendamos enviar <strong style={{ color: 'var(--text-primary)' }}>somente a fatura fechada</strong> — uma fatura aberta traz lançamentos parciais e pode exigir reimportação (ao reimportar, os lançamentos são mesclados, sem duplicar).
           </p>
         </div>
       )}
