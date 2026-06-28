@@ -18,7 +18,7 @@ import { Button } from '@/components/ui/button';
 
 type Stage = 'idle' | 'uploading' | 'preview' | 'error' | 'already_imported';
 
-const ACCEPT_CARD = ['.pdf', '.xlsx', '.xls'];
+const ACCEPT_CARD = ['.ofx', '.qfx', '.pdf', '.xlsx', '.xls'];
 const ACCEPT_BANK_STATEMENT = ['.ofx', '.qfx'];
 const ACCEPTED_MIME_CARD = [
   'application/pdf',
@@ -112,8 +112,14 @@ function UploadPageInner() {
       const extOk = ACCEPT_BANK_STATEMENT.some(ext => nameLower.endsWith(ext));
       return extOk;
     }
+    const isOfx = /\.(ofx|qfx)$/.test(nameLower);
     const extOk = ACCEPT_CARD.some(ext => nameLower.endsWith(ext));
-    const mimeOk = !file.type || ACCEPTED_MIME_CARD.includes(file.type) || file.type === 'application/octet-stream';
+    const mimeOk =
+      isOfx ||
+      !file.type ||
+      ACCEPTED_MIME_CARD.includes(file.type) ||
+      file.type === 'application/octet-stream' ||
+      file.type.toLowerCase().includes('ofx');
     return extOk && mimeOk;
   }, [isBankStatementType]);
 
@@ -122,7 +128,7 @@ function UploadPageInner() {
       if (isBankStatementType) {
         setErrorMessage(`Use um arquivo OFX (.ofx ou .qfx). Recebido: "${file.name}".`);
       } else {
-        setErrorMessage(`Tipo de arquivo não suportado: "${file.name}". Use PDF ou Excel (.xlsx).`);
+        setErrorMessage(`Tipo de arquivo não suportado: "${file.name}". Use OFX (.ofx), PDF ou Excel (.xlsx).`);
       }
       setStage('error');
       return;
@@ -279,9 +285,9 @@ function UploadPageInner() {
           {isBankStatementType
             ? 'Selecione a conta bancária e envie o arquivo OFX exportado pelo seu banco. Os lançamentos serão revisados antes de salvar.'
             : isCreditCardType && card
-              ? `Envie a fatura do cartão de crédito ${card.name} para revisar e importar os lançamentos.`
+              ? `Envie a fatura do cartão de crédito ${card.name} (OFX de preferência, ou PDF) para revisar e importar os lançamentos.`
               : isCreditCardType
-                ? 'Envie a fatura do cartão de crédito. Você selecionará o cartão na próxima etapa.'
+                ? 'Envie a fatura do cartão de crédito (OFX de preferência, ou PDF). Você selecionará o cartão na próxima etapa.'
                 : 'Envie um arquivo para extrair e revisar os lançamentos antes de salvar.'}
         </p>
       </div>
@@ -402,8 +408,8 @@ function UploadPageInner() {
               {isBankStatementType
                 ? 'Arquivo OFX (.ofx ou .qfx)'
                 : isMobile
-                  ? 'PDF ou Excel (.xlsx)'
-                  : 'PDF ou Excel (.xlsx) — extratos Nubank, Itaú, Mercado Pago, Fatura Nubank'}
+                  ? 'OFX (.ofx) — preferencial — PDF ou Excel'
+                  : 'OFX (.ofx) é o formato preferencial — também aceita PDF ou Excel (.xlsx)'}
             </p>
           </>
         ) : (
@@ -435,7 +441,9 @@ function UploadPageInner() {
             <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 0 }}>
               {formatBytes(selectedFile.size)}
               {' · '}
-              {isBankStatementType ? 'OFX' : selectedFile.name.toLowerCase().endsWith('.pdf') ? 'PDF' : 'Excel'}
+              {isBankStatementType || /\.(ofx|qfx)$/i.test(selectedFile.name)
+                ? 'OFX'
+                : selectedFile.name.toLowerCase().endsWith('.pdf') ? 'PDF' : 'Excel'}
             </p>
 
             <Button
