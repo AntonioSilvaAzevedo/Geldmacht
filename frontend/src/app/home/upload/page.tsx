@@ -1,7 +1,7 @@
 'use client';
 
 import { Suspense, useState, useCallback, useEffect, useRef } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Upload, FileText, FileSpreadsheet, X, AlertCircle, Loader2 } from 'lucide-react';
 import {
   api,
@@ -41,6 +41,7 @@ function formatImportedAtPt(iso: string | null): string {
 
 function UploadPageInner() {
   const isMobile = useIsMobile();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const uploadType = searchParams.get('type');
   const cardIdParam = searchParams.get('cardId');
@@ -192,6 +193,14 @@ function UploadPageInner() {
   };
 
   const fileAccept = isBankStatementType ? ACCEPT_BANK_STATEMENT.join(',') : ACCEPT_CARD.join(',');
+
+  const mismatchTarget: 'bank_statement' | 'credit_card' | null = (() => {
+    if (stage !== 'error') return null;
+    const m = errorMessage.toLowerCase();
+    if (isCreditCardType && m.includes('extrato de conta')) return 'bank_statement';
+    if (isBankStatementType && m.includes('fatura de cart')) return 'credit_card';
+    return null;
+  })();
 
   if (
     stage === 'already_imported' &&
@@ -476,6 +485,18 @@ function UploadPageInner() {
           <AlertCircle size={16} style={{ flexShrink: 0, marginTop: 1 }} />
           <span>{errorMessage}</span>
         </div>
+      )}
+
+      {mismatchTarget && (
+        <Button
+          type="button"
+          variant="primary"
+          size="lg"
+          className="mt-3 w-full"
+          onClick={() => router.push(`/home/upload?type=${mismatchTarget}`)}
+        >
+          {mismatchTarget === 'credit_card' ? 'Ir para Importar fatura' : 'Ir para Importar extrato'}
+        </Button>
       )}
 
       {selectedFile && stage !== 'uploading' && (
