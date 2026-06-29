@@ -191,6 +191,7 @@ function UploadPageInner() {
   };
 
   const fileAccept = isBankStatementType ? ACCEPT_BANK_STATEMENT.join(',') : ACCEPT_CARD.join(',');
+  const inputAccept = isMobile && isCreditCardType ? undefined : fileAccept;
 
   const mismatchTarget: 'bank_statement' | 'credit_card' | null = (() => {
     if (stage !== 'error') return null;
@@ -385,7 +386,7 @@ function UploadPageInner() {
         <input
           ref={inputRef}
           type="file"
-          accept={fileAccept}
+          accept={inputAccept}
           style={{ display: 'none' }}
           onChange={handleInputChange}
         />
