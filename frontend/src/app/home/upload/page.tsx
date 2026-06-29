@@ -1,7 +1,7 @@
 'use client';
 
 import { Suspense, useState, useCallback, useEffect, useRef } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Upload, FileText, FileSpreadsheet, X, AlertCircle, Loader2 } from 'lucide-react';
 import {
   api,
@@ -18,12 +18,10 @@ import { Button } from '@/components/ui/button';
 
 type Stage = 'idle' | 'uploading' | 'preview' | 'error' | 'already_imported';
 
-const ACCEPT_CARD = ['.pdf', '.xlsx', '.xls'];
+const ACCEPT_CARD = ['.ofx', '.qfx', '.pdf'];
 const ACCEPT_BANK_STATEMENT = ['.ofx', '.qfx'];
 const ACCEPTED_MIME_CARD = [
   'application/pdf',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'application/vnd.ms-excel',
 ];
 
 function formatBytes(bytes: number): string {
@@ -41,6 +39,7 @@ function formatImportedAtPt(iso: string | null): string {
 
 function UploadPageInner() {
   const isMobile = useIsMobile();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const uploadType = searchParams.get('type');
   const cardIdParam = searchParams.get('cardId');
@@ -112,8 +111,14 @@ function UploadPageInner() {
       const extOk = ACCEPT_BANK_STATEMENT.some(ext => nameLower.endsWith(ext));
       return extOk;
     }
+    const isOfx = /\.(ofx|qfx)$/.test(nameLower);
     const extOk = ACCEPT_CARD.some(ext => nameLower.endsWith(ext));
-    const mimeOk = !file.type || ACCEPTED_MIME_CARD.includes(file.type) || file.type === 'application/octet-stream';
+    const mimeOk =
+      isOfx ||
+      !file.type ||
+      ACCEPTED_MIME_CARD.includes(file.type) ||
+      file.type === 'application/octet-stream' ||
+      file.type.toLowerCase().includes('ofx');
     return extOk && mimeOk;
   }, [isBankStatementType]);
 
@@ -122,7 +127,7 @@ function UploadPageInner() {
       if (isBankStatementType) {
         setErrorMessage(`Use um arquivo OFX (.ofx ou .qfx). Recebido: "${file.name}".`);
       } else {
-        setErrorMessage(`Tipo de arquivo não suportado: "${file.name}". Use PDF ou Excel (.xlsx).`);
+        setErrorMessage(`Tipo de arquivo não suportado: "${file.name}". Use OFX (.ofx) ou PDF.`);
       }
       setStage('error');
       return;
@@ -186,6 +191,14 @@ function UploadPageInner() {
   };
 
   const fileAccept = isBankStatementType ? ACCEPT_BANK_STATEMENT.join(',') : ACCEPT_CARD.join(',');
+
+  const mismatchTarget: 'bank_statement' | 'credit_card' | null = (() => {
+    if (stage !== 'error') return null;
+    const m = errorMessage.toLowerCase();
+    if (isCreditCardType && m.includes('extrato de conta')) return 'bank_statement';
+    if (isBankStatementType && m.includes('fatura de cart')) return 'credit_card';
+    return null;
+  })();
 
   if (
     stage === 'already_imported' &&
@@ -279,9 +292,9 @@ function UploadPageInner() {
           {isBankStatementType
             ? 'Selecione a conta bancária e envie o arquivo OFX exportado pelo seu banco. Os lançamentos serão revisados antes de salvar.'
             : isCreditCardType && card
-              ? `Envie a fatura do cartão de crédito ${card.name} para revisar e importar os lançamentos.`
+              ? `Envie a fatura do cartão de crédito ${card.name} (OFX de preferência, ou PDF) para revisar e importar os lançamentos.`
               : isCreditCardType
-                ? 'Envie a fatura do cartão de crédito. Você selecionará o cartão na próxima etapa.'
+                ? 'Envie a fatura do cartão de crédito (OFX de preferência, ou PDF). Você selecionará o cartão na próxima etapa.'
                 : 'Envie um arquivo para extrair e revisar os lançamentos antes de salvar.'}
         </p>
       </div>
@@ -299,8 +312,8 @@ function UploadPageInner() {
         }}>
           <AlertCircle size={18} style={{ flexShrink: 0, marginTop: 1, color: 'var(--amber-400)' }} />
           <p style={{ margin: 0, fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-            Importe preferencialmente <strong style={{ color: 'var(--text-primary)' }}>após o fechamento</strong> da fatura.
-            Importar uma fatura ainda aberta pode trazer lançamentos parciais e exigir reimportação depois — ao reimportar, os lançamentos são mesclados, sem duplicar.
+            <strong style={{ color: 'var(--text-primary)' }}>OFX</strong> é o formato preferencial e pode ser importado a qualquer momento.
+            Para <strong style={{ color: 'var(--text-primary)' }}>PDF</strong>, recomendamos enviar <strong style={{ color: 'var(--text-primary)' }}>somente a fatura fechada</strong> — uma fatura aberta traz lançamentos parciais e pode exigir reimportação (ao reimportar, os lançamentos são mesclados, sem duplicar).
           </p>
         </div>
       )}
@@ -402,8 +415,8 @@ function UploadPageInner() {
               {isBankStatementType
                 ? 'Arquivo OFX (.ofx ou .qfx)'
                 : isMobile
-                  ? 'PDF ou Excel (.xlsx)'
-                  : 'PDF ou Excel (.xlsx) — extratos Nubank, Itaú, Mercado Pago, Fatura Nubank'}
+                  ? 'OFX (.ofx) — preferencial — ou PDF'
+                  : 'OFX (.ofx) é o formato preferencial — também aceita PDF'}
             </p>
           </>
         ) : (
@@ -435,7 +448,9 @@ function UploadPageInner() {
             <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 0 }}>
               {formatBytes(selectedFile.size)}
               {' · '}
-              {isBankStatementType ? 'OFX' : selectedFile.name.toLowerCase().endsWith('.pdf') ? 'PDF' : 'Excel'}
+              {isBankStatementType || /\.(ofx|qfx)$/i.test(selectedFile.name)
+                ? 'OFX'
+                : selectedFile.name.toLowerCase().endsWith('.pdf') ? 'PDF' : 'Excel'}
             </p>
 
             <Button
@@ -470,13 +485,25 @@ function UploadPageInner() {
         </div>
       )}
 
+      {mismatchTarget && (
+        <Button
+          type="button"
+          variant="secondary"
+          size="lg"
+          className="mt-3 w-full"
+          onClick={() => router.push(`/home/upload?type=${mismatchTarget}`)}
+        >
+          {mismatchTarget === 'credit_card' ? 'Ir para Importar fatura' : 'Ir para Importar extrato'}
+        </Button>
+      )}
+
       {selectedFile && stage !== 'uploading' && (
         <Button
           type="button"
           variant="primary"
           size="lg"
           className="mt-5 w-full"
-          disabled={isBankStatementType && (!selectedBankId || bankAccounts.length === 0)}
+          disabled={mismatchTarget != null || (isBankStatementType && (!selectedBankId || bankAccounts.length === 0))}
           onClick={() => void handleUpload()}
         >
           <Upload className="size-4" />

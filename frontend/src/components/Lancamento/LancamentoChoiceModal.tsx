@@ -42,7 +42,7 @@ export function LancamentoChoiceModal({ onManual, onClose }: LancamentoChoiceMod
       <ChoiceButton
         icon={<CreditCard className="size-[18px]" />}
         title="Importar fatura"
-        subtitle="PDF da fatura do cartão de crédito"
+        subtitle="Arquivo .ofx (preferencial) ou PDF do cartão"
         onClick={() => goImport('/home/upload?type=credit_card')}
       />
     </FormSheet>
