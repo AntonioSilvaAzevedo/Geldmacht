@@ -18,12 +18,10 @@ import { Button } from '@/components/ui/button';
 
 type Stage = 'idle' | 'uploading' | 'preview' | 'error' | 'already_imported';
 
-const ACCEPT_CARD = ['.ofx', '.qfx', '.pdf', '.xlsx', '.xls'];
+const ACCEPT_CARD = ['.ofx', '.qfx', '.pdf'];
 const ACCEPT_BANK_STATEMENT = ['.ofx', '.qfx'];
 const ACCEPTED_MIME_CARD = [
   'application/pdf',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'application/vnd.ms-excel',
 ];
 
 function formatBytes(bytes: number): string {
@@ -129,7 +127,7 @@ function UploadPageInner() {
       if (isBankStatementType) {
         setErrorMessage(`Use um arquivo OFX (.ofx ou .qfx). Recebido: "${file.name}".`);
       } else {
-        setErrorMessage(`Tipo de arquivo não suportado: "${file.name}". Use OFX (.ofx), PDF ou Excel (.xlsx).`);
+        setErrorMessage(`Tipo de arquivo não suportado: "${file.name}". Use OFX (.ofx) ou PDF.`);
       }
       setStage('error');
       return;
@@ -417,8 +415,8 @@ function UploadPageInner() {
               {isBankStatementType
                 ? 'Arquivo OFX (.ofx ou .qfx)'
                 : isMobile
-                  ? 'OFX (.ofx) — preferencial — PDF ou Excel'
-                  : 'OFX (.ofx) é o formato preferencial — também aceita PDF ou Excel (.xlsx)'}
+                  ? 'OFX (.ofx) — preferencial — ou PDF'
+                  : 'OFX (.ofx) é o formato preferencial — também aceita PDF'}
             </p>
           </>
         ) : (
@@ -490,7 +488,7 @@ function UploadPageInner() {
       {mismatchTarget && (
         <Button
           type="button"
-          variant="primary"
+          variant="secondary"
           size="lg"
           className="mt-3 w-full"
           onClick={() => router.push(`/home/upload?type=${mismatchTarget}`)}
@@ -505,7 +503,7 @@ function UploadPageInner() {
           variant="primary"
           size="lg"
           className="mt-5 w-full"
-          disabled={isBankStatementType && (!selectedBankId || bankAccounts.length === 0)}
+          disabled={mismatchTarget != null || (isBankStatementType && (!selectedBankId || bankAccounts.length === 0))}
           onClick={() => void handleUpload()}
         >
           <Upload className="size-4" />

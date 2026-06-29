@@ -185,7 +185,7 @@ Dentro do extrato, **"Adicionar lançamento"** abre direto o modal manual.
 ## 6. Importação / Upload — `/home/upload` ✅
 Dois fluxos **separados** (não se misturam):
 1. **Importar extrato** bancário (`?type=bank_statement`, arquivos `.ofx/.qfx`) → vincula a uma **conta corrente**. Pré-selecionada quando vem da conta corrente (`bankAccountId`). Acessível pela conta corrente e pelo menu Adicionar.
-2. **Importar fatura** de cartão (`?type=credit_card`, **`.ofx` preferencial**, ou `.pdf/.xlsx`) → vincula a um **cartão** e gera a fatura/`invoice`. Pré-selecionado quando vem do cartão (`cardId`). Acessível pelas faturas do cartão e pelo menu Adicionar.
+2. **Importar fatura** de cartão (`?type=credit_card`, **`.ofx` preferencial**, ou `.pdf`) → vincula a um **cartão** e gera a fatura/`invoice`. Pré-selecionado quando vem do cartão (`cardId`). Acessível pelas faturas do cartão e pelo menu Adicionar. **Excel não é aceito na fatura.**
 3. **Revisão de lançamentos:** após o upload, a tela de revisão tem a **lista de lançamentos como destaque principal**. Estrutura enxuta _(issue #57)_:
    - **Topo:** apenas o título **"Revisar lançamentos"** e, abaixo, o **nome do arquivo** em label pequena e discreta. Sem chip de parser, sem contagem e sem datas no topo.
    - **Destino compacto:** um único bloco confirma para onde a importação vai — **"Conta corrente de destino"** (extrato) ou **"Cartão de destino"** (fatura, seletor de cartão). Os metadados da fatura (vencimento, ciclo, total) vêm detectados do arquivo e não são mais editáveis na tela.
