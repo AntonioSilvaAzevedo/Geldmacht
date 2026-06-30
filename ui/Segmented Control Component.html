@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Segmented Control — Geldmacht UI</title>
+  <link rel="stylesheet" href="../apple-tokens.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--black);
+      font-family: var(--font-sans);
+      color: var(--text-primary);
+      -webkit-font-smoothing: antialiased;
+      min-height: 100vh;
+      padding: 48px 24px 120px;
+    }
+
+    /* ── Layout ── */
+    .page { max-width: 880px; margin: 0 auto; }
+
+    /* ── Page header ── */
+    .page-header { margin-bottom: 56px; }
+    .page-eyebrow {
+      font-size: var(--text-footnote);
+      font-weight: var(--weight-semibold);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-tertiary);
+      margin-bottom: 10px;
+    }
+    .page-title {
+      font-size: 40px;
+      font-weight: var(--weight-heavy);
+      letter-spacing: -0.03em;
+      color: var(--text-primary);
+      margin-bottom: 12px;
+    }
+    .page-desc {
+      font-size: var(--text-callout);
+      color: var(--text-secondary);
+      line-height: 1.6;
+      max-width: 540px;
+    }
+    .page-desc code {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      background: var(--surface-2);
+      padding: 1px 6px;
+      border-radius: 4px;
+      color: var(--blue);
+    }
+
+    /* ── Section ── */
+    .section { margin-bottom: 60px; }
+    .section-header {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      margin-bottom: 24px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--separator);
+    }
+    .section-title {
+      font-size: var(--text-title3);
+      font-weight: var(--weight-semibold);
+      letter-spacing: -0.01em;
+      color: var(--text-primary);
+    }
+    .section-badge {
+      font-size: var(--text-caption1);
+      font-weight: var(--weight-semibold);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--text-tertiary);
+    }
+
+    /* ── Demo row ── */
+    .demo-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 24px;
+      padding: 28px 24px;
+      background: var(--surface-1);
+      border-radius: var(--radius-lg);
+      margin-bottom: 12px;
+    }
+
+    /* ── Code block ── */
+    .code-block {
+      background: var(--surface-1);
+      border: 1px solid var(--separator);
+      border-radius: var(--radius-md);
+      padding: 16px 20px;
+      margin-top: 4px;
+      overflow-x: auto;
+    }
+    .code-block pre {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      line-height: 1.7;
+      color: var(--text-secondary);
+      white-space: pre;
+    }
+    .code-block .kw  { color: #BF5AF2; }
+    .code-block .str { color: #30D158; }
+    .code-block .tag { color: #0A84FF; }
+    .code-block .cmt { color: var(--text-tertiary); }
+
+    /* ── State group ── */
+    .state-group {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    .state-label {
+      font-size: var(--text-caption1);
+      color: var(--text-tertiary);
+      font-weight: var(--weight-medium);
+      letter-spacing: 0.03em;
+    }
+
+    /* ────────────────────────────────────────────
+       SEGMENTED CONTROL — espelha o SegCtrl usado nos headers
+       track = surface-2 · thumb ativo = surface-0 (preto)
+       ─────────────────────────────────────────── */
+    .seg {
+      display: inline-flex;
+      gap: 4px;
+      background: var(--surface-2);
+      border-radius: 10px;
+      padding: 3px;
+      flex-shrink: 0;
+    }
+    .seg-item {
+      padding: 6px 14px;
+      border: none;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--text-secondary);
+      font-family: var(--font-sans);
+      font-size: 13px;
+      font-weight: var(--weight-regular);
+      line-height: 1;
+      white-space: nowrap;
+      cursor: pointer;
+      transition: background 0.12s ease, color 0.12s ease, box-shadow 0.12s ease;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .seg-item:hover:not(.is-active) { color: var(--text-primary); }
+    .seg-item.is-active {
+      background: var(--surface-0);
+      color: var(--text-primary);
+      font-weight: var(--weight-semibold);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+    }
+    .seg-item:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(10,132,255,0.45);
+    }
+
+    /* ── Size sm ── */
+    .seg-sm { border-radius: 9px; padding: 2px; gap: 4px; }
+    .seg-sm .seg-item { padding: 4px 11px; font-size: 12px; border-radius: 7px; }
+
+    /* ── full-width (stretch) ── */
+    .seg-full { display: flex; width: 100%; }
+    .seg-full .seg-item { flex: 1; text-align: center; }
+
+    /* ── Mock header shell ── */
+    .header-shell {
+      border: 1px solid var(--separator);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      width: 100%;
+    }
+    .header-shell-bar {
+      background: var(--surface-0);
+      padding: 14px 22px;
+      border-bottom: 1px solid var(--separator);
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .header-shell-title { font-size: var(--text-title3); font-weight: var(--weight-bold); letter-spacing: -0.02em; }
+    .header-shell-sub { font-size: var(--text-caption1); color: var(--text-secondary); margin-top: 3px; }
+    .header-shell-ghost { padding: 16px 22px; opacity: 0.14; pointer-events: none; display: flex; flex-direction: column; gap: 8px; }
+    .ghost-line { height: 8px; background: var(--text-secondary); border-radius: 4px; }
+
+    /* ── Anatomy callout ── */
+    .anatomy-box {
+      display: flex;
+      align-items: flex-start;
+      gap: 20px;
+      padding: 20px 24px;
+      background: var(--surface-1);
+      border-radius: var(--radius-lg);
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+    .anatomy-col { flex: 1; min-width: 200px; }
+    .anatomy-label {
+      font-size: var(--text-caption1);
+      font-weight: var(--weight-semibold);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-tertiary);
+      margin-bottom: 10px;
+    }
+    .anatomy-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      padding: 7px 0;
+      border-bottom: 1px solid var(--separator);
+      font-size: var(--text-footnote);
+    }
+    .anatomy-item:last-child { border-bottom: none; }
+    .anatomy-key   { color: var(--text-secondary); }
+    .anatomy-value { font-family: var(--font-mono); font-size: 12px; color: var(--text-primary); text-align: right; }
+
+    /* ── Usage note ── */
+    .usage-note {
+      background: rgba(10,132,255,0.07);
+      border: 1px solid rgba(10,132,255,0.2);
+      border-radius: var(--radius-md);
+      padding: 16px 18px;
+      font-size: var(--text-footnote);
+      color: var(--text-secondary);
+      line-height: 1.75;
+    }
+    .usage-note strong { color: var(--text-primary); }
+    .usage-note code {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      background: var(--surface-2);
+      padding: 1px 5px;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+
+    <!-- ── Page Header ── -->
+    <header class="page-header">
+      <p class="page-eyebrow">Geldmacht UI · Components</p>
+      <h1 class="page-title">Segmented Control</h1>
+      <p class="page-desc">
+        Controle de abas inline, estilo iOS segmented picker. Alterna sub-telas dentro de um header
+        sem mudar a URL nem re-montar a tela pai. <em>Stateless</em> — a aba ativa fica no componente pai.
+        Import: <code>@/components/ui/segmented-control</code>
+      </p>
+    </header>
+
+    <!-- ══════════════════════════════════════
+         1. SIZES
+    ══════════════════════════════════════ -->
+    <section class="section">
+      <div class="section-header">
+        <h2 class="section-title">Sizes</h2>
+        <span class="section-badge">size="…"</span>
+      </div>
+
+      <div class="demo-row" style="align-items: flex-end;">
+        <div class="state-group">
+          <div class="seg">
+            <button class="seg-item is-active">Conta</button>
+            <button class="seg-item">Cartão</button>
+            <button class="seg-item">Resumo</button>
+          </div>
+          <span class="state-label">md · default · header</span>
+        </div>
+        <div class="state-group">
+          <div class="seg seg-sm">
+            <button class="seg-item is-active">Dia</button>
+            <button class="seg-item">Semana</button>
+            <button class="seg-item">Mês</button>
+          </div>
+          <span class="state-label">sm · dentro de cards</span>
+        </div>
+      </div>
+
+      <div class="code-block"><pre><span class="tag">&lt;SegmentedControl</span> <span class="kw">size</span>=<span class="str">"md"</span> <span class="kw">tabs</span>={[<span class="str">'Conta'</span>,<span class="str">'Cartão'</span>,<span class="str">'Resumo'</span>]} <span class="tag">/&gt;</span>
+<span class="tag">&lt;SegmentedControl</span> <span class="kw">size</span>=<span class="str">"sm"</span> <span class="kw">tabs</span>={[<span class="str">'Dia'</span>,<span class="str">'Semana'</span>,<span class="str">'Mês'</span>]} <span class="tag">/&gt;</span></pre></div>
+    </section>
+
+    <!-- ══════════════════════════════════════
+         2. STATES
+    ══════════════════════════════════════ -->
+    <section class="section">
+      <div class="section-header">
+        <h2 class="section-title">States</h2>
+        <span class="section-badge">active · hover · focus</span>
+      </div>
+
+      <div class="demo-row">
+        <div class="state-group">
+          <div class="seg">
+            <button class="seg-item is-active">Conta</button>
+            <button class="seg-item">Cartão</button>
+            <button class="seg-item">Resumo</button>
+          </div>
+          <span class="state-label">active = primeira</span>
+        </div>
+        <div class="state-group">
+          <div class="seg">
+            <button class="seg-item">Conta</button>
+            <button class="seg-item is-active">Cartão</button>
+            <button class="seg-item">Resumo</button>
+          </div>
+          <span class="state-label">active = meio</span>
+        </div>
+        <div class="state-group">
+          <div class="seg">
+            <button class="seg-item">Conta</button>
+            <button class="seg-item">Cartão</button>
+            <button class="seg-item" style="color: var(--text-primary);">Resumo</button>
+          </div>
+          <span class="state-label">hover (inativo)</span>
+        </div>
+        <div class="state-group">
+          <div class="seg">
+            <button class="seg-item is-active" style="box-shadow: 0 1px 4px rgba(0,0,0,0.4), 0 0 0 3px rgba(10,132,255,0.45);">Conta</button>
+            <button class="seg-item">Cartão</button>
+            <button class="seg-item">Resumo</button>
+          </div>
+          <span class="state-label">focus-visible</span>
+        </div>
+      </div>
+
+      <div class="code-block"><pre><span class="cmt">// thumb ativo: surface-0 + sombra · inativo: transparente</span>
+<span class="kw">.seg-item.is-active</span> {
+  background: <span class="str">var(--surface-0)</span>;   <span class="cmt">/* preto */</span>
+  color: <span class="str">var(--text-primary)</span>;
+  font-weight: <span class="str">600</span>;
+  box-shadow: <span class="str">0 1px 4px rgba(0,0,0,0.4)</span>;
+}</pre></div>
+    </section>
+
+    <!-- ══════════════════════════════════════
+         3. REAL-WORLD USAGE
+    ══════════════════════════════════════ -->
+    <section class="section">
+      <div class="section-header">
+        <h2 class="section-title">Usage no PageHeader</h2>
+        <span class="section-badge">right slot · alinhado à base</span>
+      </div>
+
+      <div class="demo-row" style="flex-direction: column; align-items: stretch; gap: 16px;">
+
+        <!-- Conta / Cartão / Resumo -->
+        <div class="header-shell">
+          <div class="header-shell-bar">
+            <div>
+              <div class="header-shell-title">Conta PF</div>
+              <div class="header-shell-sub">Nubank · 4365066-8</div>
+            </div>
+            <div class="seg">
+              <button class="seg-item is-active">Conta</button>
+              <button class="seg-item">Cartão</button>
+              <button class="seg-item">Resumo</button>
+            </div>
+          </div>
+          <div class="header-shell-ghost">
+            <div class="ghost-line" style="width: 70%;"></div>
+            <div class="ghost-line" style="width: 48%;"></div>
+            <div class="ghost-line" style="width: 84%;"></div>
+          </div>
+        </div>
+
+        <!-- Detalhe / Resumo (Fatura) -->
+        <div class="header-shell">
+          <div class="header-shell-bar">
+            <div>
+              <div class="header-shell-title">Maio 2026</div>
+              <div class="header-shell-sub">Cartão Roxinho · vence 14/05</div>
+            </div>
+            <div class="seg">
+              <button class="seg-item is-active">Detalhe</button>
+              <button class="seg-item">Resumo</button>
+            </div>
+          </div>
+          <div class="header-shell-ghost">
+            <div class="ghost-line" style="width: 60%;"></div>
+            <div class="ghost-line" style="width: 80%;"></div>
+            <div class="ghost-line" style="width: 40%;"></div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="code-block"><pre><span class="cmt">// sempre no right slot do PageHeader</span>
+<span class="tag">&lt;PageHeader</span>
+  <span class="kw">title</span>=<span class="str">"Conta PF"</span>
+  <span class="kw">right</span>={
+    <span class="tag">&lt;SegmentedControl</span>
+      <span class="kw">tabs</span>={[<span class="str">'Conta'</span>,<span class="str">'Cartão'</span>,<span class="str">'Resumo'</span>]}
+      <span class="kw">active</span>={tab}
+      <span class="kw">onChange</span>={setTab}
+    <span class="tag">/&gt;</span>
+  }
+<span class="tag">/&gt;</span></pre></div>
+    </section>
+
+    <!-- ══════════════════════════════════════
+         4. INSIDE CARDS · FULL-WIDTH
+    ══════════════════════════════════════ -->
+    <section class="section">
+      <div class="section-header">
+        <h2 class="section-title">Card filter & full-width</h2>
+        <span class="section-badge">size="sm" · stretch</span>
+      </div>
+
+      <div class="demo-row" style="flex-direction: column; align-items: stretch; gap: 16px;">
+
+        <!-- sm dentro de card -->
+        <div style="background: var(--surface-1); border-radius: var(--radius-lg); padding: 16px 20px; border: 1px solid var(--separator);">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+            <span style="font-size: var(--text-footnote); font-weight: var(--weight-semibold);">Movimentações</span>
+            <div class="seg seg-sm">
+              <button class="seg-item is-active">Entradas</button>
+              <button class="seg-item">Saídas</button>
+              <button class="seg-item">Todos</button>
+            </div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 9px; opacity: 0.2;">
+            <div class="ghost-line" style="width: 90%; height: 7px;"></div>
+            <div class="ghost-line" style="width: 65%; height: 7px;"></div>
+            <div class="ghost-line" style="width: 80%; height: 7px;"></div>
+          </div>
+        </div>
+
+        <!-- full-width -->
+        <div class="seg seg-full">
+          <button class="seg-item is-active">Cartão</button>
+          <button class="seg-item">Conta</button>
+        </div>
+
+      </div>
+
+      <div class="code-block"><pre><span class="cmt">// 2 abas, ocupando a largura do container</span>
+<span class="tag">&lt;SegmentedControl</span> <span class="kw">tabs</span>={[<span class="str">'Cartão'</span>,<span class="str">'Conta'</span>]} <span class="kw">fullWidth</span> <span class="tag">/&gt;</span></pre></div>
+    </section>
+
+    <!-- ══════════════════════════════════════
+         5. ANATOMY / TOKENS
+    ══════════════════════════════════════ -->
+    <section class="section">
+      <div class="section-header">
+        <h2 class="section-title">Anatomy & Tokens</h2>
+        <span class="section-badge">CSS custom properties</span>
+      </div>
+
+      <div class="anatomy-box">
+        <div class="anatomy-col">
+          <p class="anatomy-label">Track</p>
+          <div class="anatomy-item">
+            <span class="anatomy-key">background</span>
+            <span class="anatomy-value">--surface-2</span>
+          </div>
+          <div class="anatomy-item">
+            <span class="anatomy-key">radius · md</span>
+            <span class="anatomy-value">10px</span>
+          </div>
+          <div class="anatomy-item">
+            <span class="anatomy-key">radius · sm</span>
+            <span class="anatomy-value">9px</span>
+          </div>
+          <div class="anatomy-item">
+            <span class="anatomy-key">padding · md</span>
+            <span class="anatomy-value">3px</span>
+          </div>
+          <div class="anatomy-item">
+            <span class="anatomy-key">padding · sm</span>
+            <span class="anatomy-value">2px</span>
+          </div>
+          <div class="anatomy-item">
+            <span class="anatomy-key">gap</span>
+            <span class="anatomy-value">4px</span>
+          </div>
+        </div>
+        <div class="anatomy-col">
+          <p class="anatomy-label">Segment (thumb)</p>
+          <div class="anatomy-item">
+            <span class="anatomy-key">active bg</span>
+            <span class="anatomy-value">--surface-0</span>
+          </div>
+          <div class="anatomy-item">
+            <span class="anatomy-key">active shadow</span>
+            <span class="anatomy-value">0 1px 4px /.4</span>
+          </div>
+          <div class="anatomy-item">
+            <span class="anatomy-key">radius · md</span>
+            <span class="anatomy-value">8px</span>
+          </div>
+          <div class="anatomy-item">
+            <span class="anatomy-key">padding · md</span>
+            <span class="anatomy-value">6px 14px</span>
+          </div>
+          <div class="anatomy-item">
+            <span class="anatomy-key">padding · sm</span>
+            <span class="anatomy-value">4px 11px</span>
+          </div>
+        </div>
+        <div class="anatomy-col">
+          <p class="anatomy-label">Typography</p>
+          <div class="anatomy-item">
+            <span class="anatomy-key">font · md</span>
+            <span class="anatomy-value">13px</span>
+          </div>
+          <div class="anatomy-item">
+            <span class="anatomy-key">font · sm</span>
+            <span class="anatomy-value">12px</span>
+          </div>
+          <div class="anatomy-item">
+            <span class="anatomy-key">weight · active</span>
+            <span class="anatomy-value">600</span>
+          </div>
+          <div class="anatomy-item">
+            <span class="anatomy-key">weight · idle</span>
+            <span class="anatomy-value">400</span>
+          </div>
+          <div class="anatomy-item">
+            <span class="anatomy-key">color · idle</span>
+            <span class="anatomy-value">--text-secondary</span>
+          </div>
+          <div class="anatomy-item">
+            <span class="anatomy-key">transition</span>
+            <span class="anatomy-value">120ms ease</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="usage-note">
+        <strong>Máximo 3 abas.</strong> Para 4+ opções use um <code>Select</code> ou a tab bar inferior.
+        O componente é <strong>controlled</strong> — passe <code>active</code> e <code>onChange</code>;
+        o estado vive na tela pai e a troca de aba não remonta a tela.
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════
+         6. TAILWIND / IMPLEMENTAÇÃO
+    ══════════════════════════════════════ -->
+    <section class="section">
+      <div class="section-header">
+        <h2 class="section-title">Implementação</h2>
+        <span class="section-badge">segmented-control.tsx</span>
+      </div>
+
+      <div class="code-block"><pre><span class="cmt">// components/ui/segmented-control.tsx</span>
+<span class="kw">interface</span> Props {
+  tabs:     string[]               <span class="cmt">// rótulos na ordem · max 3</span>
+  active:   string                 <span class="cmt">// rótulo ativo (controlled)</span>
+  onChange: (tab: string) =&gt; <span class="kw">void</span>
+  size?:    <span class="str">'sm'</span> | <span class="str">'md'</span>            <span class="cmt">// default 'md'</span>
+  fullWidth?: boolean
+}
+
+<span class="kw">export function</span> SegmentedControl({ tabs, active, onChange, size = <span class="str">'md'</span>, fullWidth }: Props) {
+  <span class="kw">return</span> (
+    <span class="tag">&lt;div</span> <span class="kw">className</span>=<span class="str">"inline-flex gap-1 rounded-[10px] bg-[#2C2C2E] p-[3px]"</span><span class="tag">&gt;</span>
+      {tabs.map((tab) =&gt; (
+        <span class="tag">&lt;button</span>
+          <span class="kw">key</span>={tab}
+          <span class="kw">onClick</span>={() =&gt; onChange(tab)}
+          <span class="kw">className</span>={cn(
+            <span class="str">"rounded-lg px-3.5 py-1.5 text-[13px] transition-all"</span>,
+            tab === active
+              ? <span class="str">"bg-black font-semibold text-white shadow-[0_1px_4px_rgba(0,0,0,0.4)]"</span>
+              : <span class="str">"text-white/60 hover:text-white"</span>,
+          )}
+        <span class="tag">&gt;</span>
+          {tab}
+        <span class="tag">&lt;/button&gt;</span>
+      ))}
+    <span class="tag">&lt;/div&gt;</span>
+  )
+}</pre></div>
+    </section>
+
+  </div>
+</body>
+</html>

@@ -1,0 +1,127 @@
+{
+  "2026-01": {
+    "month": "Janeiro 2026",
+    "period": "04/DEZ a 04/JAN",
+    "dueDate": "2026-01-11",
+    "totalAmount": 12342.46,
+    "minimumPayment": 1851.37,
+    "transactions": [
+      { "date": "2025-12-20", "description": "Mercado Livre — Eletrônico", "amount": 1348.25, "category": "Compras Online", "installment": "1/12" },
+      { "date": "2025-12-22", "description": "iFood — Alimentação", "amount": 189.90, "category": "Alimentação", "installment": null },
+      { "date": "2025-12-28", "description": "Amazon — Livros", "amount": 234.60, "category": "Compras Online", "installment": null },
+      { "date": "2026-01-02", "description": "Shopee — Vestuário", "amount": 456.80, "category": "Vestuário", "installment": "2/3" },
+      { "date": "2026-01-03", "description": "Rappi — Alimentação", "amount": 145.30, "category": "Alimentação", "installment": null },
+      { "date": "2026-01-03", "description": "Supermercado Condor", "amount": 892.45, "category": "Supermercado", "installment": null },
+      { "date": "2026-01-04", "description": "Posto Ipiranga", "amount": 320.00, "category": "Combustível", "installment": null },
+      { "date": "2026-01-04", "description": "Farmácia Nissei", "amount": 287.60, "category": "Saúde", "installment": null },
+      { "date": "2026-01-04", "description": "Netflix", "amount": 55.90, "category": "Streaming", "installment": null },
+      { "date": "2026-01-04", "description": "Spotify", "amount": 21.90, "category": "Streaming", "installment": null },
+      { "date": "2026-01-04", "description": "Academia SmartFit", "amount": 119.90, "category": "Saúde", "installment": null },
+      { "date": "2026-01-04", "description": "Americanas — Eletrônico", "amount": 2890.00, "category": "Compras Online", "installment": "1/6" },
+      { "date": "2026-01-04", "description": "Magazine Luiza — Eletrodoméstico", "amount": 1980.00, "category": "Compras Online", "installment": "1/10" },
+      { "date": "2026-01-04", "description": "Restaurante Madero", "amount": 320.16, "category": "Alimentação", "installment": null },
+      { "date": "2026-01-04", "description": "Localiza — Aluguel Carro", "amount": 780.00, "category": "Transporte", "installment": null },
+      { "date": "2026-01-04", "description": "Decathlon", "amount": 499.71, "category": "Esporte", "installment": null },
+      { "date": "2026-01-04", "description": "Havaianas Online", "amount": 600.99, "category": "Vestuário", "installment": null }
+    ],
+    "categorySummary": {
+      "Compras Online": 6452.85,
+      "Alimentação": 655.36,
+      "Supermercado": 892.45,
+      "Vestuário": 1057.79,
+      "Saúde": 407.50,
+      "Combustível": 320.00,
+      "Streaming": 77.80,
+      "Transporte": 780.00,
+      "Esporte": 499.71,
+      "Outros": 199.00
+    }
+  },
+  "2026-02": {
+    "month": "Fevereiro 2026",
+    "period": "05/JAN a 05/FEV",
+    "dueDate": "2026-02-11",
+    "totalAmount": 8920.33,
+    "minimumPayment": 1338.05,
+    "transactions": [
+      { "date": "2026-01-12", "description": "Mercado Livre — Eletrônico", "amount": 1348.25, "category": "Compras Online", "installment": "2/12" },
+      { "date": "2026-01-15", "description": "iFood — Alimentação", "amount": 210.40, "category": "Alimentação", "installment": null },
+      { "date": "2026-01-18", "description": "Americanas — Eletrônico", "amount": 2890.00, "category": "Compras Online", "installment": "2/6" },
+      { "date": "2026-01-20", "description": "Magazine Luiza — Eletrodoméstico", "amount": 1980.00, "category": "Compras Online", "installment": "2/10" },
+      { "date": "2026-01-22", "description": "Supermercado Condor", "amount": 765.30, "category": "Supermercado", "installment": null },
+      { "date": "2026-01-28", "description": "Rappi — Alimentação", "amount": 132.80, "category": "Alimentação", "installment": null },
+      { "date": "2026-02-03", "description": "Netflix", "amount": 55.90, "category": "Streaming", "installment": null },
+      { "date": "2026-02-03", "description": "Spotify", "amount": 21.90, "category": "Streaming", "installment": null },
+      { "date": "2026-02-04", "description": "Academia SmartFit", "amount": 119.90, "category": "Saúde", "installment": null },
+      { "date": "2026-02-05", "description": "Posto Ipiranga", "amount": 295.88, "category": "Combustível", "installment": null },
+      { "date": "2026-02-05", "description": "Farmácia Nissei", "amount": 100.00, "category": "Saúde", "installment": null }
+    ],
+    "categorySummary": {
+      "Compras Online": 6218.25,
+      "Alimentação": 343.20,
+      "Supermercado": 765.30,
+      "Saúde": 219.90,
+      "Combustível": 295.88,
+      "Streaming": 77.80,
+      "Outros": 1000.00
+    }
+  },
+  "2026-03": {
+    "month": "Março 2026",
+    "period": "06/FEV a 06/MAR",
+    "dueDate": "2026-03-11",
+    "totalAmount": 7654.22,
+    "minimumPayment": 1148.13,
+    "transactions": [
+      { "date": "2026-02-10", "description": "Mercado Livre — Eletrônico", "amount": 1348.25, "category": "Compras Online", "installment": "3/12" },
+      { "date": "2026-02-12", "description": "Americanas — Eletrônico", "amount": 2890.00, "category": "Compras Online", "installment": "3/6" },
+      { "date": "2026-02-14", "description": "Magazine Luiza — Eletrodoméstico", "amount": 1980.00, "category": "Compras Online", "installment": "3/10" },
+      { "date": "2026-02-18", "description": "iFood — Alimentação", "amount": 178.60, "category": "Alimentação", "installment": null },
+      { "date": "2026-02-22", "description": "Supermercado Condor", "amount": 689.75, "category": "Supermercado", "installment": null },
+      { "date": "2026-03-02", "description": "Netflix", "amount": 55.90, "category": "Streaming", "installment": null },
+      { "date": "2026-03-02", "description": "Spotify", "amount": 21.90, "category": "Streaming", "installment": null },
+      { "date": "2026-03-05", "description": "Academia SmartFit", "amount": 119.90, "category": "Saúde", "installment": null },
+      { "date": "2026-03-06", "description": "Posto Ipiranga", "amount": 184.02, "category": "Combustível", "installment": null },
+      { "date": "2026-03-06", "description": "Rappi — Alimentação", "amount": 85.90, "category": "Alimentação", "installment": null },
+      { "date": "2026-03-06", "description": "Drogasil", "amount": 100.00, "category": "Saúde", "installment": null }
+    ],
+    "categorySummary": {
+      "Compras Online": 6218.25,
+      "Alimentação": 264.50,
+      "Supermercado": 689.75,
+      "Saúde": 219.90,
+      "Combustível": 184.02,
+      "Streaming": 77.80,
+      "Outros": 0
+    }
+  },
+  "2026-04": {
+    "month": "Abril 2026",
+    "period": "07/MAR a 07/ABR",
+    "dueDate": "2026-04-11",
+    "totalAmount": 9215.80,
+    "minimumPayment": 1382.37,
+    "transactions": [
+      { "date": "2026-03-10", "description": "Mercado Livre — Eletrônico", "amount": 1348.25, "category": "Compras Online", "installment": "4/12" },
+      { "date": "2026-03-12", "description": "Americanas — Eletrônico", "amount": 2890.00, "category": "Compras Online", "installment": "4/6" },
+      { "date": "2026-03-14", "description": "Magazine Luiza — Eletrodoméstico", "amount": 1980.00, "category": "Compras Online", "installment": "4/10" },
+      { "date": "2026-03-20", "description": "iFood — Alimentação", "amount": 195.30, "category": "Alimentação", "installment": null },
+      { "date": "2026-03-25", "description": "Supermercado Condor", "amount": 712.80, "category": "Supermercado", "installment": null },
+      { "date": "2026-04-01", "description": "Netflix", "amount": 55.90, "category": "Streaming", "installment": null },
+      { "date": "2026-04-01", "description": "Spotify", "amount": 21.90, "category": "Streaming", "installment": null },
+      { "date": "2026-04-05", "description": "Academia SmartFit", "amount": 119.90, "category": "Saúde", "installment": null },
+      { "date": "2026-04-06", "description": "Posto Ipiranga", "amount": 311.75, "category": "Combustível", "installment": null },
+      { "date": "2026-04-07", "description": "Restaurante Outback", "amount": 380.00, "category": "Alimentação", "installment": null },
+      { "date": "2026-04-07", "description": "Drogasil", "amount": 200.00, "category": "Saúde", "installment": null }
+    ],
+    "categorySummary": {
+      "Compras Online": 6218.25,
+      "Alimentação": 575.30,
+      "Supermercado": 712.80,
+      "Saúde": 319.90,
+      "Combustível": 311.75,
+      "Streaming": 77.80,
+      "Outros": 0
+    }
+  }
+}

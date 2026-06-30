@@ -1,0 +1,110 @@
+{
+  "2026-01": {
+    "month": "Janeiro",
+    "year": 2026,
+    "entradas": {
+      "salarioCLT": 10899.00,
+      "honorariosPJ": 7500.00,
+      "fgts": 0,
+      "valeAlimentacao": 1069.64,
+      "cashback": 303.31
+    },
+    "gastos": {
+      "faturaCartao": 12342.46,
+      "fixosMoradia": 9635.38,
+      "valeGasto": 1069.64
+    },
+    "investimentos": {
+      "acoes": 220.76,
+      "fiis": 1070.09,
+      "etfs": 0,
+      "bitcoin": 0,
+      "rendaFixa": 0
+    },
+    "totalEntradas": 19771.95,
+    "totalGastos": 23047.48,
+    "totalInvestimentos": 1290.85,
+    "saldoLiquido": -4566.38
+  },
+  "2026-02": {
+    "month": "Fevereiro",
+    "year": 2026,
+    "entradas": {
+      "salarioCLT": 10899.00,
+      "honorariosPJ": 7500.00,
+      "fgts": 0,
+      "valeAlimentacao": 1069.64,
+      "cashback": 215.40
+    },
+    "gastos": {
+      "faturaCartao": 8920.33,
+      "fixosMoradia": 7284.15,
+      "valeGasto": 1069.64
+    },
+    "investimentos": {
+      "acoes": 0,
+      "fiis": 582.68,
+      "etfs": 1195.41,
+      "bitcoin": 0,
+      "rendaFixa": 4715.00
+    },
+    "totalEntradas": 19684.04,
+    "totalGastos": 17274.12,
+    "totalInvestimentos": 6493.09,
+    "saldoLiquido": -4083.17
+  },
+  "2026-03": {
+    "month": "Março",
+    "year": 2026,
+    "entradas": {
+      "salarioCLT": 10899.00,
+      "honorariosPJ": 7500.00,
+      "fgts": 0,
+      "valeAlimentacao": 1069.64,
+      "cashback": 189.75
+    },
+    "gastos": {
+      "faturaCartao": 7654.22,
+      "fixosMoradia": 8102.47,
+      "valeGasto": 1069.64
+    },
+    "investimentos": {
+      "acoes": 975.69,
+      "fiis": 2054.20,
+      "etfs": 1183.25,
+      "bitcoin": 0,
+      "rendaFixa": 4270.04
+    },
+    "totalEntradas": 19658.39,
+    "totalGastos": 16826.33,
+    "totalInvestimentos": 8483.18,
+    "saldoLiquido": -5651.12
+  },
+  "2026-04": {
+    "month": "Abril",
+    "year": 2026,
+    "entradas": {
+      "salarioCLT": 10899.00,
+      "honorariosPJ": 11000.00,
+      "fgts": 0,
+      "valeAlimentacao": 1069.64,
+      "cashback": 142.18
+    },
+    "gastos": {
+      "faturaCartao": 9215.80,
+      "fixosMoradia": 7891.23,
+      "valeGasto": 1069.64
+    },
+    "investimentos": {
+      "acoes": 136.72,
+      "fiis": 267.50,
+      "etfs": 0,
+      "bitcoin": 0,
+      "rendaFixa": 0
+    },
+    "totalEntradas": 23110.82,
+    "totalGastos": 18176.67,
+    "totalInvestimentos": 404.22,
+    "saldoLiquido": 4529.93
+  }
+}

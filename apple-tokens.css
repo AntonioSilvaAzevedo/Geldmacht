@@ -1,0 +1,297 @@
+/**
+ * Geldmacht — Apple Direction Tokens
+ * Inspirado no Apple Card / Wallet / iOS Finance design language.
+ *
+ * Princípios fundamentais:
+ *  1. Fundo preto verdadeiro — não navy, não cinza-azulado.
+ *  2. Tipografia do sistema (-apple-system) — sem importações externas quando possível.
+ *  3. Hierarquia pelo peso e tamanho, não pela cor.
+ *  4. Verde e vermelho semânticos — sem azul como "cor primária de ação".
+ *  5. Cards elevados por superfície, não por borda.
+ *  6. Raio generoso (20 px nos cards) — cantos contínuos, estilo iOS.
+ *  7. Espaçamento generoso — nunca comprima os elementos.
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap');
+
+/* ─────────────────────────────────────────────
+   TIPOGRAFIA
+   Apple usa SF Pro (carregada pelo sistema).
+   No web caímos para Helvetica Neue → system-ui.
+   DM Mono permanece para valores numéricos.
+   ───────────────────────────────────────────── */
+:root {
+  --font-sans: -apple-system, 'SF Pro Display', 'SF Pro Text',
+               'Helvetica Neue', system-ui, sans-serif;
+  --font-mono: 'SF Mono', 'DM Mono', 'Fira Code', monospace;
+}
+
+/* Scale — em px, baseado no HIG da Apple */
+:root {
+  --text-caption2:  11px;   /* carimbo de data, hint             */
+  --text-caption1:  12px;   /* legenda, badge                    */
+  --text-footnote:  13px;   /* nota de rodapé, meta              */
+  --text-subhead:   15px;   /* secundário, label de campo        */
+  --text-callout:   16px;   /* callout / destaque                */
+  --text-body:      17px;   /* corpo padrão, item de lista       */
+  --text-title3:    20px;   /* título de seção                   */
+  --text-title2:    22px;   /* título de card / modal            */
+  --text-title1:    28px;   /* título de página                  */
+  --text-large:     34px;   /* KPI / saldo principal             */
+  --text-xlarge:    40px;   /* saldo hero                        */
+
+  --weight-regular:  400;
+  --weight-medium:   500;
+  --weight-semibold: 600;
+  --weight-bold:     700;
+  --weight-heavy:    800;
+
+  --leading-tight:  1.05;
+  --leading-snug:   1.25;
+  --leading-normal: 1.5;
+}
+
+/* ─────────────────────────────────────────────
+   PALETA BASE — iOS / macOS system colors
+   ───────────────────────────────────────────── */
+:root {
+  /* Backgrounds — preto verdadeiro → cinza escuro */
+  --black:       #000000;
+  --gray-6:      #1C1C1E;   /* systemGroupedBackground  */
+  --gray-5:      #2C2C2E;   /* secondarySystemGrouped   */
+  --gray-4:      #3A3A3C;   /* tertiarySystemGrouped    */
+  --gray-3:      #48484A;   /* systemFill               */
+  --gray-2:      #636366;   /* systemGray               */
+  --gray-1:      #8E8E93;   /* systemGray2              */
+  --gray-0:      #AEAEB2;   /* systemGray3              */
+  --white:       #FFFFFF;
+
+  /* Semânticas — Apple system colors (dark mode) */
+  --green:       #30D158;   /* income / positive         */
+  --red:         #FF453A;   /* expense / negative        */
+  --blue:        #0A84FF;   /* links / ação primária     */
+  --orange:      #FF9F0A;   /* alerta / warning          */
+  --purple:      #BF5AF2;   /* premium / investimentos   */
+  --teal:        #5AC8FA;   /* info / PIX               */
+  --indigo:      #5E5CE6;   /* reservado                 */
+}
+
+/* ─────────────────────────────────────────────
+   SURFACE TOKENS — o que usar em cada camada
+   ───────────────────────────────────────────── */
+:root {
+  --surface-0:    var(--black);     /* página / fundo da tela     */
+  --surface-1:    var(--gray-6);    /* card principal             */
+  --surface-2:    var(--gray-5);    /* card dentro de card        */
+  --surface-3:    var(--gray-4);    /* input / controle           */
+  --surface-hover: rgba(255,255,255,0.06);  /* hover de lista     */
+  --surface-press: rgba(255,255,255,0.10);  /* press / active     */
+}
+
+/* ─────────────────────────────────────────────
+   TEXT TOKENS
+   ───────────────────────────────────────────── */
+:root {
+  --text-primary:    #FFFFFF;                    /* títulos, valores, label ativo */
+  --text-secondary:  rgba(255,255,255,0.60);     /* meta, subtítulos              */
+  --text-tertiary:   rgba(255,255,255,0.35);     /* placeholder, hint             */
+  --text-quaternary: rgba(255,255,255,0.18);     /* divisor textual               */
+  --text-link:       var(--blue);
+}
+
+/* ─────────────────────────────────────────────
+   SEPARADORES
+   ───────────────────────────────────────────── */
+:root {
+  --separator:        rgba(255,255,255,0.10);
+  --separator-opaque: #38383A;   /* use quando não tem backdrop blur */
+}
+
+/* ─────────────────────────────────────────────
+   BORDER RADIUS — contínuos, estilo iOS
+   ───────────────────────────────────────────── */
+:root {
+  --radius-xs:   6px;    /* badge, chip pequeno           */
+  --radius-sm:   10px;   /* botão inline, tag             */
+  --radius-md:   14px;   /* botão primário, input         */
+  --radius-lg:   20px;   /* card padrão                   */
+  --radius-xl:   26px;   /* card hero, modal sheet        */
+  --radius-full: 9999px; /* pill, avatar circular         */
+}
+
+/* ─────────────────────────────────────────────
+   ESPAÇAMENTO — iOS 8-point grid
+   ───────────────────────────────────────────── */
+:root {
+  --space-1:   4px;
+  --space-2:   8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-7:  28px;
+  --space-8:  32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* Insets de card — nunca abaixo de 20px horizontal */
+  --inset-card:   20px;
+  --inset-screen: 16px;   /* margem lateral de tela mobile */
+}
+
+/* ─────────────────────────────────────────────
+   ELEVATION — sombras sutis (sem bordas)
+   Na Apple a elevação é feita pela diferença de surface,
+   não por box-shadow pesada. Use com moderação.
+   ───────────────────────────────────────────── */
+:root {
+  --shadow-card:
+    0 2px 8px  rgba(0,0,0,0.35),
+    0 0   1px  rgba(0,0,0,0.20);
+  --shadow-modal:
+    0 16px 48px rgba(0,0,0,0.60),
+    0 2px  12px rgba(0,0,0,0.30);
+}
+
+/* ─────────────────────────────────────────────
+   SEMANTIC VALUE CLASSES (reusáveis)
+   ───────────────────────────────────────────── */
+.val-positive { color: var(--green); }
+.val-negative { color: var(--red);   }
+.val-neutral  { color: var(--text-secondary); }
+.val-invest   { color: var(--purple); }
+
+/* ─────────────────────────────────────────────
+   TIPOGRAFIA SEMÂNTICA
+   ───────────────────────────────────────────── */
+
+/* Saldo hero */
+.t-hero {
+  font-family: var(--font-sans);
+  font-size: var(--text-xlarge);
+  font-weight: var(--weight-heavy);
+  letter-spacing: -0.03em;
+  line-height: var(--leading-tight);
+  color: var(--text-primary);
+}
+
+/* KPI / Large Title */
+.t-large-title {
+  font-family: var(--font-sans);
+  font-size: var(--text-large);
+  font-weight: var(--weight-bold);
+  letter-spacing: -0.025em;
+  line-height: var(--leading-tight);
+  color: var(--text-primary);
+}
+
+/* Título de página */
+.t-title1 {
+  font-family: var(--font-sans);
+  font-size: var(--text-title1);
+  font-weight: var(--weight-bold);
+  letter-spacing: -0.02em;
+  line-height: var(--leading-snug);
+  color: var(--text-primary);
+}
+
+/* Título de card / seção */
+.t-title2 {
+  font-family: var(--font-sans);
+  font-size: var(--text-title2);
+  font-weight: var(--weight-semibold);
+  letter-spacing: -0.015em;
+  line-height: var(--leading-snug);
+  color: var(--text-primary);
+}
+
+/* Subtítulo de seção */
+.t-title3 {
+  font-family: var(--font-sans);
+  font-size: var(--text-title3);
+  font-weight: var(--weight-semibold);
+  letter-spacing: -0.01em;
+  line-height: var(--leading-snug);
+  color: var(--text-primary);
+}
+
+/* Corpo padrão */
+.t-body {
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  font-weight: var(--weight-regular);
+  line-height: var(--leading-normal);
+  color: var(--text-primary);
+}
+
+/* Callout */
+.t-callout {
+  font-family: var(--font-sans);
+  font-size: var(--text-callout);
+  font-weight: var(--weight-regular);
+  line-height: var(--leading-normal);
+  color: var(--text-secondary);
+}
+
+/* Subhead */
+.t-subhead {
+  font-family: var(--font-sans);
+  font-size: var(--text-subhead);
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-normal);
+  color: var(--text-secondary);
+}
+
+/* Footnote */
+.t-footnote {
+  font-family: var(--font-sans);
+  font-size: var(--text-footnote);
+  line-height: var(--leading-normal);
+  color: var(--text-tertiary);
+}
+
+/* Caption */
+.t-caption {
+  font-family: var(--font-sans);
+  font-size: var(--text-caption1);
+  letter-spacing: 0.02em;
+  color: var(--text-tertiary);
+}
+
+/* Valor numérico — usa fonte mono com tabular nums */
+.t-numeric {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* Label de seção (uppercase, como o Wallet faz para "TRANSAÇÕES") */
+.t-section-label {
+  font-family: var(--font-sans);
+  font-size: var(--text-footnote);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+/* ─────────────────────────────────────────────
+   ANIMAÇÕES
+   ───────────────────────────────────────────── */
+@keyframes gm-fade-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0);     }
+}
+@keyframes gm-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.animate-in      { animation: gm-fade-up 0.30s cubic-bezier(0.25,0.46,0.45,0.94) both; }
+.animate-in-fast { animation: gm-fade-up 0.18s cubic-bezier(0.25,0.46,0.45,0.94) both; }
+
+/* ─────────────────────────────────────────────
+   SCROLL
+   ───────────────────────────────────────────── */
+::-webkit-scrollbar { width: 0; }
