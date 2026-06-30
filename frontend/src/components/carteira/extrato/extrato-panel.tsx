@@ -327,11 +327,11 @@ export function ExtratoPanel({ accounts, activeAccountId, setActiveAccountId }: 
 
   return (
     <div className="flex flex-col gap-4">
-      <header>
+      <header className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
         <h1 className="text-[22px] font-bold tracking-[-0.02em] text-[var(--text-primary)]">
           Conta corrente
         </h1>
-        <div className="mt-1.5 flex items-center gap-1">
+        <div className="flex items-center gap-1">
           <button
             type="button"
             onClick={() => goMonth(-1)}
@@ -340,7 +340,7 @@ export function ExtratoPanel({ accounts, activeAccountId, setActiveAccountId }: 
           >
             <ChevronLeft className="size-4" />
           </button>
-          <span className="min-w-[124px] text-center text-[14px] font-semibold tabular-nums text-[var(--text-primary)]">
+          <span className="min-w-[112px] text-center text-[13px] font-semibold tabular-nums text-[var(--text-primary)]">
             {monthLabel(selectedMonth)}
           </span>
           <button
