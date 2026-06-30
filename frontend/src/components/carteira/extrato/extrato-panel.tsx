@@ -1,7 +1,8 @@
 'use client';
 
-import { Suspense, use, useCallback, useMemo, useState, useTransition } from 'react';
-import { ArrowDownRight, ArrowLeftRight, ArrowUpRight, Wallet } from 'lucide-react';
+import { Suspense, use, useCallback, useEffect, useMemo, useState, useTransition } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { ArrowDownRight, ArrowLeftRight, ArrowUpRight, ChevronLeft, ChevronRight, Wallet } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { ExpandableCard } from '@/components/ui/expandable-card';
@@ -19,6 +20,29 @@ const MONTH_FULL: Record<string, string> = {
   '05': 'Maio', '06': 'Junho', '07': 'Julho', '08': 'Agosto',
   '09': 'Setembro', '10': 'Outubro', '11': 'Novembro', '12': 'Dezembro',
 };
+
+const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+function currentMonthKey(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function shiftMonth(key: string, delta: number): string {
+  const [year, month] = key.split('-').map(Number);
+  const d = new Date(year, month - 1 + delta, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function monthLabel(key: string): string {
+  const [year, month] = key.split('-');
+  return `${MONTH_FULL[month]} ${year}`;
+}
+
+function normalizeMonth(param: string | null, current: string): string {
+  if (!param || !MONTH_RE.test(param) || param > current) return current;
+  return param;
+}
 
 const FILTERS = ['Todos', 'Receitas', 'Despesas', 'Transferências', 'Faturas'] as const;
 type Filter = (typeof FILTERS)[number];
@@ -112,7 +136,7 @@ function MovementList({ transactions }: { transactions: Transaction[] }) {
   );
 }
 
-function ExtratoLoader({ accountId }: { accountId: number }) {
+function ExtratoLoader({ accountId, monthKey }: { accountId: number; monthKey: string }) {
   const [promise, setPromise] = useState(() => loadExtrato(accountId));
   const [, startTransition] = useTransition();
 
@@ -122,17 +146,22 @@ function ExtratoLoader({ accountId }: { accountId: number }) {
 
   return (
     <Suspense fallback={<ExtratoSkeleton />}>
-      <ExtratoView promise={promise} onReload={reload} />
+      <ExtratoView promise={promise} onReload={reload} monthKey={monthKey} />
     </Suspense>
   );
 }
 
-function ExtratoView({ promise, onReload }: { promise: Promise<ExtratoResult>; onReload: () => void }) {
+function ExtratoView({
+  promise,
+  onReload,
+  monthKey,
+}: {
+  promise: Promise<ExtratoResult>;
+  onReload: () => void;
+  monthKey: string;
+}) {
   const res = use(promise);
   const [filter, setFilter] = useState<Filter>('Todos');
-
-  const now = new Date();
-  const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
   const transactions = useMemo(() => (res.ok ? res.transactions : []), [res]);
 
@@ -239,7 +268,7 @@ function ExtratoView({ promise, onReload }: { promise: Promise<ExtratoResult>; o
           title={EMPTY_BY_FILTER[filter]}
           message={
             monthTxs.length === 0
-              ? 'As movimentações da conta aparecerão aqui.'
+              ? 'Importe ou cadastre movimentações para visualizar este período.'
               : 'Ajuste o filtro para ver outras movimentações.'
           }
         />
@@ -267,8 +296,30 @@ function ExtratoView({ promise, onReload }: { promise: Promise<ExtratoResult>; o
 }
 
 export function ExtratoPanel({ accounts, activeAccountId, setActiveAccountId }: ExtratoPanelProps) {
-  const now = new Date();
-  const periodLabel = `${MONTH_FULL[String(now.getMonth() + 1).padStart(2, '0')]} ${now.getFullYear()}`;
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const currentMonth = currentMonthKey();
+  const rawMonth = searchParams.get('month');
+  const selectedMonth = normalizeMonth(rawMonth, currentMonth);
+  const canGoNext = selectedMonth < currentMonth;
+
+  useEffect(() => {
+    if (rawMonth && rawMonth !== selectedMonth) {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set('month', selectedMonth);
+      router.replace(`${pathname}?${params.toString()}`);
+    }
+  }, [rawMonth, selectedMonth, pathname, router, searchParams]);
+
+  const goMonth = (delta: number) => {
+    const next = shiftMonth(selectedMonth, delta);
+    if (next > currentMonth) return;
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('month', next);
+    router.replace(`${pathname}?${params.toString()}`);
+  };
 
   if (accounts.length === 0) {
     return <StatePanel variant="empty" title="Nenhuma conta bancária nesta instituição." message="" />;
@@ -280,7 +331,33 @@ export function ExtratoPanel({ accounts, activeAccountId, setActiveAccountId }: 
         <h1 className="text-[22px] font-bold tracking-[-0.02em] text-[var(--text-primary)]">
           Conta corrente
         </h1>
-        <p className="mt-0.5 text-[14px] font-medium text-[var(--text-secondary)]">{periodLabel}</p>
+        <div className="mt-1.5 flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => goMonth(-1)}
+            aria-label="Mês anterior"
+            className="flex size-7 cursor-pointer items-center justify-center rounded-full text-[var(--text-secondary)] outline-none transition-colors duration-[120ms] hover:bg-[var(--surface-2)] hover:text-[var(--text-primary)] focus-visible:ring-[3px] focus-visible:ring-[rgba(10,132,255,0.45)]"
+          >
+            <ChevronLeft className="size-4" />
+          </button>
+          <span className="min-w-[124px] text-center text-[14px] font-semibold tabular-nums text-[var(--text-primary)]">
+            {monthLabel(selectedMonth)}
+          </span>
+          <button
+            type="button"
+            onClick={() => goMonth(1)}
+            disabled={!canGoNext}
+            aria-label="Próximo mês"
+            className={cn(
+              'flex size-7 items-center justify-center rounded-full outline-none transition-colors duration-[120ms] focus-visible:ring-[3px] focus-visible:ring-[rgba(10,132,255,0.45)]',
+              canGoNext
+                ? 'cursor-pointer text-[var(--text-secondary)] hover:bg-[var(--surface-2)] hover:text-[var(--text-primary)]'
+                : 'cursor-not-allowed text-[var(--text-muted)] opacity-40',
+            )}
+          >
+            <ChevronRight className="size-4" />
+          </button>
+        </div>
       </header>
 
       {accounts.length > 1 && (
@@ -306,7 +383,7 @@ export function ExtratoPanel({ accounts, activeAccountId, setActiveAccountId }: 
       {activeAccountId == null ? (
         <ExtratoSkeleton />
       ) : (
-        <ExtratoLoader key={activeAccountId} accountId={activeAccountId} />
+        <ExtratoLoader key={activeAccountId} accountId={activeAccountId} monthKey={selectedMonth} />
       )}
     </div>
   );
