@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 
 import { ExtratoPanel } from '@/components/carteira/extrato/extrato-panel'
+import { ExtratoSkeleton } from '@/components/skeletons/ExtratoSkeleton'
 import { useInstitution } from '@/components/carteira/institution-context'
 
 export default function InstitutionExtratoPage() {
@@ -24,10 +25,12 @@ export default function InstitutionExtratoPage() {
   }, [accounts, activeAccountId])
 
   return (
-    <ExtratoPanel
-      accounts={accounts}
-      activeAccountId={activeAccountId}
-      setActiveAccountId={setActiveAccountId}
-    />
+    <Suspense fallback={<ExtratoSkeleton />}>
+      <ExtratoPanel
+        accounts={accounts}
+        activeAccountId={activeAccountId}
+        setActiveAccountId={setActiveAccountId}
+      />
+    </Suspense>
   )
 }

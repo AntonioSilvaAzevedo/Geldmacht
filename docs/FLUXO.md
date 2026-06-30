@@ -94,7 +94,7 @@ A **engrenagem** (`AccountSettingsMenu`) segue no topo (excluir conta). **Invest
 ### 2.3. Extrato (conta corrente) — Extrato Inteligente `/home/carteira/{id}/extrato` ✅ (issue #101)
 **Visão mensal (mês atual)** que diferencia **movimentação bancária** de **impacto financeiro real**: transferências internas e pagamentos de fatura **não inflam** receitas/despesas.
 
-1. **Header:** "Conta corrente" + **período do mês atual** (`Junho 2026`). Abas por conta quando há mais de uma. **Sem botões de ação** nesta tela (Exportar / Importar extrato / Adicionar lançamento foram removidos — a importação e o lançamento manual seguem pelos seus pontos de entrada próprios: menu Adicionar, sidebar/bottom bar, cartão).
+1. **Header:** "Conta corrente" + **navegação mensal por setas** `‹ Junho 2026 ›` (issue #107). Abas por conta quando há mais de uma. **Sem botões de ação** nesta tela (Exportar / Importar extrato / Adicionar lançamento foram removidos — a importação e o lançamento manual seguem pelos seus pontos de entrada próprios: menu Adicionar, sidebar/bottom bar, cartão).
 2. **Cards do mês:** **Saldo disponível** (`—`, **adiado nesta versão** — `BankAccount` não tem saldo armazenado, igual ao #90), **Entradas** (receitas), **Saídas reais** (despesas), **Transferências** (entre contas do usuário).
 3. **Filtros** (`SegmentedControl`): **Todos / Receitas / Despesas / Transferências / Faturas**.
 4. **Lista agrupada por data** (`Hoje` / `Ontem` / data), com classificação visual: receita **verde (+)**, despesa **vermelho (−)**, transferência interna e pagamento de fatura em **neutro** (fatura com tag **"Fatura"**).
@@ -103,7 +103,9 @@ A **engrenagem** (`AccountSettingsMenu`) segue no topo (excluir conta). **Invest
 7. **Empty states** por filtro e para o mês sem movimentações. Sem scroll horizontal; estrutura preparada para evolução (despesas fixas/recorrências) — fora desta versão.
 8. **Carregamento por skeleton (padrão #96):** o conteúdo dependente de dados (cards + filtros + lista) usa **`use()` + `<Suspense>`** com fallback **`ExtratoSkeleton`**; o header e as abas de conta ficam **fora** do Suspense (permanecem visíveis). Trocar de conta remonta o conteúdo (`key={accountId}`) e mostra o skeleton novamente; erro tem retry via `startTransition`. Sem mais `LoadingSpinner` nesta tela.
 
-> **Limitações conhecidas (v1, issue #101):** sem navegação entre meses (só o mês atual). **Transferências internas** dependem de `is_internal_transfer`, que o parser OFX ainda não detecta (sempre `false`) e não há UI para marcar — o indicador vem populado conforme os dados existirem. Detecção automática de transferência/recorrência e o **saldo real** ficam para issues futuras.
+> **Navegação mensal por setas (issue #107):** o header tem **setas `‹ ›`** para navegar entre meses. **Passado livre, presente permitido, futuro bloqueado** — a seta de **próximo mês fica desabilitada no mês atual** (visual `opacity-40` + `cursor-not-allowed`) e não há acesso a meses futuros (conta corrente só mostra movimentações realizadas; sem recorrência/previsto, não há mês futuro útil). O mês selecionado é refletido na URL via **`?month=YYYY-MM`** (`router.replace`). Sem `month` → **mês atual**; `month` inválido (`abc`, `2026-99`, `2026`, `2026-6`) ou **futuro** → normaliza para o mês atual (reescreve a URL). Ao trocar de mês, **cards, lista, contagem e empty state recalculam** pelo período — o filtro por mês é **client-side** (o `loadExtrato` já carrega as transações da conta; trocar de mês **não refaz fetch**, é instantâneo e não remonta o Suspense). Empty por mês: "Nenhuma movimentação neste mês." + "Importe ou cadastre movimentações para visualizar este período." Responsivo, sem scroll horizontal.
+
+> **Limitações conhecidas (v1, issues #101/#107):** **Transferências internas** dependem de `is_internal_transfer`, que o parser OFX ainda não detecta (sempre `false`) e não há UI para marcar — o indicador vem populado conforme os dados existirem. Detecção automática de transferência/recorrência e o **saldo real** ficam para issues futuras.
 
 ### 2.4. Faturas do cartão — `/home/carteira/{id}/cartao/faturas` ✅ (issue #14)
 > **IDs:** o `{id}` da rota é o **id da instituição** (slug). A busca de faturas usa o **id do cartão** (`cards[0].id`, vindo do `useInstitution()`), **não** o id da instituição/conta. Fonte: `GET /api/cards/{cardId}/annual-invoices?year=YYYY`.
@@ -245,3 +247,22 @@ Modelo de dados central da Carteira: `Institution` 1—N `BankAccount` / `Credit
 - **Open Finance / Cumbuca MCP** (spike #61): investigado, **sem implementação**. Recomendação: aguardar maturidade para produção; aprovado apenas protótipo local exploratório. Fluxo conceitual futuro: `Conta bancária > Conectar Open Finance > Sincronizar > Deduplicar > Revisar lançamentos > Confirmar importação`. Detalhes em [`docs/spikes/61-cumbuca-of-data-mcp.md`](spikes/61-cumbuca-of-data-mcp.md). ⛔
 
 > Sempre que uma issue entregar uma feature nova ou mudar um fluxo, atualizar este arquivo.
+
+---
+
+## Versionamento do front-end (issue #107)
+
+A versão do front-end fica em **`frontend/package.json`** (`version`) e é exposta por `config/env.ts` → `config.appVersion`, exibida no **Sidebar** (`v{appVersion}`) e registrada em `lib/authVersion.ts`. Pode ser sobreposta em deploy por `NEXT_PUBLIC_APP_VERSION`.
+
+**Regra obrigatória — toda PR que gera entrega/deploy deve incrementar a versão do front-end** e a descrição da PR deve informar:
+
+```txt
+Versão anterior:
+Nova versão:
+Tipo de alteração: patch | minor | major
+Deploy esperado: sim | não
+```
+
+Convenção (semver): **feature nova → minor**; correção → **patch**; quebra de contrato → **major**.
+
+> **Defasagem corrigida na #107:** a versão estava **travada em `0.4.0`** desde o commit `60b6838`, acumulando **~13 PRs mergeadas sem incremento** (#77, #79, #80, #82, #86, #88, #89, #90, #94, #95, #96, #101, #104). A #107 retoma o controle bumpando para **`0.5.0`**. A partir daqui, cada entrega incrementa a versão.
