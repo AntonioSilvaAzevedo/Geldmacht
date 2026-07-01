@@ -11,6 +11,7 @@ interface ReviewFooterProps {
   isCreditCardType: boolean;
   hasBankAccount: boolean;
   hasSelectedCard: boolean;
+  blockedMonths: string[];
   importing: boolean;
   onBack: () => void;
   onImport: () => void;
@@ -24,6 +25,7 @@ export function ReviewFooter({
   isCreditCardType,
   hasBankAccount,
   hasSelectedCard,
+  blockedMonths,
   importing,
   onBack,
   onImport,
@@ -56,6 +58,17 @@ export function ReviewFooter({
           >
             <Download className="size-[15px]" aria-hidden />
             Conta obrigatória
+          </Button>
+        ) : isBankStatement && blockedMonths.length > 0 ? (
+          <Button
+            type="button"
+            variant="outline"
+            disabled
+            title={`${blockedMonths.join(', ')} já tem lançamento manual nesta conta. Limpe os lançamentos do mês antes de importar.`}
+            className={cn('border-[rgba(229,62,62,0.3)] text-[var(--red-400)] opacity-75', isMobile && 'flex-1')}
+          >
+            <Download className="size-[15px]" aria-hidden />
+            Mês com lançamento manual
           </Button>
         ) : isCreditCardType && !isBankStatement && !hasSelectedCard ? (
           <Button

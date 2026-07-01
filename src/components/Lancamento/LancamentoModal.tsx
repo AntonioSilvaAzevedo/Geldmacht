@@ -7,7 +7,8 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import { Button } from '@/components/ui/button';
 import { FormSheet } from '@/components/ui/FormSheet';
 import { Input, Select, Textarea } from '@/components/ui/input';
-import { api, type BankAccountConfig, type Category } from '@/lib/api';
+import { SegmentedControl } from '@/components/ui/segmented-control';
+import { api, type BankAccountConfig, type Category, type MonthState } from '@/lib/api';
 
 interface LancamentoModalProps {
   onClose: () => void;
@@ -28,6 +29,8 @@ export function LancamentoModal({ onClose }: LancamentoModalProps) {
   const [observacoes, setObservacoes] = useState('');
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [monthStatus, setMonthStatus] = useState<MonthState | null>(null);
+  const [affectsSummary, setAffectsSummary] = useState(true);
 
   useEffect(() => {
     let cancel = false;
@@ -47,6 +50,24 @@ export function LancamentoModal({ onClose }: LancamentoModalProps) {
       });
     return () => { cancel = true; };
   }, []);
+
+  useEffect(() => {
+    if (!bankId) {
+      setMonthStatus(null);
+      return;
+    }
+    let cancel = false;
+    setAffectsSummary(true);
+    void api
+      .getMonthStatus(bankId, data.slice(0, 7))
+      .then((result) => {
+        if (!cancel) setMonthStatus(result);
+      })
+      .catch(() => {
+        if (!cancel) setMonthStatus(null);
+      });
+    return () => { cancel = true; };
+  }, [bankId, data]);
 
   const categoryOptions = [...categories]
     .sort((a, b) => {
@@ -100,6 +121,7 @@ export function LancamentoModal({ onClose }: LancamentoModalProps) {
         bank_account_id: bankId,
         category_id: categoryId,
         notes: observacoes.trim() || null,
+        affects_summary: affectsSummary,
       });
       onClose();
     } catch (err) {
@@ -162,6 +184,20 @@ export function LancamentoModal({ onClose }: LancamentoModalProps) {
                   ))}
                 </Select>
               </label>
+
+              {monthStatus?.needs_impact_confirmation && (
+                <div className="grid gap-1.5 text-xs">
+                  <span className="font-semibold text-[var(--text-secondary)]">
+                    Este mês já tem extrato importado nesta conta. Afeta o saldo e o resumo do mês?
+                  </span>
+                  <SegmentedControl
+                    tabs={['Sim', 'Não']}
+                    active={affectsSummary ? 'Sim' : 'Não'}
+                    onChange={(tab) => setAffectsSummary(tab === 'Sim')}
+                    size="sm"
+                  />
+                </div>
+              )}
 
               <div className="grid gap-1.5 text-xs">
                 <span className="font-semibold text-[var(--text-secondary)]">Categoria (opcional)</span>

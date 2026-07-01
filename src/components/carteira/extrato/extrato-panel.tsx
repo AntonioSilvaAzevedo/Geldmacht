@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { ExpandableCard } from '@/components/ui/expandable-card';
 import SummaryCard from '@/components/summary/SummaryCard';
 import { ExtratoSkeleton } from '@/components/skeletons/ExtratoSkeleton';
+import { ClearMonthAction } from '@/components/carteira/extrato/ClearMonthAction';
 import StatePanel from '@/components/StatePanel';
 import { api, type BankAccountConfig } from '@/lib/api';
 import type { Transaction } from '@/types/financial';
@@ -146,7 +147,7 @@ function ExtratoLoader({ accountId, monthKey }: { accountId: number; monthKey: s
 
   return (
     <Suspense fallback={<ExtratoSkeleton />}>
-      <ExtratoView promise={promise} onReload={reload} monthKey={monthKey} />
+      <ExtratoView promise={promise} onReload={reload} monthKey={monthKey} accountId={accountId} />
     </Suspense>
   );
 }
@@ -155,10 +156,12 @@ function ExtratoView({
   promise,
   onReload,
   monthKey,
+  accountId,
 }: {
   promise: Promise<ExtratoResult>;
   onReload: () => void;
   monthKey: string;
+  accountId: number;
 }) {
   const res = use(promise);
   const [filter, setFilter] = useState<Filter>('Todos');
@@ -261,6 +264,15 @@ function ExtratoView({
           </button>
         ))}
       </div>
+
+      {monthTxs.length > 0 && (
+        <ClearMonthAction
+          accountId={accountId}
+          month={monthKey}
+          monthLabel={monthLabel(monthKey)}
+          onCleared={onReload}
+        />
+      )}
 
       {groups.length === 0 ? (
         <StatePanel
