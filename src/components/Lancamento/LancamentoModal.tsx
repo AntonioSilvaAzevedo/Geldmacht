@@ -8,65 +8,32 @@ import { Button } from '@/components/ui/button';
 import { FormSheet } from '@/components/ui/FormSheet';
 import { Input, Select, Textarea } from '@/components/ui/input';
 import { SegmentedControl } from '@/components/ui/segmented-control';
-import { api, type BankAccountConfig, type Category, type MonthState } from '@/lib/api';
+import { api } from '@/lib/api';
+import { useLancamentoModalData } from '@/components/Lancamento/useLancamentoModalData';
 
 interface LancamentoModalProps {
   onClose: () => void;
 }
 
 export function LancamentoModal({ onClose }: LancamentoModalProps) {
-  const [banks, setBanks] = useState<BankAccountConfig[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loadingRefs, setLoadingRefs] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-
   const [tipo, setTipo] = useState<'income' | 'expense'>('expense');
   const [valorStr, setValorStr] = useState('');
   const [data, setData] = useState(() => new Date().toISOString().slice(0, 10));
   const [bankId, setBankId] = useState<number | null>(null);
   const [categoryId, setCategoryId] = useState<number | null>(null);
+  const [incomeSourceId, setIncomeSourceId] = useState<number | null>(null);
+  const [isReserveOrInvestment, setIsReserveOrInvestment] = useState(false);
   const [descricao, setDescricao] = useState('');
   const [observacoes, setObservacoes] = useState('');
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  const [monthStatus, setMonthStatus] = useState<MonthState | null>(null);
   const [affectsSummary, setAffectsSummary] = useState(true);
 
-  useEffect(() => {
-    let cancel = false;
-    setLoadingRefs(true);
-    setLoadError(null);
-    void Promise.all([api.listBankAccounts(false), api.listCategories('bank')])
-      .then(([b, c]) => {
-        if (cancel) return;
-        setBanks(b.filter((x) => x.is_active));
-        setCategories(c);
-      })
-      .catch((err) => {
-        if (!cancel) setLoadError(err instanceof Error ? err.message : 'Erro ao carregar dados.');
-      })
-      .finally(() => {
-        if (!cancel) setLoadingRefs(false);
-      });
-    return () => { cancel = true; };
-  }, []);
+  const { banks, categories, incomeSources, loadingRefs, loadError, monthStatus } =
+    useLancamentoModalData(bankId, data);
 
   useEffect(() => {
-    if (!bankId) {
-      setMonthStatus(null);
-      return;
-    }
-    let cancel = false;
     setAffectsSummary(true);
-    void api
-      .getMonthStatus(bankId, data.slice(0, 7))
-      .then((result) => {
-        if (!cancel) setMonthStatus(result);
-      })
-      .catch(() => {
-        if (!cancel) setMonthStatus(null);
-      });
-    return () => { cancel = true; };
   }, [bankId, data]);
 
   const categoryOptions = [...categories]
@@ -122,6 +89,8 @@ export function LancamentoModal({ onClose }: LancamentoModalProps) {
         category_id: categoryId,
         notes: observacoes.trim() || null,
         affects_summary: affectsSummary,
+        income_source_id: tipo === 'income' ? incomeSourceId : null,
+        is_reserve_or_investment: isReserveOrInvestment,
       });
       onClose();
     } catch (err) {
@@ -215,6 +184,34 @@ export function LancamentoModal({ onClose }: LancamentoModalProps) {
                   />
                 )}
               </div>
+
+              {tipo === 'income' && incomeSources.length > 0 && (
+                <label className="grid gap-1.5 text-xs">
+                  <span className="font-semibold text-[var(--text-secondary)]">Fonte de entrada (opcional)</span>
+                  <Select
+                    size="sm"
+                    value={incomeSourceId ?? ''}
+                    onChange={(e) => setIncomeSourceId(e.target.value ? Number(e.target.value) : null)}
+                  >
+                    <option value="">Sem fonte de entrada</option>
+                    {incomeSources.map((s) => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                  </Select>
+                </label>
+              )}
+
+              <label className="flex cursor-pointer items-center gap-2.5 text-xs">
+                <input
+                  type="checkbox"
+                  checked={isReserveOrInvestment}
+                  onChange={(e) => setIsReserveOrInvestment(e.target.checked)}
+                  className="size-4 shrink-0 accent-[var(--blue-400)]"
+                />
+                <span className="text-[var(--text-primary)]">
+                  Aporte ou resgate de reserva/investimento (não conta como receita/despesa)
+                </span>
+              </label>
 
               <label className="grid gap-1.5 text-xs">
                 <span className="font-semibold text-[var(--text-secondary)]">Descrição</span>

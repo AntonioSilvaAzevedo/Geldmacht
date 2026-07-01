@@ -54,6 +54,9 @@ export interface Transaction {
   status?: string | null;
   reconciled_with_transaction_id?: number | null;
   affects_summary?: boolean | null;
+  income_source_id?: number | null;
+  income_source_name?: string | null;
+  income_source_nature?: string | null;
   /** Referência externa do extrato (ex.: FITID OFX). */
   source_reference?: string | null;
   notes: string | null;

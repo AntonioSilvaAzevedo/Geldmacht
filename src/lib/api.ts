@@ -300,7 +300,10 @@ export type BankAccountType =
   | 'payment'
   | 'business'
   | 'investment'
-  | 'other';
+  | 'other'
+  | 'benefit'
+  | 'reserve'
+  | 'cash';
 
 export interface BankAccountConfig {
   id: number;
@@ -311,6 +314,7 @@ export interface BankAccountConfig {
   account_type: BankAccountType;
   currency: string;
   is_active: boolean;
+  is_main: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -321,6 +325,56 @@ export interface BankAccountPayload {
   institution_id?: number | null;
   account_type: BankAccountType;
   currency?: string;
+  is_active?: boolean;
+  is_main?: boolean;
+}
+
+export type IncomeSourceType =
+  | 'clt'
+  | 'pj'
+  | 'freelance'
+  | 'benefit'
+  | 'reimbursement'
+  | 'investment_return'
+  | 'sale'
+  | 'other';
+
+export type IncomeSourceNature =
+  | 'cash_income'
+  | 'restricted_benefit'
+  | 'reimbursement'
+  | 'internal_return';
+
+export type IncomeSourceFrequency =
+  | 'monthly'
+  | 'weekly'
+  | 'biweekly'
+  | 'variable'
+  | 'one_time';
+
+export interface IncomeSourceConfig {
+  id: number;
+  user_id: number;
+  name: string;
+  type: IncomeSourceType;
+  nature: IncomeSourceNature;
+  default_account_id: number | null;
+  expected_amount: number | null;
+  frequency: IncomeSourceFrequency | null;
+  description: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface IncomeSourcePayload {
+  name: string;
+  type: IncomeSourceType;
+  nature: IncomeSourceNature;
+  default_account_id?: number | null;
+  expected_amount?: number | null;
+  frequency?: IncomeSourceFrequency | null;
+  description?: string | null;
   is_active?: boolean;
 }
 
@@ -343,6 +397,8 @@ export interface ManualTransactionPayload {
   category_id?: number | null;
   notes?: string | null;
   affects_summary?: boolean;
+  income_source_id?: number | null;
+  is_reserve_or_investment?: boolean;
 }
 
 export interface ManualEligibility {
@@ -417,6 +473,7 @@ export interface FinancialSummary {
   available_balance: number;
   monthly_income: number;
   monthly_expenses: number;
+  monthly_benefits: number;
   active_installments_count: number;
   future_committed_amount: number;
 }
@@ -616,6 +673,24 @@ export const api = {
 
   deleteInstitution: (id: number): Promise<{ deleted: boolean }> =>
     request<{ deleted: boolean }>(`${BASE}/api/institutions/${id}`, { method: 'DELETE' }),
+
+  listIncomeSources: (): Promise<IncomeSourceConfig[]> =>
+    request<IncomeSourceConfig[]>(`${BASE}/api/income-sources`),
+
+  createIncomeSource: (payload: IncomeSourcePayload): Promise<IncomeSourceConfig> =>
+    request<IncomeSourceConfig>(`${BASE}/api/income-sources`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  updateIncomeSource: (id: number, payload: Partial<IncomeSourcePayload>): Promise<IncomeSourceConfig> =>
+    request<IncomeSourceConfig>(`${BASE}/api/income-sources/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }),
+
+  deleteIncomeSource: (id: number): Promise<{ deleted: boolean }> =>
+    request<{ deleted: boolean }>(`${BASE}/api/income-sources/${id}`, { method: 'DELETE' }),
 
   createManualTransaction: (payload: ManualTransactionPayload): Promise<Transaction> =>
     request<Transaction>(ENDPOINTS.transactions, {

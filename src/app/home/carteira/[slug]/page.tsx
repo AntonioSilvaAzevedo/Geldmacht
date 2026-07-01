@@ -2,7 +2,7 @@
 
 import { Suspense, use, useCallback, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowDownRight, ArrowUpRight, CalendarClock, CreditCard, Wallet } from 'lucide-react'
+import { ArrowDownRight, ArrowUpRight, CalendarClock, CreditCard, Gift, Wallet } from 'lucide-react'
 
 import { useInstitution } from '@/components/carteira/institution-context'
 import { AccountSettingsMenu } from '@/components/carteira/AccountSettingsMenu'
@@ -90,6 +90,17 @@ function SummaryContent({ promise, institutionId, displayName, onReload }: Summa
       icon: <ArrowDownRight size={16} />,
       accent: 'var(--red)',
     },
+    ...(summary.monthly_benefits > 0
+      ? [
+          {
+            label: 'Benefícios do mês',
+            value: formatCurrency(summary.monthly_benefits),
+            helper: 'VA/VR e benefícios restritos',
+            icon: <Gift size={16} />,
+            accent: 'var(--orange)',
+          },
+        ]
+      : []),
   ]
 
   return (
