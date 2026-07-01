@@ -51,6 +51,8 @@ export interface Transaction {
   transaction_type: string | null;
   /** Classificação econômica do extrato: income | expense | internal_transfer | credit_card_payment */
   movement_type?: string | null;
+  status?: string | null;
+  reconciled_with_transaction_id?: number | null;
   /** Referência externa do extrato (ex.: FITID OFX). */
   source_reference?: string | null;
   notes: string | null;
