@@ -1,7 +1,7 @@
 # Fluxo do Geldmacht — o que está funcionando
 
 > Mapa passo a passo do que o app faz hoje, para consulta rápida e para não retroceder em features já entregues.
-> **Atualizado em:** 2026-06-18
+> **Atualizado em:** 2026-06-30
 
 **Legenda:** ✅ funcionando · 🚧 em desenvolvimento · ⛔ não iniciado
 
@@ -17,6 +17,8 @@
 | Carteira | `/home/carteira` | ✅ |
 | Proventos | `/home/proventos` | 🚧 |
 | Categorias | `/home/categorias` | ✅ |
+| Contas | `/home/contas` | ✅ |
+| Fontes de entrada | `/home/fontes-entrada` | ✅ |
 | Configurações | `/home/configuracoes` | 🚧 |
 | Perfil | `/home/perfil` | 🚧 |
 | Adicionar (lançamento) | modal global | ✅ |
@@ -163,6 +165,31 @@ A **engrenagem** fica no card da instituição na lista (`/home/carteira`) e no 
 3. Ao confirmar, o backend (`DELETE /api/institutions/{id}`) apaga em transação: instituição + contas + cartões + faturas + transações + lotes de importação vinculados. **Categorias globais são preservadas.**
 4. **Depois:** a carteira é atualizada; se a conta excluída era a última, volta ao **estado vazio**. Excluindo **de dentro** do resumo, o usuário é **redirecionado para `/home/carteira`**.
 
+### 2.7. Contas, conta principal e fontes de entrada (issue #114)
+
+> **Carteira como espaço financeiro, não como banco:** a issue #114 pede que a Carteira represente "várias contas/instituições do usuário", não um banco específico. **Essa base já existia** desde a issue #44 — `Institution` já é o agrupador (1—N `BankAccount`/`CreditCard`), e `BankAccount` já suportava múltiplas contas por usuário. Por isso **não houve migração de dados** nesta issue (a "migração do modelo atual" descrita na issue partia da premissa de carteira=banco, que já não era o caso). O que faltava era: (a) marcar uma conta como **principal**, (b) tipos de conta além de conta corrente/cartão, e (c) o conceito de **fonte de entrada** (de onde o dinheiro vem), que não existia.
+
+- **`BankAccount.is_main`** (bool, default `false`): ao marcar uma conta como principal (`PATCH /api/bank-accounts/{id}` ou no cadastro), o back-end **desmarca automaticamente** qualquer outra conta principal do mesmo usuário — no máximo uma conta principal por vez. Editável em `/home/contas` (novo, ver abaixo) e no cadastro (`BankAccountModal`).
+- **Novos tipos de conta:** `account_type` ganhou `benefit`, `reserve` e `cash`, além dos já existentes (`checking`, `savings`, `payment`, `business`, `investment`, `other`). Sem quebra — tipos antigos continuam válidos.
+- **`/home/contas` (novo):** tela de gerenciamento — lista todas as contas do usuário (ativas e inativas) com tipo, instituição e badge de conta principal; permite **editar** (nome, tipo, principal, ativa/inativa) e **cadastrar** nova conta (reaproveita `BankAccountModal`, mesmo fluxo de get-or-create de instituição do `/home/carteira`).
+
+**Fonte de entrada (`IncomeSource`, nova entidade):** representa de onde o dinheiro ou benefício vem (salário CLT, honorários PJ, freelance, benefício, reembolso, rendimento, venda pontual). Campos: `name`, `type`, `nature`, `default_account_id` (conta padrão de recebimento, opcional), `expected_amount`, `frequency`, `description`, `is_active`. CRUD completo em `GET/POST/PATCH/DELETE /api/income-sources` e na tela **`/home/fontes-entrada`** (novo, mesmo padrão visual de Categorias — lista + tile tracejado "Adicionar fonte de entrada").
+
+> **Natureza da fonte (`nature`) — como o VA/VR é tratado:** em vez de criar um `transaction_type` dedicado para benefício, a distinção entre **dinheiro livre** e **benefício restrito** vem da fonte de entrada vinculada:
+> - `cash_income` — dinheiro livre (salário, PJ, freelance, venda).
+> - `restricted_benefit` — benefício de uso restrito (VA/VR). Uma movimentação de receita vinculada a uma fonte com essa natureza **não entra em "Receitas do mês"** — soma separadamente em **"Benefícios do mês"**.
+> - `reimbursement` / `internal_return` — reembolso / retorno interno (resgate de caixinha/RDB), modelados para uso futuro.
+> - **Limitação assumida:** a classificação depende do usuário vincular a fonte de entrada na hora de lançar (`income_source_id` é **opcional**, por design — a issue exige isso). Não há classificação automática na importação de extrato.
+
+> **Aportes e resgates de reserva/investimento:** o lançamento manual ganhou um checkbox **"Aporte ou resgate de reserva/investimento (não conta como receita/despesa)"**. Quando marcado, o back-end grava `transaction_type="reserve_or_investment_movement"` (mantendo o sinal do valor pela escolha Entrada/Saída) — esse tipo é **excluído** de `monthly_income`/`monthly_expenses` no resumo (`summary_service.get_financial_summary`) e classificado como **transferência interna** no Extrato Inteligente (`bank_movement.classify_movement`), mesmo tratamento dado às transferências entre contas próprias.
+
+> **Impactos:**
+> - **Lançamento manual (`LancamentoModal`):** ganhou seletor **"Fonte de entrada (opcional)"** (só para lançamentos do tipo Entrada, lista fontes ativas) e o checkbox de aporte/resgate. O carregamento de dados do modal foi extraído para o hook `useLancamentoModalData` (contas, categorias, fontes de entrada e estado do mês).
+> - **Extrato (conta corrente):** quando a movimentação tem fonte de entrada vinculada, o nome da fonte aparece como subtítulo discreto ao lado da categoria.
+> - **Resumo da instituição:** novo card **"Benefícios do mês"** (`monthly_benefits`), exibido **só quando > 0** — não aparece para quem não usa fonte de benefício, sem alterar o resumo de ninguém que não usa a feature.
+> - **Importação de extrato:** cada movimentação já é vinculada à conta correta (`bank_account_id`, existente desde a #101/#103); vínculo com fonte de entrada **não é feito na importação** — fica para classificação manual futura (fora do escopo desta issue, "automação avançada de classificação").
+> - **Navegação:** `/home/contas` e `/home/fontes-entrada` foram adicionados à sidebar (grupo de análise, junto com Categorias) — uma pequena exceção à "nav enxuta" da issue #73, que limitava a navegação a Carteira/Categorias/Adicionar. Decisão documentada aqui para revisão; reverter para dentro de `/home/configuracoes` (hoje só placeholder) é uma alternativa caso a lean nav deva ser mantida à risca.
+
 ---
 
 ## 3. Cartões — `/home/cartao` ✅
@@ -236,6 +263,8 @@ Dois fluxos **separados** (não se misturam):
 |---|---|---|---|
 | Início (dashboard) | `/home` | ✅ | Visão geral do mês |
 | Mês | `/home/mes/{mes}` | ✅ | Detalhe de um mês |
+| Contas | `/home/contas` | ✅ | Gerenciar contas (tipo, principal, ativa/inativa) — issue #114 |
+| Fontes de entrada | `/home/fontes-entrada` | ✅ | CRUD de fontes de entrada — issue #114 |
 | Proventos | `/home/proventos` | 🚧 | |
 | Configurações | `/home/configuracoes` | 🚧 | |
 | Perfil | `/home/perfil` | 🚧 | |
@@ -243,9 +272,9 @@ Dois fluxos **separados** (não se misturam):
 ---
 
 ## 8. Backend — endpoints (resumo)
-`auth` · `upload` · `bank-accounts` · `institutions` · `import` (transactions) · `transactions` · `cards` · `categories` · `dashboard` · `summary` (`GET /api/summary?institution_id={id}` — resumo financeiro do mês da instituição, §2.2) · `release-notes` · `onboarding`.
+`auth` · `upload` · `bank-accounts` · `institutions` · `income-sources` (issue #114) · `import` (transactions) · `transactions` · `cards` · `categories` · `dashboard` · `summary` (`GET /api/summary?institution_id={id}` — resumo financeiro do mês da instituição, §2.2) · `release-notes` · `onboarding`.
 
-Modelo de dados central da Carteira: `Institution` 1—N `BankAccount` / `CreditCard` (via `institution_id`); `Transaction` ligada a conta ou cartão; `Invoice` para faturas.
+Modelo de dados central da Carteira: `Institution` 1—N `BankAccount` / `CreditCard` (via `institution_id`); `BankAccount` tem `is_main` (issue #114); `IncomeSource` (issue #114) pertence ao usuário e opcionalmente aponta para uma `BankAccount` padrão; `Transaction` ligada a conta ou cartão e, opcionalmente, a uma `IncomeSource` (`income_source_id`); `Invoice` para faturas.
 
 ---
 
@@ -253,6 +282,8 @@ Modelo de dados central da Carteira: `Institution` 1—N `BankAccount` / `Credit
 - **Investimentos**: seção existe só como placeholder no resumo da instituição. ⛔
 - **Backfill `institution_id`** (issue #44): precisa estar aplicado no ambiente para que registros antigos apareçam agrupados por instituição. Contas sem instituição ficam no grupo "Sem instituição" (sem hub dedicado).
 - Telas 🚧 (Proventos, Configurações, Perfil) ainda em evolução.
+- **Fontes de entrada não são atribuídas na importação** (issue #114): a vinculação `income_source_id` só acontece no lançamento manual; movimentações importadas ficam sem fonte até uma futura tela de reclassificação (não construída nesta issue — `PATCH /api/transactions/{id}` já aceita `income_source_id`, só falta UI).
+- **Mobile não testado nesta rodada** (issue #114): telas `/home/contas` e `/home/fontes-entrada` e os novos campos do `LancamentoModal` foram validados só em viewport desktop.
 - **Open Finance / Cumbuca MCP** (spike #61): investigado, **sem implementação**. Recomendação: aguardar maturidade para produção; aprovado apenas protótipo local exploratório. Fluxo conceitual futuro: `Conta bancária > Conectar Open Finance > Sincronizar > Deduplicar > Revisar lançamentos > Confirmar importação`. Detalhes em [`docs/spikes/61-cumbuca-of-data-mcp.md`](spikes/61-cumbuca-of-data-mcp.md). ⛔
 
 > Sempre que uma issue entregar uma feature nova ou mudar um fluxo, atualizar este arquivo.

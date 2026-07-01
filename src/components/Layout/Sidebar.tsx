@@ -16,6 +16,8 @@ const NAV_PRINCIPAL = [
 
 const NAV_ANALISE = [
   { href: "/home/categorias", label: "Categorias" },
+  { href: "/home/contas", label: "Contas" },
+  { href: "/home/fontes-entrada", label: "Fontes de entrada" },
 ];
 
 // ── Icons (SVG inline — sem dependência externa) ──────────────────────────────
@@ -57,6 +59,23 @@ function NavIcon({ href, active }: { href: string; active: boolean }) {
         <rect x="14" y="3" width="7" height="7" rx="1" />
         <rect x="3" y="14" width="7" height="7" rx="1" />
         <rect x="14" y="14" width="7" height="7" rx="1" />
+      </svg>
+    ),
+    "/home/contas": (
+      <svg {...props}>
+        <path d="M3 10l9-6 9 6" />
+        <line x1="4" y1="10" x2="20" y2="10" />
+        <line x1="4" y1="20" x2="20" y2="20" />
+        <line x1="6" y1="10" x2="6" y2="20" />
+        <line x1="12" y1="10" x2="12" y2="20" />
+        <line x1="18" y1="10" x2="18" y2="20" />
+      </svg>
+    ),
+    "/home/fontes-entrada": (
+      <svg {...props}>
+        <path d="M12 3v10" />
+        <polyline points="7 9 12 14 17 9" />
+        <path d="M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4" />
       </svg>
     ),
     "/home/configuracoes": (

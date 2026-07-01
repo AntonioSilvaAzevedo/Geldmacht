@@ -5,4 +5,7 @@ export const ACCOUNT_TYPE_LABELS: Record<string, string> = {
   business: 'Conta PJ',
   investment: 'Conta investimento',
   other: 'Outra',
+  benefit: 'Benefício',
+  reserve: 'Reserva',
+  cash: 'Dinheiro',
 }

@@ -118,13 +118,15 @@ function MovementList({ transactions }: { transactions: Transaction[] }) {
               : 'text-[var(--text-secondary)]';
         const sign = tx.amount >= 0 ? '+' : '-';
         const category = type === 'credit_card_payment' ? null : tx.category_name;
+        const incomeSourceName = type === 'credit_card_payment' ? null : tx.income_source_name;
+        const subtitle = [category, incomeSourceName].filter(Boolean).join(' · ');
 
         return (
           <li key={tx.id} className="flex items-start gap-3 px-5 py-3">
             <div className="min-w-0 flex-1">
               <div className="text-[13px] font-medium text-[var(--text-primary)]">{tx.description}</div>
-              {category && (
-                <div className="mt-0.5 text-[11px] text-[var(--text-tertiary)]">{category}</div>
+              {subtitle && (
+                <div className="mt-0.5 text-[11px] text-[var(--text-tertiary)]">{subtitle}</div>
               )}
             </div>
             <span className={cn('shrink-0 font-[family-name:var(--font-mono)] text-[13px] font-semibold', amountColor)}>
