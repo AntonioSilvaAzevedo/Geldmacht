@@ -53,6 +53,7 @@ export interface Transaction {
   movement_type?: string | null;
   status?: string | null;
   reconciled_with_transaction_id?: number | null;
+  affects_summary?: boolean | null;
   /** Referência externa do extrato (ex.: FITID OFX). */
   source_reference?: string | null;
   notes: string | null;

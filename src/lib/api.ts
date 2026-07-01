@@ -342,12 +342,27 @@ export interface ManualTransactionPayload {
   bank_account_id: number;
   category_id?: number | null;
   notes?: string | null;
+  affects_summary?: boolean;
 }
 
 export interface ManualEligibility {
   has_account: boolean;
   has_card: boolean;
   can_launch: boolean;
+}
+
+export interface MonthState {
+  has_manual: boolean;
+  has_imported: boolean;
+  manual_after_import: boolean;
+  can_import_statement: boolean;
+  needs_impact_confirmation: boolean;
+}
+
+export interface ClearMonthResponse {
+  deleted: number;
+  bank_account_id: number;
+  month: string;
 }
 
 export interface CreditCardConfig {
@@ -610,6 +625,15 @@ export const api = {
 
   getManualEligibility: (): Promise<ManualEligibility> =>
     request<ManualEligibility>(`${BASE}/api/transactions/manual-eligibility`),
+
+  getMonthStatus: (bankAccountId: number, month: string): Promise<MonthState> =>
+    request<MonthState>(`${BASE}/api/bank-accounts/${bankAccountId}/month-status?month=${month}`),
+
+  clearMonthTransactions: (bankAccountId: number, month: string): Promise<ClearMonthResponse> =>
+    request<ClearMonthResponse>(
+      `${BASE}/api/bank-accounts/${bankAccountId}/transactions?month=${month}`,
+      { method: 'DELETE' },
+    ),
 
   listCards: (): Promise<CreditCardConfig[]> =>
     request<CreditCardConfig[]>(`${BASE}/api/cards`),

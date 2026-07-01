@@ -26,6 +26,7 @@ import {
   type BankAccountConfig,
   type ImportKind,
   importTransactions,
+  api,
 } from '@/lib/api';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { cn } from '@/lib/utils';
@@ -94,6 +95,25 @@ export default function UploadPreview({ result, card, cards = [], categories = [
   // ── Import state ────────────────────────────────────────────────────────────
   const [importing, setImporting] = useState(false);
 
+  const [blockedMonths, setBlockedMonths] = useState<string[]>([]);
+  useEffect(() => {
+    if (!isBankStatement || !bankAccount) {
+      setBlockedMonths([]);
+      return;
+    }
+    const months = Array.from(new Set(transactions.map(tx => tx.date.slice(0, 7))));
+    let cancel = false;
+    Promise.all(months.map(month => api.getMonthStatus(bankAccount.id, month).then(s => ({ month, s }))))
+      .then(results => {
+        if (cancel) return;
+        setBlockedMonths(results.filter(r => !r.s.can_import_statement).map(r => r.month));
+      })
+      .catch(() => {
+        if (!cancel) setBlockedMonths([]);
+      });
+    return () => { cancel = true; };
+  }, [isBankStatement, bankAccount, transactions]);
+
   // ── Opções de categoria válidas para o cartão selecionado ──────────────────
   // Inclui categorias globais (card_id=null) + específicas do cartão atual.
   // Sub aparece com label hierárquico "Pai / Sub". Ordena por label.
@@ -159,6 +179,7 @@ export default function UploadPreview({ result, card, cards = [], categories = [
     if (selected.size === 0) return;
     if (!isBankStatement && isCreditCardType && !selectedCard) return;
     if (isBankStatement && !bankAccount) return;
+    if (isBankStatement && blockedMonths.length > 0) return;
     setImporting(true);
 
     const toImport: PreviewTransaction[] = Array.from(selected).map(i => {
@@ -291,6 +312,7 @@ export default function UploadPreview({ result, card, cards = [], categories = [
         isCreditCardType={isCreditCardType}
         hasBankAccount={bankAccount != null}
         hasSelectedCard={selectedCard != null}
+        blockedMonths={blockedMonths}
         importing={importing}
         onBack={onBack}
         onImport={handleImport}
